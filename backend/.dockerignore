@@ -1,10 +1,7 @@
 node_modules
 .env
 .env.*
-src
 *.test.ts
-*.test.js
 .git
-.gitignore
 README.md
-tsconfig.json
+dist
