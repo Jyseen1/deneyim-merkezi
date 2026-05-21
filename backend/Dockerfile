@@ -1,18 +1,19 @@
-FROM node:20-alpine
-
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# Bagimliliklar
 COPY package*.json ./
-RUN npm ci --only=production
-
-# Prisma client (schema.prisma uzerinden generate)
+RUN npm ci
 COPY prisma ./prisma
 RUN npx prisma generate
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
 
-# Derlenmis kod (bu image'i build etmeden once `npm run build:prod` kosulmali)
-COPY dist ./dist
-
+FROM node:20-alpine AS runner
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY prisma ./prisma
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 EXPOSE 3001
-
 CMD ["node", "dist/server.js"]
