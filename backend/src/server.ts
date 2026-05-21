@@ -22,7 +22,19 @@ async function main() {
   });
 
   await app.register(cors, {
-    origin: process.env.DASHBOARD_URL || "http://localhost:3000",
+    origin: (origin, cb) => {
+      const allowed = [
+        "http://localhost:3000",
+        process.env.DASHBOARD_URL,
+      ].filter(Boolean) as string[];
+      // origin undefined olabilir (Postman, server-to-server) — izin ver
+      if (!origin || allowed.includes(origin)) {
+        cb(null, true);
+      } else {
+        cb(null, true); // şimdilik tüm origin'lere izin ver (public form için)
+      }
+    },
+    credentials: true,
   });
   await app.register(helmet);
   await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
