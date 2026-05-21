@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+model Visitor {
+  id           String        @id @default(uuid())
+  name         String
+  phone        String        @unique
+  email        String?
+  createdAt    DateTime      @default(now())
+  reservations Reservation[]
+
+  @@map("visitors")
+}
+
+model Reservation {
+  id              String            @id @default(uuid())
+  visitor         Visitor           @relation(fields: [visitorId], references: [id])
+  visitorId       String
+  visitDate       DateTime          @db.Date
+  startTime       String
+  durationMinutes Int               @default(120)
+  groupSize       Int               @default(1)
+  note            String?
+  status          ReservationStatus @default(PENDING_APPROVAL)
+  waMessageId     String?
+  approvedAt      DateTime?
+  approvedBy      String?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  notifications   Notification[]
+  approvalToken   ApprovalToken?
+
+  @@map("reservations")
+}
+
+enum ReservationStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+model Slot {
+  id          String   @id @default(uuid())
+  slotDate    DateTime @db.Date
+  startTime   String
+  endTime     String
+  isBlocked   Boolean  @default(false)
+  blockReason String?
+  createdAt   DateTime @default(now())
+
+  @@unique([slotDate, startTime])
+  @@map("slots")
+}
+
+model Staff {
+  id       String  @id @default(uuid())
+  name     String
+  waPhone  String  @unique
+  email    String  @unique
+  role     String  @default("staff")
+  isActive Boolean @default(true)
+
+  @@map("staff")
+}
+
+model Notification {
+  id            String      @id @default(uuid())
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  reservationId String
+  channel       String
+  direction     String
+  templateName  String?
+  waMessageId   String?
+  status        String      @default("sent")
+  sentAt        DateTime    @default(now())
+
+  @@map("notifications")
+}
+
+model ApprovalToken {
+  id            String      @id @default(uuid())
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  reservationId String      @unique
+  token         String      @unique
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@map("approval_tokens")
+}

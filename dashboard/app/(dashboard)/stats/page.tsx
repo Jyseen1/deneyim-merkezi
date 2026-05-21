@@ -1,0 +1,535 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
+import {
+  STATUS_LABEL,
+  type Reservation,
+  type ReservationList,
+  type ReservationStatus,
+} from "@/lib/types";
+import { BarChart } from "@/components/charts/BarChart";
+import { Donut } from "@/components/charts/Donut";
+import { formatTrShortDate } from "@/lib/date";
+import { useBackendToken } from "@/hooks/useBackendToken";
+
+const STATUS_CLASS: Record<ReservationStatus, string> = {
+  PENDING_APPROVAL: "status-pending",
+  APPROVED: "status-approved",
+  REJECTED: "status-rejected",
+  CANCELLED: "status-cancelled",
+  COMPLETED: "status-completed",
+};
+
+type Period = "week" | "month" | "3m";
+
+// TODO: Backend'e baglandiginda donem filtreli stats endpoint'i eklenecek.
+const MOCK_KPI: Record<Period, { total: number; approval: number; avgResp: number; cancel: number }> = {
+  week:  { total: 28,  approval: 82, avgResp: 18, cancel: 6 },
+  month: { total: 124, approval: 78, avgResp: 22, cancel: 8 },
+  "3m":  { total: 412, approval: 80, avgResp: 24, cancel: 9 },
+};
+
+const MOCK_BAR: Record<Period, { data: number[]; labels: string[] }> = {
+  week:  { data: [4, 7, 3, 9, 6, 2, 1], labels: ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"] },
+  month: { data: [22, 31, 28, 25],       labels: ["H1","H2","H3","H4"] },
+  "3m":  { data: [128, 142, 142],        labels: ["Mart","Nisan","Mayıs"] },
+};
+
+const MOCK_HOURS: { time: string; count: number }[] = [
+  { time: "09:00", count: 8 },
+  { time: "11:00", count: 5 },
+  { time: "13:00", count: 10 },
+  { time: "15:00", count: 7 },
+  { time: "17:00", count: 4 },
+];
+
+const MOCK_STATUS = [
+  { label: "Onaylı",     value: 64, color: "#4338ca" },
+  { label: "Bekleyen",   value: 12, color: "#fbbf24" },
+  { label: "Reddedilen", value: 8,  color: "#ef4444" },
+  { label: "İptal",      value: 6,  color: "#94a3b8" },
+];
+
+const PERIOD_LABEL: Record<Period, string> = {
+  week: "Bu Hafta",
+  month: "Bu Ay",
+  "3m": "Son 3 Ay",
+};
+
+export default function StatsPage() {
+  const token = useBackendToken();
+  const [period, setPeriod] = useState<Period>("month");
+  const kpi = MOCK_KPI[period];
+  const bar = MOCK_BAR[period];
+
+  const [recent, setRecent] = useState<Reservation[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingRecent(true);
+    apiFetch<ReservationList>("/reservations?limit=10&page=1", {}, token)
+      .then((r) => {
+        if (!cancelled) setRecent(r.items);
+      })
+      .catch(() => {
+        if (!cancelled) setRecent([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRecent(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const maxHour = Math.max(...MOCK_HOURS.map((h) => h.count), 1);
+
+  return (
+    <div style={{ maxWidth: "1180px", margin: "0 auto" }}>
+      {/* Header */}
+      <div
+        className="fade-up"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "16px",
+          flexWrap: "wrap",
+          marginBottom: "20px",
+        }}
+      >
+        <div>
+          <h1
+            className="gradient-text"
+            style={{
+              fontSize: "26px",
+              fontWeight: 700,
+              letterSpacing: "-0.5px",
+              margin: 0,
+            }}
+          >
+            İstatistik
+          </h1>
+          <p style={{ fontSize: "13px", color: "#818cf8", margin: "4px 0 0" }}>
+            Rezervasyon eğilimleri ve performans göstergeleri.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "inline-flex",
+            background: "rgba(255,255,255,0.7)",
+            border: "1px solid rgba(209,196,255,0.6)",
+            borderRadius: "99px",
+            padding: "4px",
+            gap: "2px",
+          }}
+        >
+          {(["week", "month", "3m"] as Period[]).map((p) => {
+            const active = p === period;
+            return (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                style={{
+                  background: active ? "#4338ca" : "transparent",
+                  color: active ? "#e0e7ff" : "#4338ca",
+                  border: "none",
+                  borderRadius: "99px",
+                  padding: "6px 14px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {PERIOD_LABEL[p]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* KPI satiri */}
+      <div
+        className="grid grid-cols-2 md:grid-cols-4"
+        style={{ gap: "14px" }}
+      >
+        <KpiCard label="Toplam rezervasyon" value={kpi.total} fade="fade-up-1" />
+        <KpiCard label="Onay oranı" value={kpi.approval} suffix="%" fade="fade-up-2" tone="success" />
+        <KpiCard label="Ort. yanıt süresi" value={kpi.avgResp} suffix="dk" fade="fade-up-3" />
+        <KpiCard label="İptal oranı" value={kpi.cancel} suffix="%" fade="fade-up-4" tone="danger" />
+      </div>
+
+      {/* Orta — 2 kolon */}
+      <div
+        className="grid grid-cols-1 lg:grid-cols-[3fr_2fr]"
+        style={{ gap: "20px", marginTop: "20px" }}
+      >
+        {/* Sol: Bar chart */}
+        <section className="glass fade-up fade-up-5" style={{ padding: "18px 20px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "12px",
+            }}
+          >
+            <h2
+              style={{
+                fontSize: "14px",
+                fontWeight: 600,
+                color: "#1e1b4b",
+                margin: 0,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {period === "week"
+                ? "Haftalık Rezervasyon Dağılımı"
+                : period === "month"
+                ? "Aylık Hafta Dağılımı"
+                : "Aylara Göre Dağılım"}
+            </h2>
+            <span style={{ fontSize: "11px", color: "#a5b4fc" }}>{PERIOD_LABEL[period]}</span>
+          </div>
+          <BarChart data={bar.data} labels={bar.labels} height={240} />
+        </section>
+
+        {/* Sag: iki kart ust uste */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* Saat dagilimi */}
+          <section
+            className="glass fade-up fade-up-5"
+            style={{ padding: "18px 20px" }}
+          >
+            <h2
+              style={{
+                fontSize: "14px",
+                fontWeight: 600,
+                color: "#1e1b4b",
+                margin: 0,
+                marginBottom: "16px",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Saat Dağılımı
+            </h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {MOCK_HOURS.map((h) => (
+                <div
+                  key={h.time}
+                  style={{ display: "flex", alignItems: "center", gap: "12px" }}
+                >
+                  <div
+                    style={{
+                      width: "44px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "#1e1b4b",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {h.time}
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      height: "8px",
+                      background: "#ede9fe",
+                      borderRadius: "99px",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${(h.count / maxHour) * 100}%`,
+                        background: "#4338ca",
+                        borderRadius: "99px",
+                        transition: "width 0.3s ease",
+                      }}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      width: "36px",
+                      textAlign: "right",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "#4338ca",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {h.count}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Durum dagilimi */}
+          <section className="glass fade-up fade-up-5" style={{ padding: "18px 20px" }}>
+            <h2
+              style={{
+                fontSize: "14px",
+                fontWeight: 600,
+                color: "#1e1b4b",
+                margin: 0,
+                marginBottom: "12px",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Durum Dağılımı
+            </h2>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "20px",
+                flexWrap: "wrap",
+              }}
+            >
+              <Donut segments={MOCK_STATUS} size={140} thickness={16} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {MOCK_STATUS.map((s) => {
+                  const total = MOCK_STATUS.reduce((acc, x) => acc + x.value, 0) || 1;
+                  const pct = Math.round((s.value / total) * 100);
+                  return (
+                    <div
+                      key={s.label}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        padding: "5px 0",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: "10px",
+                          height: "10px",
+                          borderRadius: "3px",
+                          background: s.color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        style={{
+                          flex: 1,
+                          fontSize: "12px",
+                          color: "#1e1b4b",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {s.label}
+                      </span>
+                      <span style={{ fontSize: "11px", color: "#818cf8", minWidth: "24px", textAlign: "right" }}>
+                        {pct}%
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          color: "#1e1b4b",
+                          fontWeight: 600,
+                          minWidth: "28px",
+                          textAlign: "right",
+                        }}
+                      >
+                        {s.value}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* Son Rezervasyonlar */}
+      <section
+        className="glass fade-up fade-up-5"
+        style={{ marginTop: "20px", overflow: "hidden" }}
+      >
+        <div
+          style={{
+            padding: "14px 20px",
+            borderBottom: "1px solid rgba(209,196,255,0.5)",
+            borderLeft: "4px solid #4338ca",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <h2 style={{ fontSize: "14px", fontWeight: 600, color: "#1e1b4b", margin: 0 }}>
+            Son Rezervasyonlar
+          </h2>
+          <span style={{ fontSize: "11px", color: "#a5b4fc" }}>en son 10 kayıt</span>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table
+            style={{
+              width: "100%",
+              fontSize: "13px",
+              borderCollapse: "collapse",
+              minWidth: "600px",
+            }}
+          >
+            <thead>
+              <tr style={{ background: "rgba(245,243,255,0.8)" }}>
+                <th style={th()}>Ziyaretçi</th>
+                <th style={th()}>Tarih</th>
+                <th style={th()}>Saat</th>
+                <th style={th()}>Kişi</th>
+                <th style={th()}>Durum</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loadingRecent &&
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr
+                    key={`sk-${i}`}
+                    style={{ borderTop: "1px solid rgba(237,233,254,0.6)" }}
+                  >
+                    {Array.from({ length: 5 }).map((_, c) => (
+                      <td key={c} style={{ padding: "12px 16px" }}>
+                        <div
+                          className="shimmer"
+                          style={{
+                            height: "12px",
+                            width: `${60 + ((i + c) % 3) * 20}%`,
+                            borderRadius: "4px",
+                          }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              {!loadingRecent && recent.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    style={{
+                      textAlign: "center",
+                      padding: "32px 16px",
+                      color: "#a5b4fc",
+                    }}
+                  >
+                    Henüz rezervasyon yok.
+                  </td>
+                </tr>
+              )}
+              {recent.map((r) => (
+                <tr
+                  key={r.id}
+                  style={{
+                    borderTop: "1px solid rgba(237,233,254,0.6)",
+                  }}
+                >
+                  <td style={td("#1e1b4b", 500)}>{r.visitor?.name ?? "-"}</td>
+                  <td style={td("#1e1b4b")}>{formatTrShortDate(r.visitDate)}</td>
+                  <td style={td("#1e1b4b")}>{r.startTime}</td>
+                  <td style={td("#1e1b4b")}>{r.groupSize}</td>
+                  <td style={td()}>
+                    <span className={`status-pill ${STATUS_CLASS[r.status]}`}>
+                      {STATUS_LABEL[r.status]}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  suffix,
+  fade,
+  tone,
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+  fade: string;
+  tone?: "success" | "danger";
+}) {
+  const numberColor =
+    tone === "success" ? "#059669" : tone === "danger" ? "#ef4444" : "#1e1b4b";
+  return (
+    <div
+      className={`glass glass-hover fade-up ${fade}`}
+      style={{
+        padding: "20px",
+        minHeight: "108px",
+        maxHeight: "120px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
+      <div
+        style={{
+          fontSize: "11px",
+          color: "#818cf8",
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+          fontWeight: 500,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: "32px",
+          fontWeight: 700,
+          letterSpacing: "-1.5px",
+          color: numberColor,
+          lineHeight: 1,
+        }}
+      >
+        {value}
+        {suffix && (
+          <span
+            style={{
+              fontSize: "16px",
+              fontWeight: 500,
+              marginLeft: "3px",
+              color: "#818cf8",
+              letterSpacing: 0,
+            }}
+          >
+            {suffix}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function th(): React.CSSProperties {
+  return {
+    textAlign: "left",
+    padding: "12px 16px",
+    fontSize: "10px",
+    fontWeight: 600,
+    letterSpacing: "0.08em",
+    color: "#818cf8",
+    textTransform: "uppercase",
+  };
+}
+
+function td(color = "#1e1b4b", weight: number = 400): React.CSSProperties {
+  return {
+    padding: "12px 16px",
+    color,
+    fontWeight: weight,
+  };
+}

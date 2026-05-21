@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"test@test.com\",\"password\":\"admin123\"}' http://localhost:3001/api/v1/auth/login -w \" HTTP %{http_code}\\\\n\")",
+      "Bash(curl -s -w \" HTTP %{http_code}\\\\n\" http://localhost:3001/api/v1/dashboard/stats)",
+      "Bash(curl -s -w \" HTTP %{http_code}\\\\n\" \"http://localhost:3001/api/v1/slots/available?date=2026-07-15\")",
+      "Bash(node -e ' *)",
+      "Bash(curl -s http://localhost:3000/rezervasyon)",
+      "Bash(curl -s -w \" HTTP %{http_code}\\\\n\" -X POST -H \"Content-Type: application/json\" -d '{\"name\":\"Test Form\",\"phone\":\"+905557772211\",\"visitDate\":\"2026-12-15\",\"startTime\":\"15:00\"}' http://localhost:3001/api/v1/reservations)",
+      "Bash(curl -s -w \" HTTP %{http_code}\\\\n\" \"http://localhost:3001/api/v1/slots/available?date=2026-12-15&duration=120\")",
+      "Bash(curl -s -w \" HTTP %{http_code}\\\\n\" \"http://localhost:3001/api/v1/reservations?limit=2\")",
+      "Bash(curl -s -w \" HTTP %{http_code}\\\\n\" -X POST -H \"Content-Type: application/json\" -d '{\"date\":\"2026-12-15\",\"startTime\":\"10:00\",\"endTime\":\"12:00\"}' http://localhost:3001/api/v1/slots/block)",
+      "Bash(curl -s -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"poyrazyapayzeka@gmail.com\",\"password\":\"admin123\"}' http://localhost:3001/api/v1/auth/login)",
+      "Bash(curl -s -w \" HTTP %{http_code}\\\\n\" -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"baska@example.com\",\"password\":\"admin123\"}' http://localhost:3001/api/v1/auth/login)",
+      "Bash(curl -s -w \" HTTP %{http_code}\\\\n\" http://localhost:3000/api/auth/session)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}

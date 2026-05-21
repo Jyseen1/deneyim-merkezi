@@ -1,0 +1,28 @@
+# Bagimliliklar
+node_modules/
+
+# Ortam degiskenleri - ASLA commit etme
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Build ciktilari
+dist/
+.next/
+out/
+
+# Loglar
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Prisma migrations COMMIT EDILMELI - schema versiyonlanir
+# (Eskiden ignore ediliyordu; production deploy icin migrations gerekli.)
