@@ -26,3 +26,6 @@ Thumbs.db
 
 # Prisma migrations COMMIT EDILMELI - schema versiyonlanir
 # (Eskiden ignore ediliyordu; production deploy icin migrations gerekli.)
+
+# Lokal yedek ciktilari (reset:reservations scripti)
+backend/backups/

@@ -269,6 +269,13 @@ export default function SlotsPage() {
         />
       )}
 
+      <ClosedDaysPanel
+        token={token}
+        onMutated={load}
+        onError={(msg) => show(msg, "error")}
+        onSuccess={(msg) => show(msg, "success")}
+      />
+
       {blockDayOpen && (
         <BlockDayModal
           defaultDate={dateISO}
@@ -1494,5 +1501,368 @@ function RecurringRuleModal({
         />
       </div>
     </ModalShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Kapatilan Gunler + Tekrarlayan Kurallar yonetim paneli
+// ─────────────────────────────────────────────────────────
+type ClosedDayItem = {
+  id: string;
+  slotDate: string;
+  startTime: string;
+  endTime: string;
+  blockReason: string | null;
+};
+type RecurringItem = {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  reason: string | null;
+};
+
+function ClosedDaysPanel({
+  token,
+  onMutated,
+  onError,
+  onSuccess,
+}: {
+  token: string | undefined;
+  onMutated: () => void;
+  onError: (msg: string) => void;
+  onSuccess: (msg: string) => void;
+}) {
+  const [blocks, setBlocks] = useState<ClosedDayItem[]>([]);
+  const [recurring, setRecurring] = useState<RecurringItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    // Bugun -> 1 yil sonra arasi blocks. Gecmis blocklari listelemiyoruz.
+    const today = toLocalIso(new Date());
+    const future = new Date();
+    future.setFullYear(future.getFullYear() + 1);
+    const futureISO = toLocalIso(future);
+    try {
+      const [b, r] = await Promise.all([
+        apiFetch<{ items: ClosedDayItem[] }>(
+          `/slots/blocks?date_from=${today}&date_to=${futureISO}`,
+          {},
+          token,
+        ).catch(() => ({ items: [] as ClosedDayItem[] })),
+        apiFetch<{ items: RecurringItem[] }>(
+          "/slots/recurring",
+          {},
+          token,
+        ).catch(() => ({ items: [] as RecurringItem[] })),
+      ]);
+      setBlocks(b.items);
+      setRecurring(r.items);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function removeBlock(id: string, label: string) {
+    if (
+      !window.confirm(
+        `Bu kapatmayı kaldırmak istediğinize emin misiniz?\n\n${label}`,
+      )
+    ) {
+      return;
+    }
+    setBusyId(id);
+    try {
+      await apiFetch(`/slots/blocks/${id}`, { method: "DELETE" }, token);
+      onSuccess("Kapatma kaldırıldı");
+      await load();
+      onMutated();
+    } catch (e) {
+      onError(
+        e instanceof ApiError ? e.message : (e as Error).message,
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function removeRecurring(id: string, label: string) {
+    if (
+      !window.confirm(
+        `Bu tekrarlayan kuralı kaldırmak istediğinize emin misiniz?\n\n${label}`,
+      )
+    ) {
+      return;
+    }
+    setBusyId(id);
+    try {
+      await apiFetch(`/slots/recurring/${id}`, { method: "DELETE" }, token);
+      onSuccess("Tekrarlayan kural kaldırıldı");
+      await load();
+      onMutated();
+    } catch (e) {
+      onError(
+        e instanceof ApiError ? e.message : (e as Error).message,
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="glass fade-up fade-up-3" style={{ marginTop: "20px" }}>
+      <div
+        style={{
+          padding: "14px 20px",
+          borderBottom: "1px solid rgba(209,196,255,0.5)",
+          borderLeft: "4px solid #94a3b8",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "10px",
+        }}
+      >
+        <div>
+          <div
+            style={{ fontSize: "14px", fontWeight: 600, color: "#1e1b4b" }}
+          >
+            Kapatılan Günler ve Kurallar
+          </div>
+          <div
+            style={{ fontSize: "11px", color: "#818cf8", marginTop: "2px" }}
+          >
+            Aktif kapatmaları görüntüleyin ve kaldırın.
+          </div>
+        </div>
+        <span
+          style={{
+            fontSize: "11px",
+            color: "#818cf8",
+            background: "rgba(67,56,202,0.06)",
+            border: "1px solid #ede9fe",
+            padding: "3px 10px",
+            borderRadius: "99px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {blocks.length + recurring.length} aktif
+        </span>
+      </div>
+
+      <div style={{ padding: "14px 20px" }}>
+        {/* Kapatilan gunler */}
+        <SectionHeader title="Kapatılan günler" count={blocks.length} />
+        {loading ? (
+          <SkeletonList />
+        ) : blocks.length === 0 ? (
+          <EmptyHint text="Aktif kapatma yok." />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            {blocks.map((b) => {
+              const dateText = formatTrLongDate(new Date(b.slotDate));
+              const label = `${dateText} (${b.startTime}–${b.endTime})${b.blockReason ? ` · ${b.blockReason}` : ""}`;
+              return (
+                <ManagedRow
+                  key={b.id}
+                  busy={busyId === b.id}
+                  onRemove={() => removeBlock(b.id, label)}
+                  icon="📅"
+                  primary={dateText}
+                  secondary={`${b.startTime}–${b.endTime}${b.blockReason ? ` · ${b.blockReason}` : ""}`}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Tekrarlayan kurallar */}
+        <div style={{ marginTop: "20px" }}>
+          <SectionHeader
+            title="Tekrarlayan kurallar"
+            count={recurring.length}
+          />
+          {loading ? (
+            <SkeletonList />
+          ) : recurring.length === 0 ? (
+            <EmptyHint text="Aktif tekrarlayan kural yok." />
+          ) : (
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "6px" }}
+            >
+              {recurring.map((r) => {
+                const dayName = DAYS_FULL[r.dayOfWeek] ?? `Gün ${r.dayOfWeek}`;
+                const label = `Her ${dayName} ${r.startTime}–${r.endTime}${r.reason ? ` · ${r.reason}` : ""}`;
+                return (
+                  <ManagedRow
+                    key={r.id}
+                    busy={busyId === r.id}
+                    onRemove={() => removeRecurring(r.id, label)}
+                    icon="↻"
+                    primary={`Her ${dayName}`}
+                    secondary={`${r.startTime}–${r.endTime}${r.reason ? ` · ${r.reason}` : ""}`}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({ title, count }: { title: string; count: number }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "baseline",
+        justifyContent: "space-between",
+        marginBottom: "8px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: "10px",
+          fontWeight: 600,
+          color: "#818cf8",
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+        }}
+      >
+        {title}
+      </div>
+      <div style={{ fontSize: "11px", color: "#a5b4fc" }}>{count}</div>
+    </div>
+  );
+}
+
+function EmptyHint({ text }: { text: string }) {
+  return (
+    <div
+      style={{
+        padding: "16px 14px",
+        textAlign: "center",
+        fontSize: "12px",
+        color: "#a5b4fc",
+        background: "rgba(255,255,255,0.5)",
+        border: "1px dashed #c4b5fd",
+        borderRadius: "10px",
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
+function SkeletonList() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      {Array.from({ length: 2 }).map((_, i) => (
+        <div
+          key={i}
+          className="shimmer"
+          style={{ height: "44px", borderRadius: "10px" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ManagedRow({
+  busy,
+  onRemove,
+  icon,
+  primary,
+  secondary,
+}: {
+  busy: boolean;
+  onRemove: () => void;
+  icon: string;
+  primary: string;
+  secondary: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        padding: "10px 12px",
+        background: "rgba(255,255,255,0.65)",
+        border: "1px solid #ede9fe",
+        borderRadius: "10px",
+      }}
+    >
+      <div
+        style={{
+          width: "32px",
+          height: "32px",
+          borderRadius: "8px",
+          background: "rgba(148,163,184,0.18)",
+          color: "#475569",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "16px",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "#1e1b4b",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {primary}
+        </div>
+        <div
+          style={{
+            fontSize: "11px",
+            color: "#818cf8",
+            marginTop: "2px",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {secondary}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={busy}
+        style={{
+          padding: "6px 14px",
+          fontSize: "12px",
+          fontWeight: 600,
+          borderRadius: "99px",
+          border: "1px solid rgba(239,68,68,0.3)",
+          background: busy ? "rgba(239,68,68,0.05)" : "rgba(239,68,68,0.08)",
+          color: "#ef4444",
+          cursor: busy ? "not-allowed" : "pointer",
+          opacity: busy ? 0.6 : 1,
+          flexShrink: 0,
+          transition: "all 0.15s ease",
+        }}
+      >
+        {busy ? "..." : "Kaldır"}
+      </button>
+    </div>
   );
 }

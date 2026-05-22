@@ -149,22 +149,34 @@ const slotRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
+  // Slot blok satirini sil. Hem /block/:id (geriye doniik) hem /blocks/:id
+  // (yeni spec) ayni handler.
+  async function deleteSlotBlock(
+    id: string,
+    reply: import("fastify").FastifyReply,
+    log: import("fastify").FastifyRequest["log"],
+  ) {
+    try {
+      await prisma.slot.delete({ where: { id } });
+      return reply.code(204).send();
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code === "P2025") {
+        return reply.code(404).send({ error: "not_found" });
+      }
+      log.error({ err }, "slot unblock hata");
+      return reply.code(500).send({ error: "internal_error" });
+    }
+  }
   app.delete<{ Params: { id: string } }>(
     "/block/:id",
     { preHandler: verifyJWT },
-    async (req, reply) => {
-      try {
-        await prisma.slot.delete({ where: { id: req.params.id } });
-        return reply.code(204).send();
-      } catch (err) {
-        const code = (err as { code?: string }).code;
-        if (code === "P2025") {
-          return reply.code(404).send({ error: "not_found" });
-        }
-        req.log.error({ err }, "slot unblock hata");
-        return reply.code(500).send({ error: "internal_error" });
-      }
-    },
+    async (req, reply) => deleteSlotBlock(req.params.id, reply, req.log),
+  );
+  app.delete<{ Params: { id: string } }>(
+    "/blocks/:id",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => deleteSlotBlock(req.params.id, reply, req.log),
   );
 
   // AUTH (admin): tum gunu kapat — calisma saatleri icinde tek bir blok satiri
@@ -277,35 +289,53 @@ const slotRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
+  async function listActiveRecurring(reply: import("fastify").FastifyReply) {
+    const rules = await prisma.recurringBlock.findMany({
+      where: { isActive: true },
+      orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+    });
+    return reply.send({ items: rules });
+  }
+  async function softDeleteRecurring(
+    id: string,
+    reply: import("fastify").FastifyReply,
+    log: import("fastify").FastifyRequest["log"],
+  ) {
+    try {
+      await prisma.recurringBlock.update({
+        where: { id },
+        data: { isActive: false },
+      });
+      return reply.code(204).send();
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code === "P2025") return reply.code(404).send({ error: "not_found" });
+      log.error({ err }, "recurring rule delete hata");
+      return reply.code(500).send({ error: "internal_error" });
+    }
+  }
+
   app.get(
     "/recurring-rules",
     { preHandler: verifyJWT },
-    async (_req, reply) => {
-      const rules = await prisma.recurringBlock.findMany({
-        where: { isActive: true },
-        orderBy: { dayOfWeek: "asc" },
-      });
-      return reply.send({ items: rules });
-    },
+    async (_req, reply) => listActiveRecurring(reply),
+  );
+  // Spec alias: /recurring (cogul ihtilafi yok)
+  app.get(
+    "/recurring",
+    { preHandler: verifyJWT },
+    async (_req, reply) => listActiveRecurring(reply),
   );
 
   app.delete<{ Params: { id: string } }>(
     "/recurring-rules/:id",
     { preHandler: [verifyJWT, requireAdmin] },
-    async (req, reply) => {
-      try {
-        await prisma.recurringBlock.update({
-          where: { id: req.params.id },
-          data: { isActive: false },
-        });
-        return reply.code(204).send();
-      } catch (err) {
-        const code = (err as { code?: string }).code;
-        if (code === "P2025") return reply.code(404).send({ error: "not_found" });
-        req.log.error({ err }, "recurring rule delete hata");
-        return reply.code(500).send({ error: "internal_error" });
-      }
-    },
+    async (req, reply) => softDeleteRecurring(req.params.id, reply, req.log),
+  );
+  app.delete<{ Params: { id: string } }>(
+    "/recurring/:id",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => softDeleteRecurring(req.params.id, reply, req.log),
   );
 };
 
