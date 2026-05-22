@@ -22,7 +22,6 @@ const NAV: NavGroup[] = [
   {
     title: "YÖNETİM",
     items: [
-      { href: "/slots", label: "Slot Yönetimi" },
       { href: "/stats", label: "İstatistik" },
       { href: "/settings", label: "Ayarlar" },
     ],
