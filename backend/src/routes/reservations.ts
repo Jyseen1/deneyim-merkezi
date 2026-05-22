@@ -58,6 +58,12 @@ const listQuerySchema = z.object({
   status: z.enum(reservationStatuses).optional(),
   date_from: isoDate.optional(),
   date_to: isoDate.optional(),
+  // Aktif + gelecek olanlari goster: COMPLETED/CANCELLED/REJECTED/NO_SHOW
+  // gizlenir, visitDate >= bugun filtresi eklenir. Sadece gorunum filtresi.
+  hide_past: z
+    .union([z.literal("true"), z.literal("1"), z.literal("false"), z.literal("0")])
+    .optional()
+    .transform((v) => v === "true" || v === "1"),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
@@ -107,21 +113,43 @@ const reservationRoutes: FastifyPluginAsync = async (app) => {
         .code(400)
         .send({ error: "validation_failed", details: parsed.error.flatten() });
     }
-    const { status, date_from, date_to, page, limit } = parsed.data;
+    const { status, date_from, date_to, hide_past, page, limit } = parsed.data;
 
     const where: Prisma.ReservationWhereInput = {};
-    if (status) where.status = status;
+    if (status) {
+      where.status = status;
+    } else if (hide_past) {
+      // Explicit status yoksa biten durumlari gizle.
+      where.status = {
+        notIn: ["COMPLETED", "CANCELLED", "REJECTED", "NO_SHOW"],
+      };
+    }
+
     if (date_from || date_to) {
       where.visitDate = {};
       if (date_from) where.visitDate.gte = new Date(`${date_from}T00:00:00Z`);
       if (date_to) where.visitDate.lte = new Date(`${date_to}T00:00:00Z`);
     }
 
+    if (hide_past) {
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      // where.visitDate'in Prisma type'i Date|Filter union; biz sadece
+      // { gte?, lte? } seklinde set ediyoruz, narrow cast guvenli.
+      const cur = where.visitDate as { gte?: Date; lte?: Date } | undefined;
+      const existingGte = cur?.gte;
+      where.visitDate = {
+        ...(cur ?? {}),
+        gte: existingGte && existingGte > todayStart ? existingGte : todayStart,
+      };
+    }
+
     const [items, total] = await Promise.all([
       prisma.reservation.findMany({
         where,
         include: { visitor: true },
-        orderBy: [{ visitDate: "desc" }, { startTime: "asc" }],
+        // En yeni gelen talep en ustte — pagination + canli SSE ile uyumlu.
+        orderBy: [{ createdAt: "desc" }],
         skip: (page - 1) * limit,
         take: limit,
       }),

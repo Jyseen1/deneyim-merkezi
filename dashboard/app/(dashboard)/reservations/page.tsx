@@ -34,6 +34,26 @@ const STATUS_CLASS: Record<ReservationStatus, string> = {
 };
 
 const PAGE_SIZE = 20;
+const HIDE_PAST_KEY = "dm.hidePastReservations";
+
+function readHidePast(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const raw = window.localStorage.getItem(HIDE_PAST_KEY);
+    if (raw === null) return true; // varsayilan: gizli
+    return raw === "1" || raw === "true";
+  } catch {
+    return true;
+  }
+}
+
+function writeHidePast(v: boolean) {
+  try {
+    window.localStorage.setItem(HIDE_PAST_KEY, v ? "1" : "0");
+  } catch {
+    /* sessiz */
+  }
+}
 
 const inputStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.6)",
@@ -55,6 +75,16 @@ export default function ReservationsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
+  // localStorage hydrate: SSR'da false dondurmemek icin ilk render true
+  // (varsayilan) ile baslar, useEffect ile gercek deger okunur.
+  const [hidePast, setHidePastState] = useState<boolean>(true);
+  useEffect(() => {
+    setHidePastState(readHidePast());
+  }, []);
+  function setHidePast(v: boolean) {
+    setHidePastState(v);
+    writeHidePast(v);
+  }
 
   const [data, setData] = useState<ReservationList | null>(null);
   const [loading, setLoading] = useState(false);
@@ -66,10 +96,11 @@ export default function ReservationsPage() {
     if (status !== "ALL") sp.set("status", status);
     if (dateFrom) sp.set("date_from", dateFrom);
     if (dateTo) sp.set("date_to", dateTo);
+    if (hidePast) sp.set("hide_past", "1");
     sp.set("page", String(page));
     sp.set("limit", String(PAGE_SIZE));
     return sp.toString();
-  }, [status, dateFrom, dateTo, page]);
+  }, [status, dateFrom, dateTo, hidePast, page]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,7 +127,7 @@ export default function ReservationsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [status, dateFrom, dateTo]);
+  }, [status, dateFrom, dateTo, hidePast]);
 
   // SSE: yeni rezervasyon veya guncelleme gelince listeyi tazele
   useRealtime({
@@ -212,14 +243,60 @@ export default function ReservationsPage() {
             style={inputStyle}
           />
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="btn-primary"
-          style={{ marginLeft: "auto" }}
+        <div
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+          }}
         >
-          {loading ? "Yükleniyor..." : "Yenile"}
-        </button>
+          <button
+            type="button"
+            onClick={() => setHidePast(!hidePast)}
+            aria-pressed={hidePast}
+            title={
+              hidePast
+                ? "Biten/iptal/geçmiş tarihli rezervasyonlar gizli"
+                : "Tüm rezervasyonlar görünür"
+            }
+            style={{
+              padding: "7px 14px",
+              borderRadius: "99px",
+              fontSize: "12px",
+              fontWeight: 600,
+              border: hidePast
+                ? "1px solid #4338ca"
+                : "1px solid rgba(209,196,255,0.6)",
+              background: hidePast ? "#4338ca" : "rgba(255,255,255,0.7)",
+              color: hidePast ? "#e0e7ff" : "#4338ca",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: hidePast ? "#fbbf24" : "rgba(148,163,184,0.6)",
+              }}
+            />
+            {hidePast ? "Geçmişi gizle" : "Geçmişi göster"}
+          </button>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="btn-primary"
+          >
+            {loading ? "Yükleniyor..." : "Yenile"}
+          </button>
+        </div>
       </div>
 
       {err && (
