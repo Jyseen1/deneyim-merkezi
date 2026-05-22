@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Script from "next/script";
 import { apiFetch, ApiError } from "@/lib/api";
 import { formatTrLongDate, toLocalIso } from "@/lib/date";
 
@@ -137,16 +136,62 @@ function ReservationForm() {
     return true;
   }
 
-  // Telegram Web App: hazir ve genis modda baslat
+  // Telegram Web App SDK durumu: loading -> ready (SDK var) | fallback (3sn timeout)
+  // Telegram dis web app olmasa bile (chat'ten link tiklanmis) form calismaya devam etmeli.
+  type TgState = "ready" | "loading" | "fallback";
+  const [tgState, setTgState] = useState<TgState>(isTelegram ? "loading" : "ready");
+
   useEffect(() => {
     if (!isTelegram) return;
-    const tg = typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
-    try {
-      tg?.ready();
-      tg?.expand();
-    } catch {
-      /* sessiz */
+    if (typeof window === "undefined") return;
+
+    // SDK zaten var mi?
+    if (window.Telegram?.WebApp) {
+      try {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+      } catch {
+        /* sessiz */
+      }
+      setTgState("ready");
+      return;
     }
+
+    // SDK yoksa elle ekle (Telegram normalde otomatik enjekte eder, ama
+    // bazi durumlarda — orn. dis browser'da acilirsa — eksik olur).
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src="https://telegram.org/js/telegram-web-app.js"]',
+    );
+    if (!existing) {
+      const s = document.createElement("script");
+      s.src = "https://telegram.org/js/telegram-web-app.js";
+      s.async = true;
+      document.head.appendChild(s);
+    }
+
+    // SDK yuklenene kadar bekle: 100ms araliklarla, max 3sn.
+    let elapsed = 0;
+    const interval = window.setInterval(() => {
+      if (window.Telegram?.WebApp) {
+        try {
+          window.Telegram.WebApp.ready();
+          window.Telegram.WebApp.expand();
+        } catch {
+          /* sessiz */
+        }
+        setTgState("ready");
+        window.clearInterval(interval);
+        return;
+      }
+      elapsed += 100;
+      if (elapsed >= 3000) {
+        // SDK gelmedi - normal POST'a dus
+        setTgState("fallback");
+        window.clearInterval(interval);
+      }
+    }, 100);
+
+    return () => window.clearInterval(interval);
   }, [isTelegram]);
 
   async function submit() {
@@ -166,35 +211,45 @@ function ReservationForm() {
       note: note.trim() || undefined,
     };
 
-    // Telegram Web App: sendData ile formu Telegram'a yolla
-    // (backend webhook /telegram → createReservation).
-    if (isTelegram) {
+    // Telegram Web App SDK hazirsa sendData ile gonder
+    // (backend webhook /telegram -> createReservation).
+    if (isTelegram && tgState === "ready") {
       const tg =
         typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
-      if (!tg) {
-        setSubmitErr("Telegram WebApp SDK yüklenemedi.");
-        setSubmitting(false);
+      if (tg) {
+        try {
+          const payload = JSON.stringify({ ...body, telegramChatId });
+          tg.sendData(payload);
+          setSuccessId(`TG-${Date.now().toString(36)}`);
+          // Telegram penceresi otomatik kapanir; emin olmak icin kucuk gecikme.
+          setTimeout(() => {
+            try {
+              tg.close();
+            } catch {
+              /* sessiz */
+            }
+          }, 500);
+        } catch (e) {
+          setSubmitErr((e as Error).message);
+        } finally {
+          setSubmitting(false);
+        }
         return;
       }
-      try {
-        const payload = JSON.stringify({ ...body, telegramChatId });
-        tg.sendData(payload);
-        // Onay sonucu Telegram chat'inden gelecek; mini-app penceresi
-        // Telegram tarafindan otomatik kapanir.
-        setSuccessId(`TG-${Date.now().toString(36)}`);
-      } catch (e) {
-        setSubmitErr((e as Error).message);
-      } finally {
-        setSubmitting(false);
-      }
-      return;
+      // SDK kayboldu — fallback'a dus
     }
 
-    // Normal web akisi: backend'e POST
+    // Normal web akisi VEYA Telegram fallback (SDK yuklenemedi):
+    // Her iki durumda da backend'e POST. Telegram fallback'inde source ve
+    // chat_id ekleyerek backend onay mesajini Telegram'dan yollar.
     try {
+      const reqBody =
+        isTelegram && telegramChatId
+          ? { ...body, source: "telegram" as const, telegramChatId }
+          : body;
       const res = await apiFetch<{ id: string }>("/reservations", {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify(reqBody),
       });
       setSuccessId(res.id);
     } catch (e) {
@@ -215,13 +270,7 @@ function ReservationForm() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", padding: "32px 16px" }}>
-      {isTelegram && (
-        <Script
-          src="https://telegram.org/js/telegram-web-app.js"
-          strategy="beforeInteractive"
-        />
-      )}
+    <div style={{ minHeight: "100vh", padding: "24px 12px" }}>
       <PageBg />
 
       <div style={{ maxWidth: "560px", margin: "0 auto" }}>
@@ -282,9 +331,10 @@ function ReservationForm() {
               background: COLOR.cardBg,
               border: `1px solid ${COLOR.cardBorder}`,
               borderRadius: "16px",
-              padding: "22px",
+              padding: "18px 16px",
               backdropFilter: "blur(16px)",
               WebkitBackdropFilter: "blur(16px)",
+              minWidth: 0,
             }}
           >
             {step === 1 && (
@@ -715,7 +765,8 @@ function Step3(props: {
           background: "#faf5ff",
           border: "1px solid #ede9fe",
           borderRadius: "12px",
-          padding: "14px 16px",
+          padding: "10px 12px",
+          minWidth: 0,
         }}
       >
         <SumRow icon="📅" label="Tarih" value={formatTrLongDate(s.dateISO)} />
@@ -821,19 +872,48 @@ function SumRow({
     <div
       style={{
         display: "flex",
-        alignItems: "center",
-        gap: "10px",
+        alignItems: "flex-start",
+        gap: "8px",
         padding: "8px 0",
         borderBottom: last ? "none" : "1px solid rgba(237,233,254,0.7)",
+        minWidth: 0,
       }}
     >
-      <span style={{ fontSize: "14px", width: "20px", textAlign: "center" }}>
+      <span
+        style={{
+          fontSize: "14px",
+          width: "18px",
+          textAlign: "center",
+          flexShrink: 0,
+          lineHeight: 1.4,
+        }}
+      >
         {icon}
       </span>
-      <span style={{ fontSize: "11px", color: "#818cf8", width: "70px", flexShrink: 0 }}>
+      <span
+        style={{
+          fontSize: "11px",
+          color: "#818cf8",
+          width: "60px",
+          flexShrink: 0,
+          lineHeight: 1.4,
+          paddingTop: "1px",
+        }}
+      >
         {label}
       </span>
-      <span style={{ fontSize: "13px", color: "#1e1b4b", flex: 1, fontWeight: 500 }}>
+      <span
+        style={{
+          fontSize: "12.5px",
+          color: "#1e1b4b",
+          flex: 1,
+          minWidth: 0,
+          fontWeight: 500,
+          lineHeight: 1.4,
+          wordBreak: "break-word",
+          overflowWrap: "anywhere",
+        }}
+      >
         {value}
       </span>
     </div>
