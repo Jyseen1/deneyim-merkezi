@@ -144,6 +144,49 @@ export async function setWebhook(
   });
 }
 
+// Foto gonderme — harici URL'ler dahil Telegram CDN'e cek
+export async function sendPhoto(
+  chatId: number | string,
+  photoUrl: string,
+  caption?: string,
+): Promise<TelegramResponse | null> {
+  return callApi("sendPhoto", {
+    chat_id: chatId,
+    photo: photoUrl,
+    caption,
+    parse_mode: "Markdown",
+  });
+}
+
+// Bot icin sol-alt persistent menu butonu — kullanici /start yazmadan
+// dogrudan Web App'i acabilir. scope yoksa default (tum kullanicilar).
+export async function setChatMenuButton(
+  webAppUrl: string,
+  buttonText = "🎫 Rezervasyon Yap",
+): Promise<TelegramResponse | null> {
+  return callApi("setChatMenuButton", {
+    menu_button: {
+      type: "web_app",
+      text: buttonText,
+      web_app: { url: webAppUrl },
+    },
+  });
+}
+
+// Bot username — getMe ile bir kez cek + cache'le. Env override edebilir.
+let cachedBotUsername: string | null = null;
+export async function getBotUsername(): Promise<string | null> {
+  const fromEnv = process.env.TELEGRAM_BOT_USERNAME;
+  if (fromEnv && fromEnv.length > 0) return fromEnv.replace(/^@/, "");
+  if (cachedBotUsername) return cachedBotUsername;
+  const res = await callApi("getMe", {});
+  if (!res?.ok || !res.result) return null;
+  const me = res.result as { username?: string };
+  if (!me.username) return null;
+  cachedBotUsername = me.username;
+  return cachedBotUsername;
+}
+
 // ─────────────────────────────────────────────────────────
 // Yüksek seviye iş akışı
 // ─────────────────────────────────────────────────────────

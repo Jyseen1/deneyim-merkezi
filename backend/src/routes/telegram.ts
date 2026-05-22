@@ -4,7 +4,9 @@ import { prisma } from "../db/client";
 import {
   answerCallbackQuery,
   editStaffMessage,
+  getBotUsername,
   sendMessage,
+  sendPhoto,
   sendWebAppButton,
   statusLabel,
 } from "../services/telegram.service";
@@ -101,6 +103,41 @@ async function handleUpdate(
       "👋 *Deneyim Merkezi*'ne hoş geldiniz.\n\nRezervasyon yapmak için aşağıdaki butona dokunun.",
       webAppUrl,
     );
+    return;
+  }
+
+  // 1b) Komut: /qr → SADECE staff chat icin bot linkinin QR'i
+  if (update.message?.text === "/qr") {
+    const chatId = update.message.chat.id;
+    const staffChatId = process.env.TELEGRAM_STAFF_CHAT_ID;
+    if (!staffChatId || String(chatId) !== String(staffChatId)) {
+      // Yetkili olmayanlara normal karsilama
+      const dashboardUrl =
+        process.env.DASHBOARD_URL || "http://localhost:3000";
+      const webAppUrl = `${dashboardUrl.replace(/\/$/, "")}/rezervasyon?source=telegram&chat_id=${chatId}`;
+      await sendWebAppButton(
+        chatId,
+        "Rezervasyon yapmak için aşağıdaki butona dokunun.",
+        webAppUrl,
+      );
+      return;
+    }
+    const username = await getBotUsername();
+    if (!username) {
+      await sendMessage(
+        chatId,
+        "❗ Bot kullanıcı adı alınamadı. TELEGRAM_BOT_USERNAME env'i ayarlayın veya bot'un public username'i olduğundan emin olun.",
+      );
+      return;
+    }
+    const botLink = `https://t.me/${username}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(botLink)}`;
+    const caption = [
+      "📱 Bu QR kodu müşterileriniz okutarak rezervasyon yapabilir.",
+      "",
+      `Bot linki: ${botLink}`,
+    ].join("\n");
+    await sendPhoto(chatId, qrUrl, caption);
     return;
   }
 

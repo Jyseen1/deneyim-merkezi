@@ -16,6 +16,11 @@ type TelegramWebApp = {
   expand: () => void;
   close: () => void;
   sendData: (data: string) => void;
+  initDataUnsafe?: {
+    // Persistent menu butonundan acilirsa chat_id query'de yok;
+    // user.id (Telegram user id) chat_id ile esit.
+    user?: { id?: number };
+  };
   themeParams?: Record<string, string>;
 };
 declare global {
@@ -77,7 +82,13 @@ export default function PublicReservationPage() {
 function ReservationForm() {
   const params = useSearchParams();
   const isTelegram = params.get("source") === "telegram";
-  const telegramChatId = params.get("chat_id") || undefined;
+  // chat_id iki yolla gelebilir:
+  //  - Query (?chat_id=...): /start mesajindan acilan Web App'te elle eklenir
+  //  - initDataUnsafe.user.id: Persistent menu butonu acilirken Telegram
+  //    runtime'da SDK uzerinden saglar (query bos olur)
+  const [telegramChatId, setTelegramChatId] = useState<string | undefined>(
+    () => params.get("chat_id") || undefined,
+  );
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -145,15 +156,24 @@ function ReservationForm() {
     if (!isTelegram) return;
     if (typeof window === "undefined") return;
 
-    // SDK zaten var mi?
-    if (window.Telegram?.WebApp) {
+    function onReady(tg: TelegramWebApp) {
       try {
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
+        tg.ready();
+        tg.expand();
       } catch {
         /* sessiz */
       }
+      // Menu butonundan acildiysa chat_id query'de yok — SDK'dan al
+      const uid = tg.initDataUnsafe?.user?.id;
+      if (uid != null) {
+        setTelegramChatId((prev) => prev ?? String(uid));
+      }
       setTgState("ready");
+    }
+
+    // SDK zaten var mi?
+    if (window.Telegram?.WebApp) {
+      onReady(window.Telegram.WebApp);
       return;
     }
 
@@ -173,13 +193,7 @@ function ReservationForm() {
     let elapsed = 0;
     const interval = window.setInterval(() => {
       if (window.Telegram?.WebApp) {
-        try {
-          window.Telegram.WebApp.ready();
-          window.Telegram.WebApp.expand();
-        } catch {
-          /* sessiz */
-        }
-        setTgState("ready");
+        onReady(window.Telegram.WebApp);
         window.clearInterval(interval);
         return;
       }
