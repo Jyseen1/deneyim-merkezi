@@ -237,58 +237,47 @@ function ReservationForm() {
     setSubmitErr(null);
     setAlts([]);
 
-    const body = {
+    // Backend Zod tip kontrolleri icin defansif primitive coercion.
+    // Onemli: phone state'i RAW "+905321234567" formatinda — display
+    // (boslukli) sadece input value'sunda, body'ye ham gider.
+    const body: Record<string, unknown> = {
       name: name.trim(),
-      phone,
+      phone: phone.trim(),
       email: email.trim() || undefined,
       visitDate: dateISO,
       startTime: selectedSlot.startTime,
-      durationMinutes: duration,
-      groupSize,
+      durationMinutes: Number(duration),
+      groupSize: Number(groupSize),
       note: note.trim() || undefined,
     };
 
-    // Telegram Web App SDK hazirsa sendData ile gonder
-    // (backend webhook /telegram -> createReservation).
-    if (isTelegram && tgState === "ready") {
-      const tg =
-        typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
-      if (tg) {
-        try {
-          const payload = JSON.stringify({ ...body, telegramChatId });
-          tg.sendData(payload);
-          setSuccessId(`TG-${Date.now().toString(36)}`);
-          // Telegram penceresi otomatik kapanir; emin olmak icin kucuk gecikme.
-          setTimeout(() => {
-            try {
-              tg.close();
-            } catch {
-              /* sessiz */
-            }
-          }, 500);
-        } catch (e) {
-          setSubmitErr((e as Error).message);
-        } finally {
-          setSubmitting(false);
-        }
-        return;
-      }
-      // SDK kayboldu — fallback'a dus
+    // Telegram modunda source + chat_id ekle ki backend onay/red mesajini
+    // dogru chat'e gondersin. NOT: sendData() SADECE keyboard-button ile
+    // acilan Web App'lerde calisir; persistent menu button'dan acilanda
+    // sessizce hata verir. Bu yuzden Telegram dahil HER durumda HTTP POST
+    // kullaniyoruz.
+    if (isTelegram && telegramChatId) {
+      body.source = "telegram";
+      body.telegramChatId = telegramChatId;
     }
 
-    // Normal web akisi VEYA Telegram fallback (SDK yuklenemedi):
-    // Her iki durumda da backend'e POST. Telegram fallback'inde source ve
-    // chat_id ekleyerek backend onay mesajini Telegram'dan yollar.
     try {
-      const reqBody =
-        isTelegram && telegramChatId
-          ? { ...body, source: "telegram" as const, telegramChatId }
-          : body;
       const res = await apiFetch<{ id: string }>("/reservations", {
         method: "POST",
-        body: JSON.stringify(reqBody),
+        body: JSON.stringify(body),
       });
       setSuccessId(res.id);
+      // Telegram: success sonrasi mini-app'i kapat — onay mesaji
+      // chat'e dusecek (sendStaffApproval -> staff onaylar -> visitor confirm).
+      if (isTelegram && typeof window !== "undefined") {
+        setTimeout(() => {
+          try {
+            window.Telegram?.WebApp?.close();
+          } catch {
+            /* sessiz */
+          }
+        }, 1500);
+      }
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         const errBody = e.body as { available_slots?: AvailableSlot[] } | null;
