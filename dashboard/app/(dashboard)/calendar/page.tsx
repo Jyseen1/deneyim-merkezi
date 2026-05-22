@@ -20,6 +20,22 @@ import {
   toLocalIso,
 } from "@/lib/date";
 import { useBackendToken } from "@/hooks/useBackendToken";
+import { useRealtime } from "@/hooks/useRealtime";
+
+type SlotBlock = {
+  id: string;
+  slotDate: string;
+  startTime: string;
+  endTime: string;
+  blockReason: string | null;
+};
+type RecurringRule = {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  reason: string | null;
+};
 
 const STATUS_CLASS: Record<ReservationStatus, string> = {
   PENDING_APPROVAL: "status-pending",
@@ -72,6 +88,8 @@ export default function CalendarPage() {
   });
   const [selected, setSelected] = useState<Date>(now);
   const [items, setItems] = useState<Reservation[]>([]);
+  const [blocks, setBlocks] = useState<SlotBlock[]>([]);
+  const [recurring, setRecurring] = useState<RecurringRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [errored, setErrored] = useState(false);
 
@@ -88,17 +106,36 @@ export default function CalendarPage() {
     setLoading(true);
     setErrored(false);
     try {
-      const lastDay = new Date(range.end.getTime() - 86400000);
-      const res = await apiFetch<ReservationList>(
-        `/reservations?date_from=${range.startISO}&date_to=${toLocalIso(lastDay)}&limit=100`,
-        {},
-        token,
-      );
-      setItems(res.items);
+      const lastDayDate = new Date(range.end.getTime() - 86400000);
+      const lastDayISO = toLocalIso(lastDayDate);
+      // 3 endpoint paralel: rezervasyonlar, kapatilmis slotlar, tekrarlayan
+      // kurallar. Recurring her ayda ayni — yine de istek atiyoruz cunku
+      // yeni kural eklenmis olabilir.
+      const [resvRes, blocksRes, recurRes] = await Promise.all([
+        apiFetch<ReservationList>(
+          `/reservations?date_from=${range.startISO}&date_to=${lastDayISO}&limit=100`,
+          {},
+          token,
+        ),
+        apiFetch<{ items: SlotBlock[] }>(
+          `/slots/blocks?date_from=${range.startISO}&date_to=${lastDayISO}`,
+          {},
+          token,
+        ).catch(() => ({ items: [] as SlotBlock[] })),
+        apiFetch<{ items: RecurringRule[] }>(
+          "/slots/recurring-rules",
+          {},
+          token,
+        ).catch(() => ({ items: [] as RecurringRule[] })),
+      ]);
+      setItems(resvRes.items);
+      setBlocks(blocksRes.items);
+      setRecurring(recurRes.items);
     } catch (err) {
       // Sessiz: bos goster
       setErrored(true);
       setItems([]);
+      setBlocks([]);
     } finally {
       setLoading(false);
     }
@@ -107,6 +144,13 @@ export default function CalendarPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // SSE: yeni rezervasyon/guncelleme veya slot blok degisiklikleri (henuz
+  // event yok, ama rezervasyon tarafindan retrigger yeterli).
+  useRealtime({
+    onNewReservation: () => load(),
+    onReservationUpdated: () => load(),
+  });
 
   // Date -> reservation[] gruplaması
   const byDay = useMemo(() => {
@@ -119,6 +163,37 @@ export default function CalendarPage() {
     }
     return m;
   }, [items]);
+
+  // Kapali gunler haritasi: ISO -> { reason, source }.
+  // - blocks: belirli tarihte blok satiri varsa o tarih kapali sayilir
+  // - recurring: o haftanin gunu (0..6 Pazar..Cumartesi) icin aktif kural
+  //   varsa o gun kapali sayilir
+  const blockedByDay = useMemo(() => {
+    const m = new Map<string, { reason: string; source: "block" | "recurring" }>();
+    for (const b of blocks) {
+      const key = toLocalIso(new Date(b.slotDate));
+      if (!m.has(key)) {
+        m.set(key, {
+          reason: b.blockReason ?? "Kapalı",
+          source: "block",
+        });
+      }
+    }
+    if (recurring.length > 0) {
+      for (const d of cells) {
+        const key = toLocalIso(d);
+        if (m.has(key)) continue;
+        const rule = recurring.find((r) => r.dayOfWeek === d.getDay());
+        if (rule) {
+          m.set(key, {
+            reason: rule.reason ?? "Haftalık kapalı",
+            source: "recurring",
+          });
+        }
+      }
+    }
+    return m;
+  }, [blocks, recurring, cells]);
 
   // Bu ay sayilari
   const monthCounts = useMemo(() => {
@@ -303,26 +378,36 @@ export default function CalendarPage() {
               const inMonth = d.getMonth() === view.monthIdx;
               const isToday = isSameLocalDay(d, now);
               const isSelected = isSameLocalDay(d, selected);
-              const dayItems = byDay.get(toLocalIso(d)) ?? [];
+              const iso = toLocalIso(d);
+              const dayItems = byDay.get(iso) ?? [];
+              const closed = blockedByDay.get(iso);
+
+              const bgColor = closed
+                ? "rgba(148,163,184,0.18)" // gri ton
+                : isSelected
+                ? "rgba(67,56,202,0.10)"
+                : isToday
+                ? "rgba(67,56,202,0.06)"
+                : "rgba(255,255,255,0.55)";
+              const borderColor = closed
+                ? "1px dashed #94a3b8"
+                : isToday
+                ? "2px solid #4338ca"
+                : isSelected
+                ? "1px solid #c4b5fd"
+                : "1px solid rgba(209,196,255,0.5)";
 
               return (
                 <button
                   key={d.toISOString()}
                   onClick={() => setSelected(d)}
+                  title={closed ? `Kapalı · ${closed.reason}` : undefined}
                   style={{
                     minHeight: "72px",
                     padding: "8px",
                     borderRadius: "10px",
-                    background: isSelected
-                      ? "rgba(67,56,202,0.10)"
-                      : isToday
-                      ? "rgba(67,56,202,0.06)"
-                      : "rgba(255,255,255,0.55)",
-                    border: isToday
-                      ? "2px solid #4338ca"
-                      : isSelected
-                      ? "1px solid #c4b5fd"
-                      : "1px solid rgba(209,196,255,0.5)",
+                    background: bgColor,
+                    border: borderColor,
                     opacity: inMonth ? 1 : 0.35,
                     cursor: "pointer",
                     textAlign: "left",
@@ -331,25 +416,54 @@ export default function CalendarPage() {
                     gap: "4px",
                     transition: "background 0.15s ease",
                     fontFamily: "inherit",
-                    color: "#1e1b4b",
+                    color: closed ? "#475569" : "#1e1b4b",
                   }}
                   onMouseEnter={(e) => {
-                    if (!isSelected && !isToday)
+                    if (!isSelected && !isToday && !closed)
                       e.currentTarget.style.background = "rgba(67,56,202,0.04)";
                   }}
                   onMouseLeave={(e) => {
-                    if (!isSelected && !isToday)
+                    if (!isSelected && !isToday && !closed)
                       e.currentTarget.style.background = "rgba(255,255,255,0.55)";
                   }}
                 >
                   <div
                     style={{
-                      fontSize: "12px",
-                      fontWeight: isToday ? 700 : 500,
-                      color: isToday ? "#4338ca" : "#1e1b4b",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "4px",
                     }}
                   >
-                    {d.getDate()}
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: isToday ? 700 : 500,
+                        color: closed
+                          ? "#475569"
+                          : isToday
+                          ? "#4338ca"
+                          : "#1e1b4b",
+                      }}
+                    >
+                      {d.getDate()}
+                    </div>
+                    {closed && (
+                      <span
+                        style={{
+                          fontSize: "9px",
+                          fontWeight: 600,
+                          padding: "1px 5px",
+                          borderRadius: "99px",
+                          background: "rgba(148,163,184,0.25)",
+                          color: "#475569",
+                          letterSpacing: "0.02em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {closed.source === "recurring" ? "↻ Kapalı" : "Kapalı"}
+                      </span>
+                    )}
                   </div>
 
                   {/* Rezervasyon noktalari */}
@@ -444,6 +558,34 @@ export default function CalendarPage() {
           >
             {formatTrLongDate(selected)}
           </div>
+
+          {blockedByDay.get(selectedKey) && (
+            <div
+              style={{
+                marginTop: "10px",
+                padding: "8px 12px",
+                background: "rgba(148,163,184,0.15)",
+                border: "1px dashed #94a3b8",
+                borderRadius: "10px",
+                fontSize: "12px",
+                color: "#475569",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span style={{ fontSize: "14px" }}>🔒</span>
+              <span>
+                <strong>Kapalı:</strong>{" "}
+                {blockedByDay.get(selectedKey)?.reason}
+                {blockedByDay.get(selectedKey)?.source === "recurring" && (
+                  <span style={{ marginLeft: "4px", opacity: 0.75 }}>
+                    (haftalık)
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
 
           <div style={{ marginTop: "14px" }}>
             {selectedItems.length === 0 ? (

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { useRealtime } from "@/hooks/useRealtime";
+import { playBeep, useSoundPref } from "@/hooks/useSoundPref";
 
 type NavItem = { href: string; label: string; badge?: number };
 type NavGroup = { title: string; items: NavItem[] };
@@ -143,30 +144,71 @@ function NavLink({
   );
 }
 
-function playBeep() {
-  if (typeof window === "undefined") return;
-  try {
-    const Ctx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.frequency.value = 880;
-    osc.type = "sine";
-    gain.gain.value = 0.04;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    setTimeout(() => {
-      osc.stop();
-      ctx.close().catch(() => {});
-    }, 180);
-  } catch {
-    /* AudioContext user-gesture gerektirir; sessizce gec */
-  }
+function SpeakerOnIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  );
+}
+function SpeakerOffIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <line x1="23" y1="9" x2="17" y2="15" />
+      <line x1="17" y1="9" x2="23" y2="15" />
+    </svg>
+  );
+}
+
+function SoundToggle() {
+  const [enabled, setEnabled] = useSoundPref();
+  return (
+    <button
+      type="button"
+      onClick={() => setEnabled(!enabled)}
+      aria-label={enabled ? "Bildirim sesini kapat" : "Bildirim sesini aç"}
+      title={enabled ? "Bildirim sesi açık" : "Bildirim sesi kapalı"}
+      style={{
+        background: "rgba(255,255,255,0.06)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        color: enabled ? "#fbbf24" : "rgba(255,255,255,0.45)",
+        borderRadius: "10px",
+        padding: "6px 10px",
+        fontSize: "11px",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        cursor: "pointer",
+        width: "100%",
+        transition: "all 0.15s ease",
+      }}
+      onMouseOver={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.10)";
+      }}
+      onMouseOut={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+      }}
+    >
+      {enabled ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
+      <span style={{ flex: 1, textAlign: "left", color: "rgba(255,255,255,0.7)" }}>
+        Bildirim sesi
+      </span>
+      <span
+        style={{
+          fontSize: "10px",
+          fontWeight: 600,
+          color: enabled ? "#fbbf24" : "rgba(255,255,255,0.45)",
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+        }}
+      >
+        {enabled ? "Açık" : "Kapalı"}
+      </span>
+    </button>
+  );
 }
 
 export function Sidebar({
@@ -357,6 +399,11 @@ export function Sidebar({
             </div>
           ))}
         </nav>
+
+        {/* Sound toggle */}
+        <div style={{ padding: "0 12px 8px" }}>
+          <SoundToggle />
+        </div>
 
         {/* User footer */}
         <div style={{ padding: "12px" }}>

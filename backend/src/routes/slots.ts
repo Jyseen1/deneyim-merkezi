@@ -67,7 +67,39 @@ function isoPlusDays(startISO: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+const blocksQuerySchema = z.object({
+  date_from: isoDate,
+  date_to: isoDate,
+});
+
 const slotRoutes: FastifyPluginAsync = async (app) => {
+  // AUTH: belirli aralikta kapatilmis slotlari listele (takvim kapali gun
+  // gosterimi icin). isBlocked=true olan Slot satirlari.
+  app.get(
+    "/blocks",
+    { preHandler: verifyJWT },
+    async (req, reply) => {
+      const parsed = blocksQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send({ error: "validation_failed", details: parsed.error.flatten() });
+      }
+      const { date_from, date_to } = parsed.data;
+      const items = await prisma.slot.findMany({
+        where: {
+          isBlocked: true,
+          slotDate: {
+            gte: new Date(`${date_from}T00:00:00.000Z`),
+            lte: new Date(`${date_to}T00:00:00.000Z`),
+          },
+        },
+        orderBy: [{ slotDate: "asc" }, { startTime: "asc" }],
+      });
+      return reply.send({ items });
+    },
+  );
+
   // PUBLIC: ziyaretci formu buradan musait slotlari ceker
   app.get("/available", async (req, reply) => {
     const parsed = availableQuerySchema.safeParse(req.query);

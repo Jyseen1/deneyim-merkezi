@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useBackendToken } from "@/hooks/useBackendToken";
+import { useRealtime } from "@/hooks/useRealtime";
 
 type SlotStatus = "available" | "booked" | "pending" | "closed";
 
@@ -67,24 +68,37 @@ export function TodayTimeline() {
   const [slots, setSlots] = useState<TimelineSlot[] | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!token) return;
-    let cancelled = false;
     setLoading(true);
-    apiFetch<TodaySlotsResp>("/dashboard/today-slots", {}, token)
-      .then((r) => {
-        if (!cancelled) setSlots(r.slots);
-      })
-      .catch(() => {
-        if (!cancelled) setSlots([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    try {
+      const r = await apiFetch<TodaySlotsResp>(
+        "/dashboard/today-slots",
+        {},
+        token,
+      );
+      setSlots(r.slots);
+    } catch {
+      setSlots([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    let cancelled = false;
+    load().catch(() => {});
     return () => {
       cancelled = true;
+      void cancelled;
     };
-  }, [token]);
+  }, [load]);
+
+  // SSE: yeni rezervasyon veya guncelleme bugunkuyse timeline'i tazele.
+  useRealtime({
+    onNewReservation: () => load(),
+    onReservationUpdated: () => load(),
+  });
 
   const allAvailable =
     slots !== null &&
