@@ -3,7 +3,8 @@ export type ReservationStatus =
   | "APPROVED"
   | "REJECTED"
   | "CANCELLED"
-  | "COMPLETED";
+  | "COMPLETED"
+  | "NO_SHOW";
 
 export type Visitor = {
   id: string;
@@ -53,6 +54,7 @@ export const STATUS_LABEL: Record<ReservationStatus, string> = {
   REJECTED: "Reddedildi",
   CANCELLED: "İptal",
   COMPLETED: "Tamamlandı",
+  NO_SHOW: "Gelmedi",
 };
 
 export const STATUS_BADGE: Record<ReservationStatus, string> = {
@@ -61,4 +63,5 @@ export const STATUS_BADGE: Record<ReservationStatus, string> = {
   REJECTED: "bg-red-100 text-red-800 border-red-200",
   CANCELLED: "bg-slate-100 text-slate-700 border-slate-200",
   COMPLETED: "bg-blue-100 text-blue-800 border-blue-200",
+  NO_SHOW: "bg-orange-100 text-orange-800 border-orange-200",
 };

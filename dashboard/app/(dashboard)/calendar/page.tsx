@@ -27,6 +27,7 @@ const STATUS_CLASS: Record<ReservationStatus, string> = {
   REJECTED: "status-rejected",
   CANCELLED: "status-cancelled",
   COMPLETED: "status-completed",
+  NO_SHOW: "status-noshow",
 };
 
 const DOT_COLOR: Record<ReservationStatus, { bg: string; fg: string }> = {
@@ -35,6 +36,7 @@ const DOT_COLOR: Record<ReservationStatus, { bg: string; fg: string }> = {
   REJECTED: { bg: "#fee2e2", fg: "#991b1b" },
   CANCELLED: { bg: "#e5e7eb", fg: "#374151" },
   COMPLETED: { bg: "#dbeafe", fg: "#1e40af" },
+  NO_SHOW: { bg: "#ffedd5", fg: "#9a3412" },
 };
 
 function ChevronLeft() {

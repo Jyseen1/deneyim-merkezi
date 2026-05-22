@@ -49,6 +49,7 @@ enum ReservationStatus {
   REJECTED
   CANCELLED
   COMPLETED
+  NO_SHOW
 }
 
 model Slot {
@@ -62,6 +63,18 @@ model Slot {
 
   @@unique([slotDate, startTime])
   @@map("slots")
+}
+
+model RecurringBlock {
+  id        String   @id @default(uuid())
+  dayOfWeek Int      // 0=Pazar … 6=Cumartesi (JS Date.getDay() ile uyumlu)
+  startTime String   // "HH:MM"
+  endTime   String
+  reason    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("recurring_blocks")
 }
 
 model Staff {

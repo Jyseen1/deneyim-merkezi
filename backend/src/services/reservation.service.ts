@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { prisma } from "../db/client";
 import { getAvailableSlots, isSlotAvailable } from "./slot.service";
 import { getSettings } from "./settings.service";
+import { emitAppEvent } from "./events.service";
 import {
   sendApprovalRequest,
   sendConfirmation,
@@ -118,6 +119,14 @@ export async function createReservation(input: CreateReservationInput) {
     });
   }
 
+  // Real-time event: dashboard'a "yeni rezervasyon" bildirimi
+  emitAppEvent({
+    type: "new_reservation",
+    reservationId: result.reservation.id,
+    visitorName: result.visitor.name,
+    status: result.reservation.status,
+  });
+
   // Transaction disinda WA bildirim (HTTP cagrisi tx'i kilitlemesin).
   // Hata firlatmiyoruz: rezervasyon olusturulmus, bildirim ayri retry'a tabi olmali.
   try {
@@ -152,6 +161,13 @@ export async function approveReservation(
       approvedBy: staffId,
     },
     include: { visitor: true },
+  });
+
+  emitAppEvent({
+    type: "reservation_updated",
+    reservationId: updated.id,
+    status: updated.status,
+    visitorName: updated.visitor.name,
   });
 
   try {
@@ -232,6 +248,13 @@ export async function rejectReservation(
     return { reservation: updated, alternatives };
   });
 
+  emitAppEvent({
+    type: "reservation_updated",
+    reservationId: result.reservation.id,
+    status: result.reservation.status,
+    visitorName: result.reservation.visitor.name,
+  });
+
   try {
     await sendRejection(result.reservation, result.alternatives);
   } catch (err) {
@@ -266,6 +289,48 @@ export async function cancelReservation(
     removeJobSafe(timeoutQueue, timeoutJobId(reservationId)),
     removeJobSafe(reminderQueue, reminderJobId(reservationId)),
   ]);
+
+  emitAppEvent({
+    type: "reservation_updated",
+    reservationId,
+    status: updated.status,
+  });
+
+  return updated;
+}
+
+export async function markNoShow(reservationId: string) {
+  const existing = await prisma.reservation.findUnique({
+    where: { id: reservationId },
+    select: { status: true, visitDate: true, startTime: true },
+  });
+  if (!existing) throw new Error("Rezervasyon bulunamadi");
+  if (existing.status !== "APPROVED") {
+    throw new Error("Sadece APPROVED rezervasyonlar NO_SHOW yapilabilir");
+  }
+  // Yalnizca gecmis tarihli ziyaretlerde NO_SHOW isaretlenebilir
+  const visitMs =
+    existing.visitDate.getTime() + timeToMinutes(existing.startTime) * 60 * 1000;
+  if (visitMs > Date.now()) {
+    throw new Error("Gelecekteki rezervasyon NO_SHOW yapilamaz");
+  }
+
+  const updated = await prisma.reservation.update({
+    where: { id: reservationId },
+    data: { status: "NO_SHOW" },
+  });
+
+  // Reminder ve timeout job'lari varsa anlam yok — temizle
+  await Promise.all([
+    removeJobSafe(timeoutQueue, timeoutJobId(reservationId)),
+    removeJobSafe(reminderQueue, reminderJobId(reservationId)),
+  ]);
+
+  emitAppEvent({
+    type: "reservation_updated",
+    reservationId,
+    status: updated.status,
+  });
 
   return updated;
 }

@@ -10,6 +10,7 @@ import {
 } from "@/lib/types";
 import { ReservationDrawer } from "@/components/ReservationDrawer";
 import { formatTrShortDate } from "@/lib/date";
+import { useRealtime } from "@/hooks/useRealtime";
 import { useBackendToken } from "@/hooks/useBackendToken";
 
 type StatusFilter = "ALL" | ReservationStatus;
@@ -20,6 +21,7 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "APPROVED", label: "Onaylı" },
   { value: "REJECTED", label: "Reddedildi" },
   { value: "CANCELLED", label: "İptal" },
+  { value: "NO_SHOW", label: "Gelmedi" },
 ];
 
 const STATUS_CLASS: Record<ReservationStatus, string> = {
@@ -28,6 +30,7 @@ const STATUS_CLASS: Record<ReservationStatus, string> = {
   REJECTED: "status-rejected",
   CANCELLED: "status-cancelled",
   COMPLETED: "status-completed",
+  NO_SHOW: "status-noshow",
 };
 
 const PAGE_SIZE = 20;
@@ -94,6 +97,12 @@ export default function ReservationsPage() {
   useEffect(() => {
     setPage(1);
   }, [status, dateFrom, dateTo]);
+
+  // SSE: yeni rezervasyon veya guncelleme gelince listeyi tazele
+  useRealtime({
+    onNewReservation: () => load(),
+    onReservationUpdated: () => load(),
+  });
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 

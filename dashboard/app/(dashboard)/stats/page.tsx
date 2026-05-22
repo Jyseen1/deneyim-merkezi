@@ -19,6 +19,7 @@ const STATUS_CLASS: Record<ReservationStatus, string> = {
   REJECTED: "status-rejected",
   CANCELLED: "status-cancelled",
   COMPLETED: "status-completed",
+  NO_SHOW: "status-noshow",
 };
 
 type Period = "week" | "month" | "3m";
@@ -36,6 +37,7 @@ type PeriodStats = {
     approvalRate: number;
     avgResponseMinutes: number;
     cancelRate: number;
+    noShowRate: number;
   };
   weeklyDistribution: { label: string; count: number }[];
   hourDistribution: { time: string; count: number }[];
@@ -45,6 +47,7 @@ type PeriodStats = {
     rejected: number;
     cancelled: number;
     completed: number;
+    noShow: number;
   };
 };
 
@@ -109,6 +112,7 @@ export default function StatsPage() {
         { label: "Bekleyen", value: stats.statusDistribution.pending, color: "#fbbf24" },
         { label: "Reddedilen", value: stats.statusDistribution.rejected, color: "#ef4444" },
         { label: "İptal", value: stats.statusDistribution.cancelled, color: "#94a3b8" },
+        { label: "Gelmedi", value: stats.statusDistribution.noShow, color: "#9a3412" },
       ]
     : [];
 
@@ -179,7 +183,7 @@ export default function StatsPage() {
       </div>
 
       {/* KPI satiri */}
-      <div className="grid grid-cols-2 md:grid-cols-4" style={{ gap: "14px" }}>
+      <div className="grid grid-cols-2 md:grid-cols-5" style={{ gap: "12px" }}>
         <KpiCard
           label="Toplam rezervasyon"
           value={kpi?.total ?? 0}
@@ -207,6 +211,14 @@ export default function StatsPage() {
           suffix="%"
           fade="fade-up-4"
           tone="danger"
+          loading={loadingStats}
+        />
+        <KpiCard
+          label="Gelmeyen oranı"
+          value={kpi?.noShowRate ?? 0}
+          suffix="%"
+          fade="fade-up-5"
+          tone="warning"
           loading={loadingStats}
         />
       </div>
@@ -538,11 +550,17 @@ function KpiCard({
   value: number;
   suffix?: string;
   fade: string;
-  tone?: "success" | "danger";
+  tone?: "success" | "danger" | "warning";
   loading?: boolean;
 }) {
   const numberColor =
-    tone === "success" ? "#059669" : tone === "danger" ? "#ef4444" : "#1e1b4b";
+    tone === "success"
+      ? "#059669"
+      : tone === "danger"
+      ? "#ef4444"
+      : tone === "warning"
+      ? "#9a3412"
+      : "#1e1b4b";
   return (
     <div
       className={`glass glass-hover fade-up ${fade}`}

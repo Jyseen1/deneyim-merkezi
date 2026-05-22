@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRealtime } from "@/hooks/useRealtime";
 
 type NavItem = { href: string; label: string; badge?: number };
 type NavGroup = { title: string; items: NavItem[] };
@@ -142,6 +143,32 @@ function NavLink({
   );
 }
 
+function playBeep() {
+  if (typeof window === "undefined") return;
+  try {
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = 880;
+    osc.type = "sine";
+    gain.gain.value = 0.04;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    setTimeout(() => {
+      osc.stop();
+      ctx.close().catch(() => {});
+    }, 180);
+  } catch {
+    /* AudioContext user-gesture gerektirir; sessizce gec */
+  }
+}
+
 export function Sidebar({
   userName,
   userEmail,
@@ -151,6 +178,27 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  // "/reservations" item'i icin badge: yeni rezervasyon SSE event'lerinde artar.
+  // Kullanici Rezervasyonlar sayfasini ziyaret edince sifirlanir.
+  const [newCount, setNewCount] = useState(0);
+  const lastSeenPathRef = useRef(pathname);
+  useEffect(() => {
+    if (pathname === "/reservations" && lastSeenPathRef.current !== "/reservations") {
+      setNewCount(0);
+    }
+    lastSeenPathRef.current = pathname;
+  }, [pathname]);
+
+  useRealtime({
+    onNewReservation: () => {
+      // Kullanici Rezervasyonlar sayfasindaysa badge gostermeye gerek yok
+      if (window.location.pathname !== "/reservations") {
+        setNewCount((c) => c + 1);
+      }
+      playBeep();
+    },
+  });
 
   const sidebarStyle: React.CSSProperties = {
     background: "linear-gradient(180deg, #3730a3 0%, #2e1065 100%)",
@@ -296,7 +344,11 @@ export function Sidebar({
                     key={item.href}
                     href={item.href}
                     label={item.label}
-                    badge={item.badge}
+                    badge={
+                      item.href === "/reservations" && newCount > 0
+                        ? newCount
+                        : item.badge
+                    }
                     active={isActive(pathname, item.href)}
                     onClick={() => setOpen(false)}
                   />

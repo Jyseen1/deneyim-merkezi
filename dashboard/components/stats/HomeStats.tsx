@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from "@/lib/api";
 import type { DashboardStats } from "@/lib/types";
 import { PendingApprovalRow } from "@/components/PendingApprovalRow";
 import { EMPTY_STATS, type StatsResult } from "./server-fetch";
+import { useRealtime } from "@/hooks/useRealtime";
 import { useBackendToken } from "@/hooks/useBackendToken";
 
 const POLL_MS_WHEN_OK = 30_000;
@@ -340,6 +341,12 @@ export function HomeStats({
       clearTimeout(timer);
     };
   }, []);
+
+  // SSE: yeni veya guncellenen rezervasyon gelince statlari hemen tazele
+  useRealtime({
+    onNewReservation: () => load(),
+    onReservationUpdated: () => load(),
+  });
 
   const showError = errorMsg !== null;
   const showShimmer = loading && !hasData.current;

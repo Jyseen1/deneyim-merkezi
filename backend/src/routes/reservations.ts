@@ -6,6 +6,7 @@ import {
   approveReservation,
   cancelReservation,
   createReservation,
+  markNoShow,
   rejectReservation,
 } from "../services/reservation.service";
 import { SlotUnavailableError } from "../types/reservation";
@@ -57,7 +58,7 @@ const listQuerySchema = z.object({
 });
 
 const statusBodySchema = z.object({
-  action: z.enum(["approve", "reject", "cancel"]),
+  action: z.enum(["approve", "reject", "cancel", "no_show"]),
   reason: z.string().max(500).optional(),
   staffId: z.string().min(1).optional(),
 });
@@ -160,6 +161,16 @@ const reservationRoutes: FastifyPluginAsync = async (app) => {
           reason,
         );
         return reply.send({ reservation, alternatives });
+      }
+      if (action === "no_show") {
+        try {
+          const updated = await markNoShow(id);
+          return reply.send(updated);
+        } catch (e) {
+          return reply
+            .code(400)
+            .send({ error: (e as Error).message || "no_show_invalid" });
+        }
       }
       // cancel
       const cancelled = await cancelReservation(id, reason);

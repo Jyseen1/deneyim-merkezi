@@ -10,6 +10,8 @@ import {
 import { useBackendToken } from "@/hooks/useBackendToken";
 import { useToast } from "@/hooks/useToast";
 import { ToastViewport } from "@/components/ToastViewport";
+import { ReservationDrawer } from "@/components/ReservationDrawer";
+import { useSession } from "next-auth/react";
 
 type SlotStatus = "available" | "booked" | "pending" | "closed";
 
@@ -28,6 +30,8 @@ const CLOSE_REASONS = ["Bakım", "Özel Etkinlik", "Dolu", "Diğer"];
 
 export default function SlotsPage() {
   const token = useBackendToken();
+  const { data: session } = useSession();
+  const staffId = session?.user?.id || session?.user?.email || "staff";
   const { toasts, show, dismiss } = useToast();
 
   const [dateISO, setDateISO] = useState(toLocalIso(new Date()));
@@ -35,6 +39,10 @@ export default function SlotsPage() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
+  const [activeReservationId, setActiveReservationId] = useState<string | null>(null);
+  const [blockDayOpen, setBlockDayOpen] = useState(false);
+  const [blockRangeOpen, setBlockRangeOpen] = useState(false);
+  const [recurringOpen, setRecurringOpen] = useState(false);
 
   const [modal, setModal] = useState<{
     slotIndex: number;
@@ -233,17 +241,17 @@ export default function SlotsPage() {
           icon={<CloseIcon />}
           label="Gün Kapat"
           tone="danger"
-          onClick={() => show("Gün kapatma yakında", "error")}
+          onClick={() => setBlockDayOpen(true)}
         />
         <ActionButton
           icon={<RepeatIcon />}
           label="Tekrarlayan Kural"
-          onClick={() => show("Tekrarlayan kural ekranı yakında", "error")}
+          onClick={() => setRecurringOpen(true)}
         />
         <ActionButton
           icon={<GiftIcon />}
           label="Tatil Ekle"
-          onClick={() => show("Tatil tanımlama yakında", "error")}
+          onClick={() => setBlockRangeOpen(true)}
         />
       </div>
 
@@ -257,8 +265,55 @@ export default function SlotsPage() {
           busyIdx={busyIdx}
           onClose={openClose}
           onReopen={reopen}
+          onDetail={(id) => setActiveReservationId(id)}
         />
       )}
+
+      {blockDayOpen && (
+        <BlockDayModal
+          defaultDate={dateISO}
+          token={token}
+          onClose={() => setBlockDayOpen(false)}
+          onSuccess={(msg) => {
+            show(msg, "success");
+            setBlockDayOpen(false);
+            load();
+          }}
+          onError={(msg) => show(msg, "error")}
+        />
+      )}
+      {blockRangeOpen && (
+        <BlockRangeModal
+          defaultDate={dateISO}
+          token={token}
+          onClose={() => setBlockRangeOpen(false)}
+          onSuccess={(msg) => {
+            show(msg, "success");
+            setBlockRangeOpen(false);
+            load();
+          }}
+          onError={(msg) => show(msg, "error")}
+        />
+      )}
+      {recurringOpen && (
+        <RecurringRuleModal
+          token={token}
+          onClose={() => setRecurringOpen(false)}
+          onSuccess={(msg) => {
+            show(msg, "success");
+            setRecurringOpen(false);
+            load();
+          }}
+          onError={(msg) => show(msg, "error")}
+        />
+      )}
+
+      <ReservationDrawer
+        reservationId={activeReservationId}
+        staffId={staffId}
+        onClose={() => setActiveReservationId(null)}
+        onMutated={load}
+      />
 
       {modal && (
         <CloseModal
@@ -320,6 +375,7 @@ function SingleDayView({
   busyIdx,
   onClose,
   onReopen,
+  onDetail,
 }: {
   slots: Slot[];
   loading: boolean;
@@ -327,6 +383,7 @@ function SingleDayView({
   busyIdx: number | null;
   onClose: (idx: number) => void;
   onReopen: (idx: number) => void;
+  onDetail: (reservationId: string) => void;
 }) {
   return (
     <div className="glass fade-up fade-up-2">
@@ -389,6 +446,7 @@ function SingleDayView({
                 busy={busyIdx === i}
                 onClose={() => onClose(i)}
                 onReopen={() => onReopen(i)}
+                onDetail={() => s.reservationId && onDetail(s.reservationId)}
               />
             ))}
       </div>
@@ -401,11 +459,13 @@ function SlotRow({
   busy,
   onClose,
   onReopen,
+  onDetail,
 }: {
   slot: Slot;
   busy: boolean;
   onClose: () => void;
   onReopen: () => void;
+  onDetail: () => void;
 }) {
   return (
     <div
@@ -477,7 +537,8 @@ function SlotRow({
         {(slot.status === "booked" || slot.status === "pending") && (
           <button
             type="button"
-            onClick={() => alert("Detay görünümü yakında.")}
+            onClick={onDetail}
+            disabled={!slot.reservationId}
             style={{
               padding: "6px 14px",
               fontSize: "12px",
@@ -486,7 +547,8 @@ function SlotRow({
               border: "1px solid #ede9fe",
               borderRadius: "99px",
               color: "#4338ca",
-              cursor: "pointer",
+              cursor: slot.reservationId ? "pointer" : "not-allowed",
+              opacity: slot.reservationId ? 1 : 0.5,
             }}
           >
             Detay
@@ -1026,5 +1088,411 @@ function GiftIcon() {
       <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
       <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
     </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Generic Modal wrapper
+// ─────────────────────────────────────────────────────────
+function ModalShell({
+  title,
+  subtitle,
+  children,
+  busy,
+  onCancel,
+  onConfirm,
+  confirmLabel,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  confirmLabel: string;
+}) {
+  return (
+    <div
+      onClick={onCancel}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(30,27,75,0.45)",
+        zIndex: 60,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+        backdropFilter: "blur(2px)",
+        WebkitBackdropFilter: "blur(2px)",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: "440px",
+          background: "#ffffff",
+          borderRadius: "16px",
+          padding: "22px",
+          boxShadow: "0 24px 48px rgba(30,27,75,0.25)",
+          border: "1px solid #ede9fe",
+        }}
+      >
+        <h3
+          className="gradient-text"
+          style={{
+            fontSize: "18px",
+            fontWeight: 700,
+            margin: 0,
+            letterSpacing: "-0.3px",
+          }}
+        >
+          {title}
+        </h3>
+        {subtitle && (
+          <p style={{ fontSize: "12px", color: "#818cf8", margin: "4px 0 16px" }}>
+            {subtitle}
+          </p>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {children}
+        </div>
+        <div
+          style={{
+            marginTop: "20px",
+            display: "flex",
+            gap: "8px",
+            justifyContent: "flex-end",
+          }}
+        >
+          <button onClick={onCancel} disabled={busy} className="btn-ghost">
+            Vazgeç
+          </button>
+          <button onClick={onConfirm} disabled={busy} className="btn-primary">
+            {busy ? "..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function modalLabel(): React.CSSProperties {
+  return {
+    display: "block",
+    fontSize: "10px",
+    color: "#818cf8",
+    fontWeight: 600,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    marginBottom: "6px",
+  };
+}
+function modalInput(): React.CSSProperties {
+  return {
+    width: "100%",
+    padding: "9px 12px",
+    borderRadius: "10px",
+    border: "1px solid #ede9fe",
+    fontSize: "13px",
+    color: "#1e1b4b",
+    outline: "none",
+    fontFamily: "inherit",
+  };
+}
+
+// ─────────────────────────────────────────────────────────
+// Gün Kapat
+// ─────────────────────────────────────────────────────────
+function BlockDayModal({
+  defaultDate,
+  token,
+  onClose,
+  onSuccess,
+  onError,
+}: {
+  defaultDate: string;
+  token: string | undefined;
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [date, setDate] = useState(defaultDate);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    try {
+      await apiFetch(
+        "/slots/block-day",
+        {
+          method: "POST",
+          body: JSON.stringify({ date, reason: reason.trim() || undefined }),
+        },
+        token,
+      );
+      onSuccess("Gün kapatıldı");
+    } catch (e) {
+      onError(
+        e instanceof ApiError ? e.message : (e as Error).message,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ModalShell
+      title="Gün Kapat"
+      subtitle="Çalışma saatleri içindeki tüm slotları kapatır."
+      busy={busy}
+      onCancel={onClose}
+      onConfirm={submit}
+      confirmLabel="Günü Kapat"
+    >
+      <div>
+        <label style={modalLabel()}>Tarih</label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          style={modalInput()}
+        />
+      </div>
+      <div>
+        <label style={modalLabel()}>Neden (opsiyonel)</label>
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="örn. Bayram tatili"
+          style={modalInput()}
+        />
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Tatil / Tarih Aralığı
+// ─────────────────────────────────────────────────────────
+function BlockRangeModal({
+  defaultDate,
+  token,
+  onClose,
+  onSuccess,
+  onError,
+}: {
+  defaultDate: string;
+  token: string | undefined;
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [startDate, setStartDate] = useState(defaultDate);
+  const [endDate, setEndDate] = useState(defaultDate);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    if (endDate < startDate) {
+      onError("Bitiş tarihi başlangıçtan önce olamaz");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiFetch<{ blocked: number; days: string[] }>(
+        "/slots/block-range",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            startDate,
+            endDate,
+            reason: reason.trim() || undefined,
+          }),
+        },
+        token,
+      );
+      onSuccess(`${res.blocked} gün kapatıldı`);
+    } catch (e) {
+      onError(
+        e instanceof ApiError ? e.message : (e as Error).message,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ModalShell
+      title="Tatil Ekle"
+      subtitle="Tarih aralığındaki tüm günleri kapatır."
+      busy={busy}
+      onCancel={onClose}
+      onConfirm={submit}
+      confirmLabel="Tatil Tanımla"
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "10px",
+        }}
+      >
+        <div>
+          <label style={modalLabel()}>Başlangıç</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            style={modalInput()}
+          />
+        </div>
+        <div>
+          <label style={modalLabel()}>Bitiş</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            style={modalInput()}
+          />
+        </div>
+      </div>
+      <div>
+        <label style={modalLabel()}>Neden (opsiyonel)</label>
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="örn. Yılbaşı tatili"
+          style={modalInput()}
+        />
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Tekrarlayan Kural
+// ─────────────────────────────────────────────────────────
+const DAYS_FULL = [
+  "Pazar",
+  "Pazartesi",
+  "Salı",
+  "Çarşamba",
+  "Perşembe",
+  "Cuma",
+  "Cumartesi",
+];
+
+function RecurringRuleModal({
+  token,
+  onClose,
+  onSuccess,
+  onError,
+}: {
+  token: string | undefined;
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [dayOfWeek, setDayOfWeek] = useState(5); // Cuma default
+  const [startTime, setStartTime] = useState("17:00");
+  const [endTime, setEndTime] = useState("19:00");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    if (endTime <= startTime) {
+      onError("Bitiş saati başlangıçtan sonra olmalı");
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiFetch(
+        "/slots/recurring-rule",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            dayOfWeek,
+            startTime,
+            endTime,
+            reason: reason.trim() || undefined,
+          }),
+        },
+        token,
+      );
+      onSuccess("Tekrarlayan kural eklendi");
+    } catch (e) {
+      onError(
+        e instanceof ApiError ? e.message : (e as Error).message,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ModalShell
+      title="Tekrarlayan Kural"
+      subtitle="Her hafta seçilen günde, saat aralığında otomatik kapatma."
+      busy={busy}
+      onCancel={onClose}
+      onConfirm={submit}
+      confirmLabel="Kural Ekle"
+    >
+      <div>
+        <label style={modalLabel()}>Gün</label>
+        <select
+          value={dayOfWeek}
+          onChange={(e) => setDayOfWeek(Number(e.target.value))}
+          style={modalInput()}
+        >
+          {DAYS_FULL.map((name, idx) => (
+            <option key={idx} value={idx}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "10px",
+        }}
+      >
+        <div>
+          <label style={modalLabel()}>Başlangıç</label>
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            style={modalInput()}
+          />
+        </div>
+        <div>
+          <label style={modalLabel()}>Bitiş</label>
+          <input
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            style={modalInput()}
+          />
+        </div>
+      </div>
+      <div>
+        <label style={modalLabel()}>Neden (opsiyonel)</label>
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="örn. Haftalık temizlik"
+          style={modalInput()}
+        />
+      </div>
+    </ModalShell>
   );
 }

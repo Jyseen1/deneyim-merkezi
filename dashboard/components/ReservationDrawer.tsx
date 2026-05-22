@@ -10,7 +10,28 @@ import {
 } from "@/lib/types";
 import { formatTrDateTime, formatTrShortDate } from "@/lib/date";
 
-type Action = "approve" | "reject" | "cancel";
+type Action = "approve" | "reject" | "cancel" | "no_show";
+
+type VisitorHistory = {
+  visitor: {
+    id: string;
+    name: string;
+    phone: string;
+    email: string | null;
+    createdAt: string;
+  };
+  reservations: Reservation[];
+  stats: {
+    total: number;
+    approved: number;
+    cancelled: number;
+    rejected: number;
+    noShow: number;
+    completed: number;
+    firstVisit: string | null;
+    lastVisit: string | null;
+  };
+};
 
 const STATUS_CLASS: Record<ReservationStatus, string> = {
   PENDING_APPROVAL: "status-pending",
@@ -18,7 +39,13 @@ const STATUS_CLASS: Record<ReservationStatus, string> = {
   REJECTED: "status-rejected",
   CANCELLED: "status-cancelled",
   COMPLETED: "status-completed",
+  NO_SHOW: "status-noshow",
 };
+
+function timeToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -96,6 +123,7 @@ export function ReservationDrawer({
 }) {
   const token = useBackendToken();
   const [data, setData] = useState<Reservation | null>(null);
+  const [history, setHistory] = useState<VisitorHistory | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<Action | null>(null);
@@ -106,9 +134,23 @@ export function ReservationDrawer({
     setLoading(true);
     setErr(null);
     setData(null);
+    setHistory(null);
     apiFetch<Reservation>(`/reservations/${reservationId}`, {}, token)
       .then((r) => {
         if (!cancelled) setData(r);
+        if (r.visitor?.phone) {
+          apiFetch<VisitorHistory>(
+            `/visitors/${encodeURIComponent(r.visitor.phone)}`,
+            {},
+            token,
+          )
+            .then((h) => {
+              if (!cancelled) setHistory(h);
+            })
+            .catch(() => {
+              if (!cancelled) setHistory(null);
+            });
+        }
       })
       .catch((e) => {
         if (!cancelled) {
@@ -302,6 +344,25 @@ export function ReservationDrawer({
                 <span style={{ fontSize: "11px", color: "#a5b4fc" }}>
                   {data.groupSize} kişi · {data.durationMinutes} dk
                 </span>
+                {history && (
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: "99px",
+                      background:
+                        history.stats.total <= 1 ? "#ede9fe" : "#d1fae5",
+                      color:
+                        history.stats.total <= 1 ? "#4338ca" : "#065f46",
+                      border: `1px solid ${history.stats.total <= 1 ? "#c4b5fd" : "#a7f3d0"}`,
+                    }}
+                  >
+                    {history.stats.total <= 1
+                      ? "İlk ziyaret"
+                      : `${history.stats.total}. ziyaret`}
+                  </span>
+                )}
               </div>
 
               <Block title="Ziyaretçi">
@@ -350,6 +411,40 @@ export function ReservationDrawer({
                   }
                 />
               </Block>
+
+              {history && history.reservations.length > 1 && (
+                <Block title="Geçmiş Ziyaretler">
+                  {history.reservations
+                    .filter((r) => r.id !== data.id)
+                    .slice(0, 5)
+                    .map((r) => (
+                      <Row
+                        key={r.id}
+                        label={formatTrShortDate(r.visitDate) + " · " + r.startTime}
+                        value={
+                          <span
+                            className={`status-pill ${STATUS_CLASS[r.status]}`}
+                            style={{ fontSize: "10px" }}
+                          >
+                            {STATUS_LABEL[r.status]}
+                          </span>
+                        }
+                      />
+                    ))}
+                  {history.reservations.length > 6 && (
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "#a5b4fc",
+                        textAlign: "center",
+                        padding: "8px 0 0",
+                      }}
+                    >
+                      +{history.reservations.length - 6} daha
+                    </div>
+                  )}
+                </Block>
+              )}
             </>
           )}
         </div>
@@ -385,13 +480,34 @@ export function ReservationDrawer({
               </>
             )}
             {data.status === "APPROVED" && (
-              <button
-                onClick={() => act("cancel")}
-                disabled={busy !== null}
-                className="btn-ghost"
-              >
-                {busy === "cancel" ? "..." : "İptal et"}
-              </button>
+              <>
+                {(() => {
+                  const visitMs =
+                    new Date(data.visitDate).getTime() +
+                    timeToMinutes(data.startTime) * 60_000;
+                  const isPast = visitMs < Date.now();
+                  return isPast ? (
+                    <button
+                      onClick={() => act("no_show")}
+                      disabled={busy !== null}
+                      className="btn-ghost"
+                      style={{
+                        borderColor: "#fed7aa",
+                        color: "#9a3412",
+                      }}
+                    >
+                      {busy === "no_show" ? "..." : "Gelmedi"}
+                    </button>
+                  ) : null;
+                })()}
+                <button
+                  onClick={() => act("cancel")}
+                  disabled={busy !== null}
+                  className="btn-ghost"
+                >
+                  {busy === "cancel" ? "..." : "İptal et"}
+                </button>
+              </>
             )}
           </div>
         )}

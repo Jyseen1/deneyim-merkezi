@@ -17,7 +17,8 @@ export async function getAvailableSlots(
   const settings = await getSettings();
   const { start: workStartMin, end: workEndMin } = workMinutesRange(settings);
 
-  const [blocked, busy] = await Promise.all([
+  const dayOfWeek = visitDate.getUTCDay();
+  const [blocked, busy, recurring] = await Promise.all([
     db.slot.findMany({
       where: { slotDate: visitDate, isBlocked: true },
       select: { startTime: true, endTime: true },
@@ -29,12 +30,22 @@ export async function getAvailableSlots(
       },
       select: { startTime: true, durationMinutes: true },
     }),
+    db.recurringBlock.findMany({
+      where: { dayOfWeek, isActive: true },
+      select: { startTime: true, endTime: true },
+    }),
   ]);
 
-  const blockedRanges = blocked.map((s) => ({
-    start: timeToMinutes(s.startTime),
-    end: timeToMinutes(s.endTime),
-  }));
+  const blockedRanges = [
+    ...blocked.map((s) => ({
+      start: timeToMinutes(s.startTime),
+      end: timeToMinutes(s.endTime),
+    })),
+    ...recurring.map((r) => ({
+      start: timeToMinutes(r.startTime),
+      end: timeToMinutes(r.endTime),
+    })),
+  ];
   const busyRanges = busy.map((r) => ({
     start: timeToMinutes(r.startTime),
     end: timeToMinutes(r.startTime) + r.durationMinutes,
@@ -94,6 +105,18 @@ export async function isSlotAvailable(
     )
   ) {
     return false;
+  }
+
+  // Recurring (haftalik) kurallar
+  const dayOfWeek = visitDate.getUTCDay();
+  const recurring = await db.recurringBlock.findMany({
+    where: { dayOfWeek, isActive: true },
+    select: { startTime: true, endTime: true },
+  });
+  for (const r of recurring) {
+    if (overlaps(startMin, endMin, timeToMinutes(r.startTime), timeToMinutes(r.endTime))) {
+      return false;
+    }
   }
 
   const sameDayReservations = await db.reservation.findMany({

@@ -13,6 +13,8 @@ import authRoutes from "./routes/auth";
 import staffRoutes from "./routes/staff";
 import settingsRoutes from "./routes/settings";
 import whatsappRoutes from "./routes/whatsapp";
+import eventsRoutes from "./routes/events";
+import visitorsRoutes from "./routes/visitors";
 import "./jobs/reminder.job"; // worker'lar import side-effect ile baslar
 import "./jobs/timeout.job";
 import { shutdownQueues } from "./jobs/queue";
@@ -64,6 +66,8 @@ async function main() {
   await app.register(staffRoutes, { prefix: "/api/v1/staff" });
   await app.register(settingsRoutes, { prefix: "/api/v1/settings" });
   await app.register(whatsappRoutes, { prefix: "/api/v1/whatsapp" });
+  await app.register(eventsRoutes, { prefix: "/api/v1/events" });
+  await app.register(visitorsRoutes, { prefix: "/api/v1/visitors" });
 
   const port = Number(process.env.PORT) || 3001;
   await app.listen({ port, host: "0.0.0.0" });

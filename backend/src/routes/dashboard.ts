@@ -67,7 +67,7 @@ async function buildDaySlots(dateISO: string): Promise<DaySlot[]> {
   const { start: workStartMin, end: workEndMin } = workMinutesRange(settings);
   const slotStepMin = settings.defaultDuration || ENV_DEFAULT_DURATION;
 
-  const [reservations, blockedSlots] = await Promise.all([
+  const [reservations, blockedSlots, recurringRules] = await Promise.all([
     prisma.reservation.findMany({
       where: {
         visitDate,
@@ -77,6 +77,9 @@ async function buildDaySlots(dateISO: string): Promise<DaySlot[]> {
     }),
     prisma.slot.findMany({
       where: { slotDate: visitDate, isBlocked: true },
+    }),
+    prisma.recurringBlock.findMany({
+      where: { dayOfWeek: visitDate.getUTCDay(), isActive: true },
     }),
   ]);
 
@@ -95,6 +98,20 @@ async function buildDaySlots(dateISO: string): Promise<DaySlot[]> {
         status: "closed",
         label: block.blockReason ?? "Kapalı",
         blockId: block.id,
+      });
+      continue;
+    }
+
+    // Recurring (haftalik) kural overlap
+    const recurringBlock = recurringRules.find((r) =>
+      overlaps(m, m + slotStepMin, timeToMinutes(r.startTime), timeToMinutes(r.endTime)),
+    );
+    if (recurringBlock) {
+      result.push({
+        startTime,
+        endTime,
+        status: "closed",
+        label: recurringBlock.reason ?? "Düzenli kapalı",
       });
       continue;
     }
@@ -289,12 +306,17 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
     const rejected = rows.filter((r) => r.status === "REJECTED").length;
     const cancelled = rows.filter((r) => r.status === "CANCELLED").length;
     const completed = rows.filter((r) => r.status === "COMPLETED").length;
+    const noShow = rows.filter((r) => r.status === "NO_SHOW").length;
 
     const decided = approved + rejected;
     const approvalRate = decided > 0 ? Math.round((approved / decided) * 100) : 0;
     const cancelRate =
       total > 0
         ? Math.round(((cancelled + rejected) / total) * 100)
+        : 0;
+    const noShowRate =
+      approved + noShow > 0
+        ? Math.round((noShow / (approved + noShow)) * 100)
         : 0;
 
     const respMinutes = rows
@@ -335,6 +357,7 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
         approvalRate,
         avgResponseMinutes,
         cancelRate,
+        noShowRate,
       },
       weeklyDistribution,
       hourDistribution: hourBuckets,
@@ -344,6 +367,7 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
         rejected,
         cancelled,
         completed,
+        noShow,
       },
     });
   });

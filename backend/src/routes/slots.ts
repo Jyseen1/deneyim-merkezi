@@ -2,7 +2,9 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "../db/client";
 import { getAvailableSlots } from "../services/slot.service";
+import { getSettings, workMinutesRange } from "../services/settings.service";
 import { verifyJWT } from "../middleware/auth";
+import { requireAdmin } from "../middleware/requireAdmin";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD bekleniyor");
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/, "HH:MM bekleniyor");
@@ -24,6 +26,47 @@ const blockBodySchema = z
     path: ["endTime"],
   });
 
+const blockDayBodySchema = z.object({
+  date: isoDate,
+  reason: z.string().max(200).optional(),
+});
+
+const blockRangeBodySchema = z
+  .object({
+    startDate: isoDate,
+    endDate: isoDate,
+    reason: z.string().max(200).optional(),
+  })
+  .refine((b) => b.endDate >= b.startDate, {
+    message: "endDate startDate'den sonra olmalı",
+    path: ["endDate"],
+  });
+
+const recurringRuleBodySchema = z
+  .object({
+    dayOfWeek: z.number().int().min(0).max(6),
+    startTime: hhmm,
+    endTime: hhmm,
+    reason: z.string().max(200).optional(),
+  })
+  .refine((b) => b.endTime > b.startTime, {
+    message: "endTime startTime'den sonra olmalı",
+    path: ["endTime"],
+  });
+
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+function fromMinutes(min: number): string {
+  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+}
+function isoPlusDays(startISO: string, n: number): string {
+  const d = new Date(`${startISO}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 const slotRoutes: FastifyPluginAsync = async (app) => {
   // PUBLIC: ziyaretci formu buradan musait slotlari ceker
   app.get("/available", async (req, reply) => {
@@ -40,7 +83,7 @@ const slotRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ date: parsed.data.date, durationMinutes: duration, slots });
   });
 
-  // AUTH: yetkili slot kapatma
+  // AUTH: tek slot kapatma
   app.post(
     "/block",
     { preHandler: verifyJWT },
@@ -74,7 +117,6 @@ const slotRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  // AUTH: blok kaldirma
   app.delete<{ Params: { id: string } }>(
     "/block/:id",
     { preHandler: verifyJWT },
@@ -92,6 +134,151 @@ const slotRoutes: FastifyPluginAsync = async (app) => {
       }
     },
   );
+
+  // AUTH (admin): tum gunu kapat — calisma saatleri icinde tek bir blok satiri
+  app.post(
+    "/block-day",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => {
+      const parsed = blockDayBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send({ error: "validation_failed", details: parsed.error.flatten() });
+      }
+      const settings = await getSettings();
+      const { start, end } = workMinutesRange(settings);
+      const startTime = fromMinutes(start);
+      const endTime = fromMinutes(end);
+      try {
+        const slot = await prisma.slot.create({
+          data: {
+            slotDate: new Date(`${parsed.data.date}T00:00:00.000Z`),
+            startTime,
+            endTime,
+            isBlocked: true,
+            blockReason: parsed.data.reason ?? "Gün kapalı",
+          },
+        });
+        return reply.code(201).send({ blocked: 1, slot });
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        if (code === "P2002")
+          return reply.code(409).send({ error: "already_blocked" });
+        req.log.error({ err }, "block-day hata");
+        return reply.code(500).send({ error: "internal_error" });
+      }
+    },
+  );
+
+  // AUTH (admin): tarih araligi (tatil)
+  app.post(
+    "/block-range",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => {
+      const parsed = blockRangeBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send({ error: "validation_failed", details: parsed.error.flatten() });
+      }
+      const settings = await getSettings();
+      const { start, end } = workMinutesRange(settings);
+      const startTime = fromMinutes(start);
+      const endTime = fromMinutes(end);
+      const { startDate, endDate, reason } = parsed.data;
+
+      const days: string[] = [];
+      let cursor = startDate;
+      while (cursor <= endDate) {
+        days.push(cursor);
+        cursor = isoPlusDays(cursor, 1);
+        if (days.length > 366) break; // güvenlik kapağı
+      }
+
+      let blocked = 0;
+      for (const d of days) {
+        try {
+          await prisma.slot.create({
+            data: {
+              slotDate: new Date(`${d}T00:00:00.000Z`),
+              startTime,
+              endTime,
+              isBlocked: true,
+              blockReason: reason ?? "Tatil",
+            },
+          });
+          blocked++;
+        } catch (err) {
+          // P2002: aynı gün için zaten kayıt var → atla
+          const code = (err as { code?: string }).code;
+          if (code !== "P2002") {
+            req.log.warn({ err, date: d }, "block-range bir gun atlandi");
+          }
+        }
+      }
+      return reply.code(201).send({ blocked, days });
+    },
+  );
+
+  // AUTH (admin): tekrarlayan kural
+  app.post(
+    "/recurring-rule",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => {
+      const parsed = recurringRuleBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send({ error: "validation_failed", details: parsed.error.flatten() });
+      }
+      const created = await prisma.recurringBlock.create({
+        data: {
+          dayOfWeek: parsed.data.dayOfWeek,
+          startTime: parsed.data.startTime,
+          endTime: parsed.data.endTime,
+          reason: parsed.data.reason ?? null,
+          isActive: true,
+        },
+      });
+      return reply.code(201).send(created);
+    },
+  );
+
+  app.get(
+    "/recurring-rules",
+    { preHandler: verifyJWT },
+    async (_req, reply) => {
+      const rules = await prisma.recurringBlock.findMany({
+        where: { isActive: true },
+        orderBy: { dayOfWeek: "asc" },
+      });
+      return reply.send({ items: rules });
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    "/recurring-rules/:id",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => {
+      try {
+        await prisma.recurringBlock.update({
+          where: { id: req.params.id },
+          data: { isActive: false },
+        });
+        return reply.code(204).send();
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        if (code === "P2025") return reply.code(404).send({ error: "not_found" });
+        req.log.error({ err }, "recurring rule delete hata");
+        return reply.code(500).send({ error: "internal_error" });
+      }
+    },
+  );
 };
+
+// Lint için: toMinutes kullanılmıyorsa silinebilir. Recurring kural buildDaySlots'ta
+// dashboard.ts içinde dakika hesabıyla kullanılıyor.
+void toMinutes;
 
 export default slotRoutes;
