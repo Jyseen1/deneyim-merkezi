@@ -132,7 +132,7 @@
         "visit_date": { "type": "string", "__example__": "2026-05-28" },
         "start_time": { "type": "string", "__example__": "14:00" },
         "duration": { "type": "string", "__example__": "120" },
-        "visitor_name": { "type": "string", "__example__": "Ahmet" },
+        "visitor_name": { "type": "string", "__example__": "Ahmet Yılmaz" },
         "visitor_phone": { "type": "string", "__example__": "+905551234567" },
         "group_size": { "type": "string", "__example__": "3" },
         "note": { "type": "string", "__example__": "" }
