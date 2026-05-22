@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../db/client";
 import { verifyJWT } from "../middleware/auth";
 import { requireAdmin } from "../middleware/requireAdmin";
+import { invalidateSettingsCache } from "../services/settings.service";
 
 const SINGLETON_ID = "singleton";
 
@@ -48,6 +49,7 @@ const settingsRoutes: FastifyPluginAsync = async (app) => {
         update: parsed.data,
         create: { id: SINGLETON_ID, ...parsed.data },
       });
+      invalidateSettingsCache();
       return reply.send(updated);
     },
   );

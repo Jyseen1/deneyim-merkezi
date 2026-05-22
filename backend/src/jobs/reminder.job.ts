@@ -35,18 +35,8 @@ export const reminderWorker = new Worker<ReminderJobData>(
       return { skipped: reservation.status };
     }
 
+    // sendReminder kendi icinde notifications kaydi yapiyor.
     const waMessageId = await sendReminder(reservation);
-
-    await prisma.notification.create({
-      data: {
-        reservationId,
-        channel: "whatsapp",
-        direction: "outbound",
-        templateName: "reservation_reminder",
-        waMessageId: waMessageId ?? undefined,
-        status: waMessageId ? "sent" : "failed",
-      },
-    });
 
     log("info", "reminder islendi", { reservationId, waMessageId });
     return { sent: Boolean(waMessageId) };

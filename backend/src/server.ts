@@ -12,6 +12,7 @@ import slotRoutes from "./routes/slots";
 import authRoutes from "./routes/auth";
 import staffRoutes from "./routes/staff";
 import settingsRoutes from "./routes/settings";
+import whatsappRoutes from "./routes/whatsapp";
 import "./jobs/reminder.job"; // worker'lar import side-effect ile baslar
 import "./jobs/timeout.job";
 import { shutdownQueues } from "./jobs/queue";
@@ -30,12 +31,11 @@ async function main() {
         "http://localhost:3000",
         process.env.DASHBOARD_URL,
       ].filter(Boolean) as string[];
-      // origin undefined olabilir (Postman, server-to-server) — izin ver
+      // origin undefined olabilir (server-to-server, curl, Postman) — izin ver
       if (!origin || allowed.includes(origin)) {
-        cb(null, true);
-      } else {
-        cb(null, true); // şimdilik tüm origin'lere izin ver (public form için)
+        return cb(null, true);
       }
+      cb(new Error("CORS reddedildi"), false);
     },
     credentials: true,
   });
@@ -63,6 +63,7 @@ async function main() {
   await app.register(dashboardRoutes, { prefix: "/api/v1/dashboard" });
   await app.register(staffRoutes, { prefix: "/api/v1/staff" });
   await app.register(settingsRoutes, { prefix: "/api/v1/settings" });
+  await app.register(whatsappRoutes, { prefix: "/api/v1/whatsapp" });
 
   const port = Number(process.env.PORT) || 3001;
   await app.listen({ port, host: "0.0.0.0" });

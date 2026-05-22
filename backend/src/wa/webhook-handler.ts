@@ -6,6 +6,7 @@ import {
   rejectReservation,
 } from "../services/reservation.service";
 import { sendFlowMessage } from "../services/whatsapp.service";
+import { updateNotificationStatus } from "../services/notification.service";
 import {
   SlotUnavailableError,
   type CreateReservationInput,
@@ -259,7 +260,10 @@ function logStatus(status: WAStatus, log: FastifyBaseLogger) {
     },
     "WA mesaj durumu guncellendi",
   );
-  // TODO: notifications tablosuna delivered/read yaz
+  // notifications tablosunda waMessageId esleserse status'u guncelle
+  if (status.id && status.status) {
+    void updateNotificationStatus(status.id, status.status);
+  }
 }
 
 function safeParseJson(raw: string | undefined): unknown {

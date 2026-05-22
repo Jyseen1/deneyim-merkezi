@@ -2,15 +2,10 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "../db/client";
 import { verifyJWT } from "../middleware/auth";
+import { getSettings, workMinutesRange } from "../services/settings.service";
 
-const DEFAULT_DURATION_MIN = Number(process.env.DEFAULT_DURATION_MINUTES) || 120;
-const WORK_MINUTES_PER_DAY = 10 * 60; // 09:00 - 19:00
+const ENV_DEFAULT_DURATION = Number(process.env.DEFAULT_DURATION_MINUTES) || 120;
 const WORK_DAYS_PER_WEEK = 7;
-const WEEK_CAPACITY_MIN = WORK_MINUTES_PER_DAY * WORK_DAYS_PER_WEEK;
-
-const SLOT_STEP_MIN = 120; // 2 saatlik standart slotlar
-const WORK_START_MIN = 9 * 60;
-const WORK_END_MIN = 19 * 60;
 
 function startOfDay(d: Date): Date {
   const c = new Date(d);
@@ -68,6 +63,9 @@ type DaySlot = {
 
 async function buildDaySlots(dateISO: string): Promise<DaySlot[]> {
   const visitDate = parseIsoDate(dateISO);
+  const settings = await getSettings();
+  const { start: workStartMin, end: workEndMin } = workMinutesRange(settings);
+  const slotStepMin = settings.defaultDuration || ENV_DEFAULT_DURATION;
 
   const [reservations, blockedSlots] = await Promise.all([
     prisma.reservation.findMany({
@@ -83,12 +81,12 @@ async function buildDaySlots(dateISO: string): Promise<DaySlot[]> {
   ]);
 
   const result: DaySlot[] = [];
-  for (let m = WORK_START_MIN; m + SLOT_STEP_MIN <= WORK_END_MIN; m += SLOT_STEP_MIN) {
+  for (let m = workStartMin; m + slotStepMin <= workEndMin; m += slotStepMin) {
     const startTime = toHHMM(m);
-    const endTime = toHHMM(m + SLOT_STEP_MIN);
+    const endTime = toHHMM(m + slotStepMin);
 
     const block = blockedSlots.find((b) =>
-      overlaps(m, m + SLOT_STEP_MIN, timeToMinutes(b.startTime), timeToMinutes(b.endTime)),
+      overlaps(m, m + slotStepMin, timeToMinutes(b.startTime), timeToMinutes(b.endTime)),
     );
     if (block) {
       result.push({
@@ -103,7 +101,7 @@ async function buildDaySlots(dateISO: string): Promise<DaySlot[]> {
 
     const reservation = reservations.find((r) => {
       const rs = timeToMinutes(r.startTime);
-      return overlaps(m, m + SLOT_STEP_MIN, rs, rs + r.durationMinutes);
+      return overlaps(m, m + slotStepMin, rs, rs + r.durationMinutes);
     });
     if (reservation) {
       result.push({
@@ -144,6 +142,9 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
     const tomorrow = addDays(today, 1);
     const weekStart = startOfWeek(now);
     const weekEnd = addDays(weekStart, 7);
+    const settings = await getSettings();
+    const { start: wStartMin, end: wEndMin } = workMinutesRange(settings);
+    const weekCapacityMin = (wEndMin - wStartMin) * WORK_DAYS_PER_WEEK;
 
     const [todayCount, pendingCount, weekRows, pendingPreview] =
       await Promise.all([
@@ -172,12 +173,13 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
       ]);
 
     const bookedMinutes = weekRows.reduce(
-      (sum, r) => sum + (r.durationMinutes || DEFAULT_DURATION_MIN),
+      (sum, r) =>
+        sum + (r.durationMinutes || settings.defaultDuration || ENV_DEFAULT_DURATION),
       0,
     );
     const utilizationPct = Math.min(
       100,
-      Math.round((bookedMinutes / WEEK_CAPACITY_MIN) * 100),
+      Math.round((bookedMinutes / weekCapacityMin) * 100),
     );
 
     return {
@@ -220,6 +222,130 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
       days[d] = slotsPerDay[i];
     });
     return reply.send({ startDate, days });
+  });
+
+  // Donem filtreli istatistik: KPI + bar + saat + status dagilimi.
+  app.get<{ Querystring: { range?: string } }>("/stats/period", async (req, reply) => {
+    const range = (req.query.range || "month") as "week" | "month" | "3m";
+    if (!["week", "month", "3m"].includes(range)) {
+      return reply.code(400).send({ error: "invalid_range" });
+    }
+
+    const now = new Date();
+    let start: Date;
+    let buckets: { label: string; from: Date; to: Date }[] = [];
+
+    if (range === "week") {
+      start = startOfWeek(now);
+      const labels = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+      buckets = labels.map((label, i) => ({
+        label,
+        from: addDays(start, i),
+        to: addDays(start, i + 1),
+      }));
+    } else if (range === "month") {
+      // Bu ayın ilk gününden bugüne 4 haftalık dağılım
+      start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      buckets = ["H1", "H2", "H3", "H4"].map((label, i) => ({
+        label,
+        from: addDays(start, i * 7),
+        to: addDays(start, (i + 1) * 7),
+      }));
+    } else {
+      // Son 3 ay
+      start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1));
+      const MONTHS_TR = [
+        "Oca", "Şub", "Mar", "Nis", "May", "Haz",
+        "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara",
+      ];
+      buckets = [0, 1, 2].map((i) => {
+        const from = new Date(
+          Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1),
+        );
+        const to = new Date(
+          Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i + 1, 1),
+        );
+        return { label: MONTHS_TR[from.getUTCMonth()], from, to };
+      });
+    }
+
+    const end = buckets[buckets.length - 1].to;
+
+    const rows = await prisma.reservation.findMany({
+      where: { visitDate: { gte: start, lt: end } },
+      select: {
+        visitDate: true,
+        startTime: true,
+        status: true,
+        createdAt: true,
+        approvedAt: true,
+      },
+    });
+
+    // KPI
+    const total = rows.length;
+    const approved = rows.filter((r) => r.status === "APPROVED").length;
+    const pending = rows.filter((r) => r.status === "PENDING_APPROVAL").length;
+    const rejected = rows.filter((r) => r.status === "REJECTED").length;
+    const cancelled = rows.filter((r) => r.status === "CANCELLED").length;
+    const completed = rows.filter((r) => r.status === "COMPLETED").length;
+
+    const decided = approved + rejected;
+    const approvalRate = decided > 0 ? Math.round((approved / decided) * 100) : 0;
+    const cancelRate =
+      total > 0
+        ? Math.round(((cancelled + rejected) / total) * 100)
+        : 0;
+
+    const respMinutes = rows
+      .filter((r) => r.approvedAt && r.createdAt)
+      .map(
+        (r) =>
+          (new Date(r.approvedAt!).getTime() - new Date(r.createdAt).getTime()) /
+          60000,
+      );
+    const avgResponseMinutes =
+      respMinutes.length > 0
+        ? Math.round(respMinutes.reduce((a, b) => a + b, 0) / respMinutes.length)
+        : 0;
+
+    // Weekly/period distribution
+    const weeklyDistribution = buckets.map((b) => ({
+      label: b.label,
+      count: rows.filter(
+        (r) => new Date(r.visitDate) >= b.from && new Date(r.visitDate) < b.to,
+      ).length,
+    }));
+
+    // Saat dagilimi (calisma saatleri icinde)
+    const settings = await getSettings();
+    const slotStep = settings.defaultDuration || ENV_DEFAULT_DURATION;
+    const { start: wStart, end: wEnd } = workMinutesRange(settings);
+    const hourBuckets: { time: string; count: number }[] = [];
+    for (let m = wStart; m + slotStep <= wEnd; m += slotStep) {
+      const startTime = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+      const count = rows.filter((r) => r.startTime === startTime).length;
+      hourBuckets.push({ time: startTime, count });
+    }
+
+    return reply.send({
+      range,
+      kpi: {
+        total,
+        approvalRate,
+        avgResponseMinutes,
+        cancelRate,
+      },
+      weeklyDistribution,
+      hourDistribution: hourBuckets,
+      statusDistribution: {
+        approved,
+        pending,
+        rejected,
+        cancelled,
+        completed,
+      },
+    });
   });
 };
 

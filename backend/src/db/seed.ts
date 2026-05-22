@@ -31,6 +31,18 @@ async function ensureAdmin() {
     (await prisma.staff.findUnique({ where: { waPhone } }));
 
   if (existing) {
+    // Mevcut hash + yeni ADMIN_PASSWORD uyusmuyorsa hash'i yenile.
+    // (Bu sayede ADMIN_PASSWORD env'i degisirse seed cagrildiginda admin senkron olur.)
+    let hashToWrite = existing.passwordHash;
+    if (!existing.passwordHash) {
+      hashToWrite = passwordHash;
+    } else {
+      const stillMatches = await bcrypt.compare(password, existing.passwordHash);
+      if (!stillMatches) {
+        hashToWrite = passwordHash;
+        console.log("[seed] ADMIN_PASSWORD degismis - hash yenileniyor");
+      }
+    }
     await prisma.staff.update({
       where: { id: existing.id },
       data: {
@@ -39,9 +51,7 @@ async function ensureAdmin() {
         waPhone,
         role: "admin",
         isActive: true,
-        // Mevcut bir hash varsa kullaniciyi kilitlememek icin koru;
-        // yoksa yeni hash'le senkronla.
-        passwordHash: existing.passwordHash ?? passwordHash,
+        passwordHash: hashToWrite,
       },
     });
     console.log(`[seed] admin guncellendi (${email})`);

@@ -12,12 +12,17 @@ const availableQuerySchema = z.object({
   duration: z.coerce.number().int().positive().max(600).optional(),
 });
 
-const blockBodySchema = z.object({
-  date: isoDate,
-  startTime: hhmm,
-  endTime: hhmm,
-  reason: z.string().max(200).optional(),
-});
+const blockBodySchema = z
+  .object({
+    date: isoDate,
+    startTime: hhmm,
+    endTime: hhmm,
+    reason: z.string().max(200).optional(),
+  })
+  .refine((b) => b.endTime > b.startTime, {
+    message: "endTime startTime'den sonra olmalı",
+    path: ["endTime"],
+  });
 
 const slotRoutes: FastifyPluginAsync = async (app) => {
   // PUBLIC: ziyaretci formu buradan musait slotlari ceker

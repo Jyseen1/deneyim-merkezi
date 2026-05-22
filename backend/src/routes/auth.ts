@@ -11,7 +11,22 @@ const loginSchema = z.object({
 const BCRYPT_COST = 10;
 
 const authRoutes: FastifyPluginAsync = async (app) => {
-  app.post("/login", async (req, reply) => {
+  app.post(
+    "/login",
+    {
+      config: {
+        // Brute-force koruma: route-level rate limit (global limit'i override eder)
+        rateLimit: {
+          max: 5,
+          timeWindow: "1 minute",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Çok fazla deneme, lütfen bekleyin",
+          }),
+        },
+      },
+    },
+    async (req, reply) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply
@@ -93,7 +108,8 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     }
 
     return reply.code(401).send({ error: "Geçersiz e-posta veya şifre" });
-  });
+    },
+  );
 };
 
 export default authRoutes;

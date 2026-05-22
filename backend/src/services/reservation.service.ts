@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { prisma } from "../db/client";
 import { getAvailableSlots, isSlotAvailable } from "./slot.service";
+import { getSettings } from "./settings.service";
 import {
   sendApprovalRequest,
   sendConfirmation,
@@ -17,9 +18,10 @@ import {
   type ReservationWithVisitor,
 } from "../types/reservation";
 
-const DEFAULT_DURATION_MIN = Number(process.env.DEFAULT_DURATION_MINUTES) || 120;
-const APPROVAL_TIMEOUT_HOURS = Number(process.env.APPROVAL_TIMEOUT_HOURS) || 2;
-const REMINDER_HOURS_BEFORE = Number(process.env.REMINDER_HOURS_BEFORE) || 24;
+// .env fallback'leri Settings DB satiri olusana kadar (cold start) kullanilir.
+const ENV_DEFAULT_DURATION = Number(process.env.DEFAULT_DURATION_MINUTES) || 120;
+const ENV_APPROVAL_TIMEOUT = Number(process.env.APPROVAL_TIMEOUT_HOURS) || 2;
+const ENV_REMINDER_HOURS = Number(process.env.REMINDER_HOURS_BEFORE) || 24;
 const MAX_ALTERNATIVES = 3;
 
 function timeoutJobId(id: string) {
@@ -34,7 +36,10 @@ function logJobError(scope: string, msg: string, ctx: Record<string, unknown>) {
 }
 
 export async function createReservation(input: CreateReservationInput) {
-  const durationMinutes = input.durationMinutes ?? DEFAULT_DURATION_MIN;
+  const settings = await getSettings();
+  const durationMinutes =
+    input.durationMinutes ?? settings.defaultDuration ?? ENV_DEFAULT_DURATION;
+  const approvalTimeoutHours = settings.approvalTimeout ?? ENV_APPROVAL_TIMEOUT;
   const groupSize = input.groupSize ?? 1;
   const visitDate = new Date(`${input.visitDate}T00:00:00.000Z`);
 
@@ -80,7 +85,7 @@ export async function createReservation(input: CreateReservationInput) {
     });
 
     const expiresAt = new Date(
-      Date.now() + APPROVAL_TIMEOUT_HOURS * 60 * 60 * 1000,
+      Date.now() + approvalTimeoutHours * 60 * 60 * 1000,
     );
     const token = crypto.randomUUID();
     await tx.approvalToken.create({
@@ -101,7 +106,7 @@ export async function createReservation(input: CreateReservationInput) {
       { reservationId: result.reservation.id },
       {
         jobId: timeoutJobId(result.reservation.id),
-        delay: APPROVAL_TIMEOUT_HOURS * 60 * 60 * 1000,
+        delay: approvalTimeoutHours * 60 * 60 * 1000,
         removeOnComplete: true,
         removeOnFail: 100,
       },
@@ -161,11 +166,13 @@ export async function approveReservation(
   // Approve edildigine gore timeout job'u artik gereksiz - kuyrukta beklemesin.
   await removeJobSafe(timeoutQueue, timeoutJobId(reservationId));
 
-  // Reminder job'unu ekle. Ziyaret saatinden REMINDER_HOURS_BEFORE saat once tetiklenir.
+  // Reminder job'unu ekle. Ziyaret saatinden settings.reminderHours saat once tetiklenir.
   // visitDate UTC midnight olarak saklaniyor; startTime'i UTC dakika olarak ekliyoruz.
   // NOT: Yerel saat dilimi (TR=UTC+3) icin daha kesin hesap istenirse dayjs/timezone eklenmeli.
+  const settings = await getSettings();
+  const reminderHours = settings.reminderHours ?? ENV_REMINDER_HOURS;
   const visitMs = updated.visitDate.getTime() + timeToMinutes(updated.startTime) * 60 * 1000;
-  const reminderMs = visitMs - REMINDER_HOURS_BEFORE * 60 * 60 * 1000;
+  const reminderMs = visitMs - reminderHours * 60 * 60 * 1000;
   const delay = Math.max(0, reminderMs - Date.now());
 
   try {

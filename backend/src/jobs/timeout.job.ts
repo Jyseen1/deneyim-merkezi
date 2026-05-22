@@ -47,18 +47,8 @@ export const timeoutWorker = new Worker<TimeoutJobData>(
       include: { visitor: true },
     });
 
+    // sendApprovalTimeout kendi icinde notifications kaydi yapiyor.
     const waMessageId = await sendApprovalTimeout(updated);
-
-    await prisma.notification.create({
-      data: {
-        reservationId,
-        channel: "whatsapp",
-        direction: "outbound",
-        templateName: "reservation_timeout",
-        waMessageId: waMessageId ?? undefined,
-        status: waMessageId ? "sent" : "failed",
-      },
-    });
 
     log("info", "timeout islendi - rezervasyon iptal edildi", {
       reservationId,

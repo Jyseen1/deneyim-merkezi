@@ -1,10 +1,11 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../db/client";
 import type { AvailableSlot } from "../types/reservation";
+import { getSettings, workMinutesRange } from "./settings.service";
 
-const WORK_START_MIN = 9 * 60; // 09:00
-const WORK_END_MIN = 19 * 60; // 19:00 (kapanis - bu dakikadan sonra slot baslayamaz)
-
+// Settings tablosundan calisma saatleri okunur; .env override etmez.
+// Eski sabitler fallback olarak slot.service icinde tutulmaz — getSettings
+// her cagrida cache'li olarak doner.
 type Tx = Prisma.TransactionClient | PrismaClient;
 
 export async function getAvailableSlots(
@@ -13,6 +14,8 @@ export async function getAvailableSlots(
   db: Tx = prisma,
 ): Promise<AvailableSlot[]> {
   const visitDate = parseDate(date);
+  const settings = await getSettings();
+  const { start: workStartMin, end: workEndMin } = workMinutesRange(settings);
 
   const [blocked, busy] = await Promise.all([
     db.slot.findMany({
@@ -39,8 +42,8 @@ export async function getAvailableSlots(
 
   const candidates: AvailableSlot[] = [];
   for (
-    let start = WORK_START_MIN;
-    start + durationMinutes <= WORK_END_MIN;
+    let start = workStartMin;
+    start + durationMinutes <= workEndMin;
     start += durationMinutes
   ) {
     const end = start + durationMinutes;
@@ -70,7 +73,9 @@ export async function isSlotAvailable(
   const startMin = timeToMinutes(startTime);
   const endMin = startMin + durationMinutes;
 
-  if (startMin < WORK_START_MIN || endMin > WORK_END_MIN) return false;
+  const settings = await getSettings();
+  const { start: workStartMin, end: workEndMin } = workMinutesRange(settings);
+  if (startMin < workStartMin || endMin > workEndMin) return false;
 
   const lockKey = advisoryLockKey(date, startTime);
   await db.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`;

@@ -24,16 +24,29 @@ const isoDate = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD bekleniyor");
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/, "HH:MM bekleniyor");
 
-const createBodySchema = z.object({
-  name: z.string().min(1).max(120),
-  phone: z.string().min(5).max(32),
-  email: z.string().email().optional(),
-  visitDate: isoDate,
-  startTime: hhmm,
-  durationMinutes: z.number().int().positive().max(600).optional(),
-  groupSize: z.number().int().positive().max(50).optional(),
-  note: z.string().max(1000).optional(),
-});
+const createBodySchema = z
+  .object({
+    name: z.string().min(1).max(120),
+    phone: z
+      .string()
+      .regex(/^\+[1-9]\d{7,14}$/, "Telefon E.164 formatında olmalı (örn +90...)"),
+    email: z.string().email().optional(),
+    visitDate: isoDate,
+    startTime: hhmm,
+    durationMinutes: z.number().int().positive().max(600).optional(),
+    groupSize: z.number().int().positive().max(50).optional(),
+    note: z.string().max(1000).optional(),
+  })
+  .refine(
+    (b) => {
+      // Bugünden önceki tarihler reddedilir (lokal tarih karşılaştırması)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const vd = new Date(`${b.visitDate}T00:00:00`);
+      return vd >= today;
+    },
+    { message: "Geçmiş tarihe rezervasyon yapılamaz", path: ["visitDate"] },
+  );
 
 const listQuerySchema = z.object({
   status: z.enum(reservationStatuses).optional(),

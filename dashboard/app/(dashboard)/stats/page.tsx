@@ -23,50 +23,63 @@ const STATUS_CLASS: Record<ReservationStatus, string> = {
 
 type Period = "week" | "month" | "3m";
 
-// TODO: Backend'e baglandiginda donem filtreli stats endpoint'i eklenecek.
-const MOCK_KPI: Record<Period, { total: number; approval: number; avgResp: number; cancel: number }> = {
-  week:  { total: 28,  approval: 82, avgResp: 18, cancel: 6 },
-  month: { total: 124, approval: 78, avgResp: 22, cancel: 8 },
-  "3m":  { total: 412, approval: 80, avgResp: 24, cancel: 9 },
-};
-
-const MOCK_BAR: Record<Period, { data: number[]; labels: string[] }> = {
-  week:  { data: [4, 7, 3, 9, 6, 2, 1], labels: ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"] },
-  month: { data: [22, 31, 28, 25],       labels: ["H1","H2","H3","H4"] },
-  "3m":  { data: [128, 142, 142],        labels: ["Mart","Nisan","Mayıs"] },
-};
-
-const MOCK_HOURS: { time: string; count: number }[] = [
-  { time: "09:00", count: 8 },
-  { time: "11:00", count: 5 },
-  { time: "13:00", count: 10 },
-  { time: "15:00", count: 7 },
-  { time: "17:00", count: 4 },
-];
-
-const MOCK_STATUS = [
-  { label: "Onaylı",     value: 64, color: "#4338ca" },
-  { label: "Bekleyen",   value: 12, color: "#fbbf24" },
-  { label: "Reddedilen", value: 8,  color: "#ef4444" },
-  { label: "İptal",      value: 6,  color: "#94a3b8" },
-];
-
 const PERIOD_LABEL: Record<Period, string> = {
   week: "Bu Hafta",
   month: "Bu Ay",
   "3m": "Son 3 Ay",
 };
 
+type PeriodStats = {
+  range: Period;
+  kpi: {
+    total: number;
+    approvalRate: number;
+    avgResponseMinutes: number;
+    cancelRate: number;
+  };
+  weeklyDistribution: { label: string; count: number }[];
+  hourDistribution: { time: string; count: number }[];
+  statusDistribution: {
+    approved: number;
+    pending: number;
+    rejected: number;
+    cancelled: number;
+    completed: number;
+  };
+};
+
 export default function StatsPage() {
   const token = useBackendToken();
   const [period, setPeriod] = useState<Period>("month");
-  const kpi = MOCK_KPI[period];
-  const bar = MOCK_BAR[period];
+  const [stats, setStats] = useState<PeriodStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   const [recent, setRecent] = useState<Reservation[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
 
+  // Donem istatistigi
   useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    setLoadingStats(true);
+    apiFetch<PeriodStats>(`/dashboard/stats/period?range=${period}`, {}, token)
+      .then((r) => {
+        if (!cancelled) setStats(r);
+      })
+      .catch(() => {
+        if (!cancelled) setStats(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingStats(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, period]);
+
+  // Son 10 rezervasyon
+  useEffect(() => {
+    if (!token) return;
     let cancelled = false;
     setLoadingRecent(true);
     apiFetch<ReservationList>("/reservations?limit=10&page=1", {}, token)
@@ -84,7 +97,20 @@ export default function StatsPage() {
     };
   }, [token]);
 
-  const maxHour = Math.max(...MOCK_HOURS.map((h) => h.count), 1);
+  const kpi = stats?.kpi;
+  const barData = stats?.weeklyDistribution.map((b) => b.count) ?? [];
+  const barLabels = stats?.weeklyDistribution.map((b) => b.label) ?? [];
+  const hours = stats?.hourDistribution ?? [];
+  const maxHour = Math.max(...hours.map((h) => h.count), 1);
+
+  const statusSegments = stats
+    ? [
+        { label: "Onaylı", value: stats.statusDistribution.approved, color: "#4338ca" },
+        { label: "Bekleyen", value: stats.statusDistribution.pending, color: "#fbbf24" },
+        { label: "Reddedilen", value: stats.statusDistribution.rejected, color: "#ef4444" },
+        { label: "İptal", value: stats.statusDistribution.cancelled, color: "#94a3b8" },
+      ]
+    : [];
 
   return (
     <div style={{ maxWidth: "1180px", margin: "0 auto" }}>
@@ -153,14 +179,36 @@ export default function StatsPage() {
       </div>
 
       {/* KPI satiri */}
-      <div
-        className="grid grid-cols-2 md:grid-cols-4"
-        style={{ gap: "14px" }}
-      >
-        <KpiCard label="Toplam rezervasyon" value={kpi.total} fade="fade-up-1" />
-        <KpiCard label="Onay oranı" value={kpi.approval} suffix="%" fade="fade-up-2" tone="success" />
-        <KpiCard label="Ort. yanıt süresi" value={kpi.avgResp} suffix="dk" fade="fade-up-3" />
-        <KpiCard label="İptal oranı" value={kpi.cancel} suffix="%" fade="fade-up-4" tone="danger" />
+      <div className="grid grid-cols-2 md:grid-cols-4" style={{ gap: "14px" }}>
+        <KpiCard
+          label="Toplam rezervasyon"
+          value={kpi?.total ?? 0}
+          fade="fade-up-1"
+          loading={loadingStats}
+        />
+        <KpiCard
+          label="Onay oranı"
+          value={kpi?.approvalRate ?? 0}
+          suffix="%"
+          fade="fade-up-2"
+          tone="success"
+          loading={loadingStats}
+        />
+        <KpiCard
+          label="Ort. yanıt süresi"
+          value={kpi?.avgResponseMinutes ?? 0}
+          suffix="dk"
+          fade="fade-up-3"
+          loading={loadingStats}
+        />
+        <KpiCard
+          label="İptal oranı"
+          value={kpi?.cancelRate ?? 0}
+          suffix="%"
+          fade="fade-up-4"
+          tone="danger"
+          loading={loadingStats}
+        />
       </div>
 
       {/* Orta — 2 kolon */}
@@ -168,7 +216,6 @@ export default function StatsPage() {
         className="grid grid-cols-1 lg:grid-cols-[3fr_2fr]"
         style={{ gap: "20px", marginTop: "20px" }}
       >
-        {/* Sol: Bar chart */}
         <section className="glass fade-up fade-up-5" style={{ padding: "18px 20px" }}>
           <div
             style={{
@@ -193,18 +240,35 @@ export default function StatsPage() {
                 ? "Aylık Hafta Dağılımı"
                 : "Aylara Göre Dağılım"}
             </h2>
-            <span style={{ fontSize: "11px", color: "#a5b4fc" }}>{PERIOD_LABEL[period]}</span>
+            <span style={{ fontSize: "11px", color: "#a5b4fc" }}>
+              {PERIOD_LABEL[period]}
+            </span>
           </div>
-          <BarChart data={bar.data} labels={bar.labels} height={240} />
+          {loadingStats ? (
+            <div
+              className="shimmer"
+              style={{ height: "240px", borderRadius: "10px" }}
+            />
+          ) : barData.length > 0 ? (
+            <BarChart data={barData} labels={barLabels} height={240} />
+          ) : (
+            <div
+              style={{
+                height: "240px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#a5b4fc",
+                fontSize: "13px",
+              }}
+            >
+              Veri yok.
+            </div>
+          )}
         </section>
 
-        {/* Sag: iki kart ust uste */}
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          {/* Saat dagilimi */}
-          <section
-            className="glass fade-up fade-up-5"
-            style={{ padding: "18px 20px" }}
-          >
+          <section className="glass fade-up fade-up-5" style={{ padding: "18px 20px" }}>
             <h2
               style={{
                 fontSize: "14px",
@@ -217,60 +281,67 @@ export default function StatsPage() {
             >
               Saat Dağılımı
             </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {MOCK_HOURS.map((h) => (
-                <div
-                  key={h.time}
-                  style={{ display: "flex", alignItems: "center", gap: "12px" }}
-                >
+            {loadingStats ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="shimmer" style={{ height: "14px", borderRadius: "6px" }} />
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {hours.map((h) => (
                   <div
-                    style={{
-                      width: "44px",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#1e1b4b",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {h.time}
-                  </div>
-                  <div
-                    style={{
-                      flex: 1,
-                      height: "8px",
-                      background: "#ede9fe",
-                      borderRadius: "99px",
-                      overflow: "hidden",
-                    }}
+                    key={h.time}
+                    style={{ display: "flex", alignItems: "center", gap: "12px" }}
                   >
                     <div
                       style={{
-                        height: "100%",
-                        width: `${(h.count / maxHour) * 100}%`,
-                        background: "#4338ca",
-                        borderRadius: "99px",
-                        transition: "width 0.3s ease",
+                        width: "44px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "#1e1b4b",
+                        flexShrink: 0,
                       }}
-                    />
+                    >
+                      {h.time}
+                    </div>
+                    <div
+                      style={{
+                        flex: 1,
+                        height: "8px",
+                        background: "#ede9fe",
+                        borderRadius: "99px",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${(h.count / maxHour) * 100}%`,
+                          background: "#4338ca",
+                          borderRadius: "99px",
+                          transition: "width 0.3s ease",
+                        }}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        width: "36px",
+                        textAlign: "right",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "#4338ca",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {h.count}
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      width: "36px",
-                      textAlign: "right",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#4338ca",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {h.count}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
-          {/* Durum dagilimi */}
           <section className="glass fade-up fade-up-5" style={{ padding: "18px 20px" }}>
             <h2
               style={{
@@ -284,67 +355,74 @@ export default function StatsPage() {
             >
               Durum Dağılımı
             </h2>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "20px",
-                flexWrap: "wrap",
-              }}
-            >
-              <Donut segments={MOCK_STATUS} size={140} thickness={16} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {MOCK_STATUS.map((s) => {
-                  const total = MOCK_STATUS.reduce((acc, x) => acc + x.value, 0) || 1;
-                  const pct = Math.round((s.value / total) * 100);
-                  return (
-                    <div
-                      key={s.label}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        padding: "5px 0",
-                      }}
-                    >
-                      <span
+            {loadingStats ? (
+              <div
+                className="shimmer"
+                style={{ height: "160px", borderRadius: "10px" }}
+              />
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "20px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <Donut segments={statusSegments} size={140} thickness={16} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {statusSegments.map((s) => {
+                    const total = statusSegments.reduce((acc, x) => acc + x.value, 0) || 1;
+                    const pct = Math.round((s.value / total) * 100);
+                    return (
+                      <div
+                        key={s.label}
                         style={{
-                          width: "10px",
-                          height: "10px",
-                          borderRadius: "3px",
-                          background: s.color,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span
-                        style={{
-                          flex: 1,
-                          fontSize: "12px",
-                          color: "#1e1b4b",
-                          fontWeight: 500,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          padding: "5px 0",
                         }}
                       >
-                        {s.label}
-                      </span>
-                      <span style={{ fontSize: "11px", color: "#818cf8", minWidth: "24px", textAlign: "right" }}>
-                        {pct}%
-                      </span>
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          color: "#1e1b4b",
-                          fontWeight: 600,
-                          minWidth: "28px",
-                          textAlign: "right",
-                        }}
-                      >
-                        {s.value}
-                      </span>
-                    </div>
-                  );
-                })}
+                        <span
+                          style={{
+                            width: "10px",
+                            height: "10px",
+                            borderRadius: "3px",
+                            background: s.color,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          style={{
+                            flex: 1,
+                            fontSize: "12px",
+                            color: "#1e1b4b",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {s.label}
+                        </span>
+                        <span style={{ fontSize: "11px", color: "#818cf8", minWidth: "24px", textAlign: "right" }}>
+                          {pct}%
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            color: "#1e1b4b",
+                            fontWeight: 600,
+                            minWidth: "28px",
+                            textAlign: "right",
+                          }}
+                        >
+                          {s.value}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </section>
         </div>
       </div>
@@ -454,12 +532,14 @@ function KpiCard({
   suffix,
   fade,
   tone,
+  loading,
 }: {
   label: string;
   value: number;
   suffix?: string;
   fade: string;
   tone?: "success" | "danger";
+  loading?: boolean;
 }) {
   const numberColor =
     tone === "success" ? "#059669" : tone === "danger" ? "#ef4444" : "#1e1b4b";
@@ -486,30 +566,37 @@ function KpiCard({
       >
         {label}
       </div>
-      <div
-        style={{
-          fontSize: "32px",
-          fontWeight: 700,
-          letterSpacing: "-1.5px",
-          color: numberColor,
-          lineHeight: 1,
-        }}
-      >
-        {value}
-        {suffix && (
-          <span
-            style={{
-              fontSize: "16px",
-              fontWeight: 500,
-              marginLeft: "3px",
-              color: "#818cf8",
-              letterSpacing: 0,
-            }}
-          >
-            {suffix}
-          </span>
-        )}
-      </div>
+      {loading ? (
+        <div
+          className="shimmer"
+          style={{ height: "32px", width: "55px", borderRadius: "8px" }}
+        />
+      ) : (
+        <div
+          style={{
+            fontSize: "32px",
+            fontWeight: 700,
+            letterSpacing: "-1.5px",
+            color: numberColor,
+            lineHeight: 1,
+          }}
+        >
+          {value}
+          {suffix && (
+            <span
+              style={{
+                fontSize: "16px",
+                fontWeight: 500,
+                marginLeft: "3px",
+                color: "#818cf8",
+                letterSpacing: 0,
+              }}
+            >
+              {suffix}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosResponse } from "axios";
 import dayjs from "dayjs";
 import { prisma } from "../db/client";
+import { logNotification } from "./notification.service";
 import type {
   AvailableSlot,
   ReservationWithVisitor,
@@ -140,7 +141,37 @@ export async function sendApprovalRequest(
       });
     }
   }
+  await logNotification({
+    reservationId: reservation.id,
+    channel: "whatsapp",
+    direction: "outbound",
+    templateName: "reservation_approval_request",
+    waMessageId,
+    status: waMessageId ? "sent" : "failed",
+  });
   return waMessageId;
+}
+
+export async function sendTestMessage(
+  toPhone: string,
+): Promise<{ ok: boolean; waMessageId: string | null; reason?: string }> {
+  if (!process.env.WA_ACCESS_TOKEN || !process.env.WA_PHONE_NUMBER_ID) {
+    return {
+      ok: false,
+      waMessageId: null,
+      reason: "WhatsApp henüz yapılandırılmamış",
+    };
+  }
+  const id = await postMessage({
+    messaging_product: "whatsapp",
+    to: normalizePhone(toPhone),
+    type: "text",
+    text: {
+      body:
+        "Bu bir test mesajıdır. Deneyim Merkezi WhatsApp entegrasyonu çalışıyor ✓",
+    },
+  });
+  return { ok: id !== null, waMessageId: id };
 }
 
 export async function sendFlowMessage(
@@ -184,6 +215,23 @@ export async function sendFlowMessage(
   return postMessage(payload);
 }
 
+async function sendAndLog(
+  reservation: ReservationWithVisitor,
+  templateName: string,
+  payload: unknown,
+): Promise<string | null> {
+  const waMessageId = await postMessage(payload);
+  await logNotification({
+    reservationId: reservation.id,
+    channel: "whatsapp",
+    direction: "outbound",
+    templateName,
+    waMessageId,
+    status: waMessageId ? "sent" : "failed",
+  });
+  return waMessageId;
+}
+
 export async function sendConfirmation(
   reservation: ReservationWithVisitor,
 ): Promise<string | null> {
@@ -211,7 +259,7 @@ export async function sendConfirmation(
         ],
       },
     };
-    return postMessage(payload);
+    return sendAndLog(reservation, "reservation_confirmed", payload);
   }
 
   const text =
@@ -221,7 +269,7 @@ export async function sendConfirmation(
     `Saat: ${reservation.startTime}\n\n` +
     `Goruşmek uzere!`;
 
-  return postMessage({
+  return sendAndLog(reservation, "reservation_confirmed", {
     messaging_product: "whatsapp",
     to,
     type: "text",
@@ -248,7 +296,7 @@ export async function sendRejection(
     `Alternatif saatler:\n${altLines}\n\n` +
     `Yeni rezervasyon icin tekrar form gondermeniz yeterli.`;
 
-  return postMessage({
+  return sendAndLog(reservation, "reservation_rejected", {
     messaging_product: "whatsapp",
     to,
     type: "text",
@@ -267,7 +315,7 @@ export async function sendApprovalTimeout(
     `${date} ${reservation.startTime} icin rezervasyon talebiniz onaylanmadi.\n\n` +
     `Tekrar denemek isterseniz formu yeniden gonderebilirsiniz.`;
 
-  return postMessage({
+  return sendAndLog(reservation, "reservation_timeout", {
     messaging_product: "whatsapp",
     to,
     type: "text",
@@ -288,7 +336,7 @@ export async function sendReminder(
     `Saat: ${reservation.startTime}\n\n` +
     `Sizi bekliyoruz!`;
 
-  return postMessage({
+  return sendAndLog(reservation, "reservation_reminder", {
     messaging_product: "whatsapp",
     to,
     type: "text",

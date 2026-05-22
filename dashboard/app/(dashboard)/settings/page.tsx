@@ -121,14 +121,16 @@ export default function SettingsPage() {
   async function sendTest() {
     setTesting(true);
     try {
-      await apiFetch("/whatsapp/test", { method: "POST" }, token);
-      show("Test mesajı gönderildi", "success");
+      const res = await apiFetch<{ ok: boolean; message: string }>(
+        "/whatsapp/test",
+        { method: "POST" },
+        token,
+      );
+      if (res.ok) show(res.message || "Test mesajı gönderildi", "success");
+      else show(res.message || "Test mesajı gönderilemedi", "error");
     } catch (e) {
-      if (e instanceof ApiError && e.status === 404) {
-        show("Test endpoint'i henüz hazır değil (mock)", "error");
-      } else {
-        show(`Hata: ${(e as Error).message}`, "error");
-      }
+      const msg = e instanceof ApiError ? e.message : (e as Error).message;
+      show(`Hata: ${msg}`, "error");
     } finally {
       setTesting(false);
     }
