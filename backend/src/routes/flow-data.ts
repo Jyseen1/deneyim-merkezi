@@ -4,6 +4,7 @@ import {
   isEncryptedFlowBody,
   decryptRequest,
   encryptResponse,
+  loadPrivateKey,
 } from "../wa/flow-crypto";
 
 // WhatsApp Flow Data Exchange payload yapisi (sifre cozulduktan sonra).
@@ -77,9 +78,11 @@ const flowDataRoutes: FastifyPluginAsync = async (app) => {
 
     // 1) Sifreli payload geldi mi?
     if (isEncryptedFlowBody(body)) {
-      const privateKey = process.env.WA_FLOW_PRIVATE_KEY;
+      const privateKey = loadPrivateKey();
       if (!privateKey) {
-        req.log.error("WA_FLOW_PRIVATE_KEY yok — sifreli istek isleyemiyor");
+        req.log.error(
+          "WA_FLOW_PRIVATE_KEY yok veya PEM cozulemedi — sifreli istek isleyemiyor",
+        );
         return reply.code(421).send({ error: "encryption_not_configured" });
       }
       try {
