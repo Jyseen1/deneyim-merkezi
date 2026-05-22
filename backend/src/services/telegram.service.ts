@@ -109,10 +109,12 @@ export async function sendWebAppButton(
 export async function answerCallbackQuery(
   callbackQueryId: string,
   text?: string,
+  showAlert = false,
 ): Promise<TelegramResponse | null> {
   return callApi("answerCallbackQuery", {
     callback_query_id: callbackQueryId,
     text,
+    show_alert: showAlert,
   });
 }
 
@@ -120,12 +122,14 @@ export async function editMessageText(
   chatId: number | string,
   messageId: number,
   text: string,
+  options: Record<string, unknown> = {},
 ): Promise<TelegramResponse | null> {
   return callApi("editMessageText", {
     chat_id: chatId,
     message_id: messageId,
     text,
     parse_mode: "Markdown",
+    ...options,
   });
 }
 
@@ -153,14 +157,29 @@ function tgEscape(s: string): string {
   return s.replace(/([*_`[\]])/g, "\\$1");
 }
 
-export async function sendStaffApprovalRequest(
-  reservation: ReservationWithVisitor,
-): Promise<string | null> {
-  const chatId = process.env.TELEGRAM_STAFF_CHAT_ID;
-  if (!chatId) {
-    logError("TELEGRAM_STAFF_CHAT_ID tanimli degil");
-    return null;
+export function statusLabel(status: string): string {
+  switch (status) {
+    case "APPROVED":
+      return "✅ Onaylandı";
+    case "REJECTED":
+      return "❌ Reddedildi";
+    case "CANCELLED":
+      return "⛔ İptal edildi";
+    case "NO_SHOW":
+      return "👻 Gelmedi (no-show)";
+    case "COMPLETED":
+      return "🎉 Tamamlandı";
+    case "PENDING_APPROVAL":
+      return "⏳ Beklemede";
+    default:
+      return status;
   }
+}
+
+function buildStaffApprovalText(
+  reservation: ReservationWithVisitor,
+  statusSuffix?: string,
+): string {
   const lines = [
     "*Yeni rezervasyon talebi*",
     "",
@@ -177,13 +196,47 @@ export async function sendStaffApprovalRequest(
   if (reservation.source) {
     lines.push("", `_Kanal: ${reservation.source}_`);
   }
-  const result = await sendInlineKeyboard(chatId, lines.join("\n"), [
+  if (statusSuffix) {
+    lines.push("", `*${statusSuffix}*`);
+  }
+  return lines.join("\n");
+}
+
+export async function sendStaffApprovalRequest(
+  reservation: ReservationWithVisitor,
+): Promise<{ messageId: number; chatId: string } | null> {
+  const chatId = process.env.TELEGRAM_STAFF_CHAT_ID;
+  if (!chatId) {
+    logError("TELEGRAM_STAFF_CHAT_ID tanimli degil");
+    return null;
+  }
+  const text = buildStaffApprovalText(reservation);
+  const result = await sendInlineKeyboard(chatId, text, [
     [
       { text: "✅ Onayla", callback_data: `approve_${reservation.id}` },
       { text: "❌ Reddet", callback_data: `reject_${reservation.id}` },
     ],
   ]);
-  return result?.ok ? "sent" : null;
+  if (!result?.ok || !result.result) return null;
+  const res = result.result as { message_id?: number };
+  if (typeof res.message_id !== "number") return null;
+  return { messageId: res.message_id, chatId };
+}
+
+// Yetkili onay mesajini guncelle: durum satiri ekle, inline butonlari kaldir.
+// Hem callback handler hem site/Telegram/WhatsApp status degisikliklerinde
+// stale buton durumunu temizler.
+export async function editStaffMessage(
+  chatId: number | string,
+  messageId: number,
+  reservation: ReservationWithVisitor,
+  statusOverride?: string,
+): Promise<TelegramResponse | null> {
+  const status = statusOverride ?? reservation.status;
+  const text = buildStaffApprovalText(reservation, statusLabel(status));
+  return editMessageText(chatId, messageId, text, {
+    reply_markup: { inline_keyboard: [] },
+  });
 }
 
 export async function sendVisitorConfirmation(

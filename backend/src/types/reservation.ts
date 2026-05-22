@@ -28,3 +28,15 @@ export class SlotUnavailableError extends Error {
     this.alternatives = alternatives;
   }
 }
+
+// approveReservation/rejectReservation: rezervasyon zaten PENDING_APPROVAL
+// degilse atilir. Hem site hem Telegram hem WhatsApp icin tek noktada
+// duplicate islem engellenir.
+export class ReservationAlreadyProcessedError extends Error {
+  readonly currentStatus: string;
+  constructor(currentStatus: string) {
+    super(`Bu rezervasyon zaten işlenmiş (durum: ${currentStatus})`);
+    this.name = "ReservationAlreadyProcessedError";
+    this.currentStatus = currentStatus;
+  }
+}

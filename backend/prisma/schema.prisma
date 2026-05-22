@@ -32,6 +32,10 @@ model Reservation {
   status          ReservationStatus @default(PENDING_APPROVAL)
   source          String?           @default("web") // web | whatsapp | telegram
   telegramChatId  String?
+  // Yetkili Telegram onay mesaji referansi (her kanaldan gelen status
+  // degisikliginde bu mesaj guncellenir, butonlari kaldirilir).
+  telegramStaffMessageId String?
+  telegramStaffChatId    String?
   waMessageId     String?
   approvedAt      DateTime?
   approvedBy      String?

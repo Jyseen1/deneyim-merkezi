@@ -1,10 +1,12 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import { prisma } from "../db/client";
 import {
   answerCallbackQuery,
-  editMessageText,
+  editStaffMessage,
   sendMessage,
   sendWebAppButton,
+  statusLabel,
 } from "../services/telegram.service";
 import {
   approveReservation,
@@ -12,6 +14,7 @@ import {
   rejectReservation,
 } from "../services/reservation.service";
 import {
+  ReservationAlreadyProcessedError,
   SlotUnavailableError,
   type CreateReservationInput,
 } from "../types/reservation";
@@ -185,24 +188,52 @@ async function handleUpdate(
     const reservationId = match[2];
 
     try {
+      let updated;
       if (kind === "approve") {
-        await approveReservation(reservationId, "telegram");
+        updated = await approveReservation(reservationId, "telegram");
       } else {
-        await rejectReservation(reservationId);
+        const r = await rejectReservation(reservationId);
+        updated = r.reservation;
       }
       await answerCallbackQuery(
         cb.id,
         kind === "approve" ? "Onaylandı" : "Reddedildi",
       );
-      // Mesaji guncelle: butonlari kaldir, sonuc satiri ekle
-      const original = cb.message.text ?? "";
-      const tag = kind === "approve" ? "✅ Onaylandı" : "❌ Reddedildi";
-      await editMessageText(
-        cb.message.chat.id,
-        cb.message.message_id,
-        `${original}\n\n*${tag}*`,
-      );
+      // Service stored-refs ile mesaji zaten edit etmis olabilir; ama eski
+      // reservation'larda (refs yok) buton hala duruyor. Bu callback'te
+      // gelen mesaj ID'sini kullanarak idempotent bir edit dener.
+      if (!updated.telegramStaffMessageId) {
+        await editStaffMessage(
+          cb.message.chat.id,
+          cb.message.message_id,
+          updated,
+        );
+      }
     } catch (err) {
+      if (err instanceof ReservationAlreadyProcessedError) {
+        // Zaten islenmis: alert ile uyari + stale mesaji guncel duruma getir
+        await answerCallbackQuery(
+          cb.id,
+          `Bu rezervasyon zaten işlenmiş (${statusLabel(err.currentStatus)})`,
+          true,
+        );
+        try {
+          const current = await prisma.reservation.findUnique({
+            where: { id: reservationId },
+            include: { visitor: true },
+          });
+          if (current) {
+            await editStaffMessage(
+              cb.message.chat.id,
+              cb.message.message_id,
+              current,
+            );
+          }
+        } catch (e) {
+          log.error({ err: e }, "Telegram stale mesaj sync hatasi");
+        }
+        return;
+      }
       log.error({ err }, "Telegram callback action hata");
       await answerCallbackQuery(cb.id, "Hata oluştu");
     }

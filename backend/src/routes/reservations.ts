@@ -9,7 +9,10 @@ import {
   markNoShow,
   rejectReservation,
 } from "../services/reservation.service";
-import { SlotUnavailableError } from "../types/reservation";
+import {
+  ReservationAlreadyProcessedError,
+  SlotUnavailableError,
+} from "../types/reservation";
 import { verifyJWT } from "../middleware/auth";
 
 const reservationStatuses = [
@@ -178,6 +181,13 @@ const reservationRoutes: FastifyPluginAsync = async (app) => {
       const cancelled = await cancelReservation(id, reason);
       return reply.send(cancelled);
     } catch (err) {
+      if (err instanceof ReservationAlreadyProcessedError) {
+        return reply.code(409).send({
+          error: "already_processed",
+          message: err.message,
+          current_status: err.currentStatus,
+        });
+      }
       const code = (err as { code?: string }).code;
       if (code === "P2025") {
         return reply.code(404).send({ error: "not_found" });

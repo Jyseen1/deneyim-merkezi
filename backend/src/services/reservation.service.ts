@@ -9,6 +9,7 @@ import {
   sendRejection,
 } from "./whatsapp.service";
 import {
+  editStaffMessage as editTelegramStaffMessage,
   sendStaffApprovalRequest as sendTelegramStaffApproval,
   sendVisitorConfirmation as sendTelegramConfirmation,
   sendVisitorRejection as sendTelegramRejection,
@@ -19,6 +20,7 @@ import {
   timeoutQueue,
 } from "../jobs/queue";
 import {
+  ReservationAlreadyProcessedError,
   SlotUnavailableError,
   type CreateReservationInput,
   type ReservationWithVisitor,
@@ -150,16 +152,63 @@ export async function createReservation(input: CreateReservationInput) {
         )
       : Promise.resolve(),
     process.env.TELEGRAM_BOT_TOKEN
-      ? sendTelegramStaffApproval(reservationWithVisitor).catch((err) =>
-          logJobError("reservation", "telegram staff approval hata", {
-            reservationId: result.reservation.id,
-            err: (err as Error).message,
-          }),
-        )
+      ? sendTelegramStaffApproval(reservationWithVisitor)
+          .then(async (refs) => {
+            if (!refs) return;
+            // Mesaj refs'lerini reservation'a yaz: ileride site/telegram/whatsapp
+            // hangi kanaldan onay/red gelirse gelsin, bu mesaji guncellemek icin
+            // gerekli.
+            try {
+              await prisma.reservation.update({
+                where: { id: result.reservation.id },
+                data: {
+                  telegramStaffMessageId: String(refs.messageId),
+                  telegramStaffChatId: refs.chatId,
+                },
+              });
+            } catch (err) {
+              logJobError("reservation", "telegram staff refs persist hata", {
+                reservationId: result.reservation.id,
+                err: (err as Error).message,
+              });
+            }
+          })
+          .catch((err) =>
+            logJobError("reservation", "telegram staff approval hata", {
+              reservationId: result.reservation.id,
+              err: (err as Error).message,
+            }),
+          )
       : Promise.resolve(),
   ]);
 
   return result;
+}
+
+// Yetkili Telegram mesajini guncel duruma getir + butonlari kaldir.
+// reservation icindeki telegramStaffMessageId/ChatId varsa calisir; yoksa no-op.
+// Site/Telegram/WhatsApp hangi kanal status degistirdiyse otomatik senkron.
+async function syncStaffApprovalMessage(
+  reservation: ReservationWithVisitor,
+): Promise<void> {
+  if (!reservation.telegramStaffMessageId || !reservation.telegramStaffChatId) {
+    return;
+  }
+  if (!process.env.TELEGRAM_BOT_TOKEN) return;
+  try {
+    const msgId = Number(reservation.telegramStaffMessageId);
+    if (!Number.isFinite(msgId)) return;
+    await editTelegramStaffMessage(
+      reservation.telegramStaffChatId,
+      msgId,
+      reservation,
+    );
+  } catch (err) {
+    logJobError("reservation", "telegram staff message sync hata", {
+      reservationId: reservation.id,
+      err: (err as Error).message,
+    });
+  }
 }
 
 // Ziyaretciye onay bildirimi (kanal secimi: source/telegramChatId).
@@ -220,15 +269,27 @@ export async function approveReservation(
   reservationId: string,
   staffId: string,
 ) {
-  const updated: ReservationWithVisitor = await prisma.reservation.update({
-    where: { id: reservationId },
-    data: {
-      status: "APPROVED",
-      approvedAt: new Date(),
-      approvedBy: staffId,
+  const updated: ReservationWithVisitor = await prisma.$transaction(
+    async (tx) => {
+      const existing = await tx.reservation.findUnique({
+        where: { id: reservationId },
+        select: { status: true },
+      });
+      if (!existing) throw new Error("Rezervasyon bulunamadi");
+      if (existing.status !== "PENDING_APPROVAL") {
+        throw new ReservationAlreadyProcessedError(existing.status);
+      }
+      return tx.reservation.update({
+        where: { id: reservationId },
+        data: {
+          status: "APPROVED",
+          approvedAt: new Date(),
+          approvedBy: staffId,
+        },
+        include: { visitor: true },
+      });
     },
-    include: { visitor: true },
-  });
+  );
 
   emitAppEvent({
     type: "reservation_updated",
@@ -238,6 +299,9 @@ export async function approveReservation(
   });
 
   await notifyVisitorApproved(updated);
+
+  // Yetkili Telegram mesajini guncelle (kaynak kanal ne olursa olsun).
+  await syncStaffApprovalMessage(updated);
 
   // Approve edildigine gore timeout job'u artik gereksiz - kuyrukta beklemesin.
   await removeJobSafe(timeoutQueue, timeoutJobId(reservationId));
@@ -284,10 +348,13 @@ export async function rejectReservation(
   const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.reservation.findUnique({
       where: { id: reservationId },
-      select: { visitDate: true, durationMinutes: true },
+      select: { status: true, visitDate: true, durationMinutes: true },
     });
     if (!existing) {
       throw new Error("Rezervasyon bulunamadi");
+    }
+    if (existing.status !== "PENDING_APPROVAL") {
+      throw new ReservationAlreadyProcessedError(existing.status);
     }
 
     const updated: ReservationWithVisitor = await tx.reservation.update({
@@ -316,6 +383,9 @@ export async function rejectReservation(
   });
 
   await notifyVisitorRejected(result.reservation, result.alternatives);
+
+  // Yetkili Telegram mesajini guncelle.
+  await syncStaffApprovalMessage(result.reservation);
 
   await Promise.all([
     removeJobSafe(timeoutQueue, timeoutJobId(reservationId)),
