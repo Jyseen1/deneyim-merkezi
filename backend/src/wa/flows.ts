@@ -17,6 +17,13 @@ export const flowJson = {
       data: {
         available_slots: {
           type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              title: { type: "string" },
+            },
+          },
           __example__: [
             { id: "14:00", title: "14:00 - 16:00" },
           ],
@@ -96,10 +103,11 @@ export const flowJson = {
             required: true,
           },
           {
+            // input-type kaldirildi: data model group_size'i string bekliyor.
+            // Backend webhook-handler parseInt ile coerce ediyor.
             type: "TextInput",
             name: "group_size",
             label: "Kişi sayısı",
-            "input-type": "number",
             required: true,
           },
           {

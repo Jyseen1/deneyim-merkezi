@@ -13,6 +13,13 @@
       "data": {
         "available_slots": {
           "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
           "__example__": [
             { "id": "14:00", "title": "14:00 - 16:00" }
           ]
@@ -95,7 +102,6 @@
             "type": "TextInput",
             "name": "group_size",
             "label": "Kişi sayısı",
-            "input-type": "number",
             "required": true
           },
           {
