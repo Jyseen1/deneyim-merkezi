@@ -1,11 +1,14 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { prisma } from "../db/client";
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
+
+const BCRYPT_COST = 10;
 
 const authRoutes: FastifyPluginAsync = async (app) => {
   app.post("/login", async (req, reply) => {
@@ -17,15 +20,10 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const { email, password } = parsed.data;
-    const admin = process.env.ADMIN_PASSWORD;
-    if (!admin) {
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminPassword) {
       req.log.error("ADMIN_PASSWORD tanimli degil");
       return reply.code(500).send({ error: "server_misconfigured" });
-    }
-
-    // TODO: Production'da bcrypt + Staff tablosunda hash'lenmis sifreye gec.
-    if (password !== admin) {
-      return reply.code(401).send({ error: "Geçersiz e-posta veya şifre" });
     }
 
     const staff = await prisma.staff.findUnique({ where: { email } });
@@ -34,6 +32,27 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       if (!staff.isActive) {
         return reply.code(403).send({ error: "Hesap pasif" });
       }
+
+      let ok = false;
+      if (staff.passwordHash) {
+        ok = await bcrypt.compare(password, staff.passwordHash);
+      } else {
+        // Legacy: passwordHash henuz yok. Sadece ADMIN_PASSWORD ile karsilastir,
+        // eslesirse lazy migration ile hash'le ve sakla.
+        if (password === adminPassword) {
+          const hash = await bcrypt.hash(password, BCRYPT_COST);
+          await prisma.staff.update({
+            where: { id: staff.id },
+            data: { passwordHash: hash },
+          });
+          ok = true;
+        }
+      }
+
+      if (!ok) {
+        return reply.code(401).send({ error: "Geçersiz e-posta veya şifre" });
+      }
+
       const token = app.jwt.sign({
         id: staff.id,
         email: staff.email,
@@ -50,10 +69,13 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       });
     }
 
-    // Staff tablosunda yok — ADMIN_EMAIL ile sabit fallback (henuz seed
-    // edilmemis kurulumlarda dashboard'un bootstrap olabilmesi icin).
+    // Staff tablosunda yok — ADMIN_EMAIL + ADMIN_PASSWORD fallback (bootstrap).
     const adminEmail = process.env.ADMIN_EMAIL;
-    if (adminEmail && email.toLowerCase() === adminEmail.toLowerCase()) {
+    if (
+      adminEmail &&
+      email.toLowerCase() === adminEmail.toLowerCase() &&
+      password === adminPassword
+    ) {
       const token = app.jwt.sign({
         id: "admin",
         email: adminEmail,

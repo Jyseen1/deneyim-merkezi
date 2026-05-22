@@ -1,0 +1,160 @@
+import type { FastifyPluginAsync } from "fastify";
+import { z } from "zod";
+import bcrypt from "bcryptjs";
+import { prisma } from "../db/client";
+import { verifyJWT } from "../middleware/auth";
+import { requireAdmin } from "../middleware/requireAdmin";
+
+const BCRYPT_COST = 10;
+
+const createSchema = z.object({
+  name: z.string().min(1).max(120),
+  email: z.string().email(),
+  waPhone: z.string().min(5).max(32),
+  password: z.string().min(6).max(128),
+  role: z.enum(["admin", "staff"]).default("staff"),
+});
+
+const updateSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  email: z.string().email().optional(),
+  waPhone: z.string().min(5).max(32).optional(),
+  password: z.string().min(6).max(128).optional(),
+  role: z.enum(["admin", "staff"]).optional(),
+  isActive: z.boolean().optional(),
+});
+
+function publicView(s: {
+  id: string;
+  name: string;
+  email: string;
+  waPhone: string;
+  role: string;
+  isActive: boolean;
+}) {
+  return s; // passwordHash select edilmedigi icin zaten dahil degil
+}
+
+const staffRoutes: FastifyPluginAsync = async (app) => {
+  // Tum staff endpoint'leri JWT gerekir; mutasyonlar (POST/PATCH/DELETE) admin gerektirir.
+  app.get(
+    "/",
+    { preHandler: verifyJWT },
+    async (_req, reply) => {
+      const list = await prisma.staff.findMany({
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          waPhone: true,
+          role: true,
+          isActive: true,
+        },
+      });
+      return reply.send({ items: list.map(publicView) });
+    },
+  );
+
+  app.post(
+    "/",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => {
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send({ error: "validation_failed", details: parsed.error.flatten() });
+      }
+      const { name, email, waPhone, password, role } = parsed.data;
+      const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
+      try {
+        const created = await prisma.staff.create({
+          data: { name, email, waPhone, role, passwordHash, isActive: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            waPhone: true,
+            role: true,
+            isActive: true,
+          },
+        });
+        return reply.code(201).send(publicView(created));
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        if (code === "P2002") {
+          return reply
+            .code(409)
+            .send({ error: "Bu e-posta veya telefon zaten kayıtlı" });
+        }
+        req.log.error({ err }, "staff create hata");
+        return reply.code(500).send({ error: "internal_error" });
+      }
+    },
+  );
+
+  app.patch<{ Params: { id: string } }>(
+    "/:id",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => {
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send({ error: "validation_failed", details: parsed.error.flatten() });
+      }
+      const data: Record<string, unknown> = { ...parsed.data };
+      if (parsed.data.password) {
+        data.passwordHash = await bcrypt.hash(parsed.data.password, BCRYPT_COST);
+        delete data.password;
+      }
+      try {
+        const updated = await prisma.staff.update({
+          where: { id: req.params.id },
+          data,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            waPhone: true,
+            role: true,
+            isActive: true,
+          },
+        });
+        return reply.send(publicView(updated));
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        if (code === "P2025") return reply.code(404).send({ error: "not_found" });
+        if (code === "P2002")
+          return reply
+            .code(409)
+            .send({ error: "Bu e-posta veya telefon zaten kayıtlı" });
+        req.log.error({ err }, "staff update hata");
+        return reply.code(500).send({ error: "internal_error" });
+      }
+    },
+  );
+
+  // Soft delete: isActive=false
+  app.delete<{ Params: { id: string } }>(
+    "/:id",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => {
+      try {
+        await prisma.staff.update({
+          where: { id: req.params.id },
+          data: { isActive: false },
+        });
+        return reply.code(204).send();
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        if (code === "P2025") return reply.code(404).send({ error: "not_found" });
+        req.log.error({ err }, "staff soft delete hata");
+        return reply.code(500).send({ error: "internal_error" });
+      }
+    },
+  );
+};
+
+export default staffRoutes;

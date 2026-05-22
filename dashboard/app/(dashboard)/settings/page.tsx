@@ -6,71 +6,116 @@ import { useToast } from "@/hooks/useToast";
 import { ToastViewport } from "@/components/ToastViewport";
 import { useBackendToken } from "@/hooks/useBackendToken";
 
-type Health = { status?: string; env?: string };
+type Settings = {
+  id: string;
+  staffWaPhone: string | null;
+  approvalEnabled: boolean;
+  reminderEnabled: boolean;
+  defaultDuration: number;
+  approvalTimeout: number;
+  workStart: string;
+  workEnd: string;
+  reminderHours: number;
+};
+
+type Health = { status?: string };
 
 export default function SettingsPage() {
   const { toasts, show, dismiss } = useToast();
   const token = useBackendToken();
 
-  // WA
-  const [waPhone, setWaPhone] = useState("+90");
-  const [waApprovalNotif, setWaApprovalNotif] = useState(true);
-  const [waReminderNotif, setWaReminderNotif] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [s, setS] = useState<Settings | null>(null);
 
-  // Rezervasyon
-  const [defaultDuration, setDefaultDuration] = useState(120);
-  const [approvalTimeout, setApprovalTimeout] = useState(2);
-  const [workStart, setWorkStart] = useState("09:00");
-  const [workEnd, setWorkEnd] = useState("19:00");
-  const [reminderBefore, setReminderBefore] = useState(24);
-
-  // Sistem bilgisi
-  const [waConnected, setWaConnected] = useState<boolean | null>(null);
   const [savingWa, setSavingWa] = useState(false);
   const [savingRes, setSavingRes] = useState(false);
   const [testing, setTesting] = useState(false);
 
+  const [waConnected, setWaConnected] = useState<boolean | null>(null);
+
+  // Health check (canli/degil)
   useEffect(() => {
-    apiFetch<Health>("/../health" as any)
-      .catch(async () => {
-        // /api/v1 prefix yok - manuel fetch
-        try {
-          const base =
-            process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-          const res = await fetch(`${base}/health`);
-          return res.ok ? ((await res.json()) as Health) : null;
-        } catch {
-          return null;
-        }
-      })
-      .then((r) => setWaConnected(Boolean(r && r.status === "ok")))
+    const base =
+      process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+    fetch(`${base}/health`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: Health | null) => setWaConnected(Boolean(d && d.status === "ok")))
       .catch(() => setWaConnected(false));
   }, []);
 
-  async function saveWa() {
-    setSavingWa(true);
+  // Mevcut ayarlari getir
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    setLoading(true);
+    apiFetch<Settings>("/settings", {}, token)
+      .then((data) => {
+        if (!cancelled) setS(data);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          show(
+            `Ayarlar yüklenemedi: ${e instanceof ApiError ? e.message : (e as Error).message}`,
+            "error",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, show]);
+
+  function update<K extends keyof Settings>(key: K, value: Settings[K]) {
+    setS((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
+
+  async function persist(partial: Partial<Settings>, label: string, setBusy: (v: boolean) => void) {
+    setBusy(true);
     try {
-      // TODO: POST /api/v1/settings/whatsapp ile gercek kayit
-      await new Promise((r) => setTimeout(r, 400));
-      show("WhatsApp ayarları kaydedildi", "success");
-    } catch {
-      show("Kaydedilemedi", "error");
+      const updated = await apiFetch<Settings>(
+        "/settings",
+        { method: "PUT", body: JSON.stringify(partial) },
+        token,
+      );
+      setS(updated);
+      show(`${label} kaydedildi`, "success");
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : (e as Error).message;
+      show(`Kaydedilemedi: ${msg}`, "error");
     } finally {
-      setSavingWa(false);
+      setBusy(false);
     }
   }
 
-  async function saveReservation() {
-    setSavingRes(true);
-    try {
-      // TODO: POST /api/v1/settings/reservation
-      await new Promise((r) => setTimeout(r, 400));
-      show("Rezervasyon ayarları kaydedildi", "success");
-    } catch {
-      show("Kaydedilemedi", "error");
-    } finally {
-      setSavingRes(false);
-    }
+  function saveWa() {
+    if (!s) return;
+    return persist(
+      {
+        staffWaPhone: s.staffWaPhone,
+        approvalEnabled: s.approvalEnabled,
+        reminderEnabled: s.reminderEnabled,
+      },
+      "WhatsApp ayarları",
+      setSavingWa,
+    );
+  }
+
+  function saveReservation() {
+    if (!s) return;
+    return persist(
+      {
+        defaultDuration: s.defaultDuration,
+        approvalTimeout: s.approvalTimeout,
+        workStart: s.workStart,
+        workEnd: s.workEnd,
+        reminderHours: s.reminderHours,
+      },
+      "Rezervasyon ayarları",
+      setSavingRes,
+    );
   }
 
   async function sendTest() {
@@ -79,7 +124,6 @@ export default function SettingsPage() {
       await apiFetch("/whatsapp/test", { method: "POST" }, token);
       show("Test mesajı gönderildi", "success");
     } catch (e) {
-      // Endpoint henuz yoksa kullaniciya bilgilendirici mesaj
       if (e instanceof ApiError && e.status === 404) {
         show("Test endpoint'i henüz hazır değil (mock)", "error");
       } else {
@@ -111,115 +155,132 @@ export default function SettingsPage() {
 
       {/* A) WhatsApp */}
       <Section title="WhatsApp Ayarları" fadeClass="fade-up-1">
-        <Field label="Yetkili WhatsApp numarası">
-          <input
-            type="text"
-            value={waPhone}
-            onChange={(e) => setWaPhone(e.target.value)}
-            placeholder="+90..."
-            style={inputStyle()}
-          />
-        </Field>
-        <Toggle
-          label="Onay bildirimi aktif"
-          desc="Yeni rezervasyonlarda yetkiliye WA mesajı gönderilsin."
-          value={waApprovalNotif}
-          onChange={setWaApprovalNotif}
-        />
-        <Toggle
-          label="Hatırlatma bildirimi aktif"
-          desc="Ziyaretten 24 saat önce ziyaretçiye hatırlatma mesajı."
-          value={waReminderNotif}
-          onChange={setWaReminderNotif}
-        />
-        <Note>
-          WA_ACCESS_TOKEN ve diğer API bilgileri sunucu tarafında <code>.env</code> dosyasından okunur.
-        </Note>
-        <Action onClick={saveWa} loading={savingWa} label="Kaydet" />
+        {loading || !s ? (
+          <ShimmerForm rows={3} />
+        ) : (
+          <>
+            <Field label="Yetkili WhatsApp numarası">
+              <input
+                type="text"
+                value={s.staffWaPhone ?? ""}
+                onChange={(e) => update("staffWaPhone", e.target.value || null)}
+                placeholder="+90..."
+                style={inputStyle()}
+              />
+            </Field>
+            <Toggle
+              label="Onay bildirimi aktif"
+              desc="Yeni rezervasyonlarda yetkiliye WA mesajı gönderilsin."
+              value={s.approvalEnabled}
+              onChange={(v) => update("approvalEnabled", v)}
+            />
+            <Toggle
+              label="Hatırlatma bildirimi aktif"
+              desc="Ziyaretten 24 saat önce ziyaretçiye hatırlatma mesajı."
+              value={s.reminderEnabled}
+              onChange={(v) => update("reminderEnabled", v)}
+            />
+            <Note>
+              WA_ACCESS_TOKEN ve diğer API bilgileri sunucu tarafında{" "}
+              <code>.env</code> dosyasından okunur.
+            </Note>
+            <Action onClick={saveWa} loading={savingWa} label="Kaydet" />
+          </>
+        )}
       </Section>
 
       {/* B) Rezervasyon */}
       <Section title="Rezervasyon Ayarları" fadeClass="fade-up-2">
-        <Row2>
-          <Field label="Varsayılan süre">
-            <select
-              value={defaultDuration}
-              onChange={(e) => setDefaultDuration(Number(e.target.value))}
-              style={inputStyle()}
-            >
-              {[60, 90, 120, 150, 180].map((d) => (
-                <option key={d} value={d}>
-                  {d} dk
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Onay timeout süresi">
-            <select
-              value={approvalTimeout}
-              onChange={(e) => setApprovalTimeout(Number(e.target.value))}
-              style={inputStyle()}
-            >
-              {[1, 2, 4, 8].map((h) => (
-                <option key={h} value={h}>
-                  {h} saat
-                </option>
-              ))}
-            </select>
-          </Field>
-        </Row2>
-        <Row2>
-          <Field label="Çalışma saatleri (başlangıç)">
-            <select
-              value={workStart}
-              onChange={(e) => setWorkStart(e.target.value)}
-              style={inputStyle()}
-            >
-              {["08:00", "09:00", "10:00"].map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Çalışma saatleri (bitiş)">
-            <select
-              value={workEnd}
-              onChange={(e) => setWorkEnd(e.target.value)}
-              style={inputStyle()}
-            >
-              {["17:00", "18:00", "19:00", "20:00"].map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </Row2>
-        <Field label="Hatırlatma (kaç saat önce)">
-          <select
-            value={reminderBefore}
-            onChange={(e) => setReminderBefore(Number(e.target.value))}
-            style={inputStyle()}
-          >
-            {[12, 24, 48].map((h) => (
-              <option key={h} value={h}>
-                {h} saat
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Action onClick={saveReservation} loading={savingRes} label="Kaydet" />
+        {loading || !s ? (
+          <ShimmerForm rows={4} />
+        ) : (
+          <>
+            <Row2>
+              <Field label="Varsayılan süre">
+                <select
+                  value={s.defaultDuration}
+                  onChange={(e) =>
+                    update("defaultDuration", Number(e.target.value))
+                  }
+                  style={inputStyle()}
+                >
+                  {[60, 90, 120, 150, 180].map((d) => (
+                    <option key={d} value={d}>
+                      {d} dk
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Onay timeout süresi">
+                <select
+                  value={s.approvalTimeout}
+                  onChange={(e) =>
+                    update("approvalTimeout", Number(e.target.value))
+                  }
+                  style={inputStyle()}
+                >
+                  {[1, 2, 4, 8].map((h) => (
+                    <option key={h} value={h}>
+                      {h} saat
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </Row2>
+            <Row2>
+              <Field label="Çalışma saatleri (başlangıç)">
+                <select
+                  value={s.workStart}
+                  onChange={(e) => update("workStart", e.target.value)}
+                  style={inputStyle()}
+                >
+                  {["08:00", "09:00", "10:00"].map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Çalışma saatleri (bitiş)">
+                <select
+                  value={s.workEnd}
+                  onChange={(e) => update("workEnd", e.target.value)}
+                  style={inputStyle()}
+                >
+                  {["17:00", "18:00", "19:00", "20:00"].map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </Row2>
+            <Field label="Hatırlatma (kaç saat önce)">
+              <select
+                value={s.reminderHours}
+                onChange={(e) => update("reminderHours", Number(e.target.value))}
+                style={inputStyle()}
+              >
+                {[12, 24, 48].map((h) => (
+                  <option key={h} value={h}>
+                    {h} saat
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Action
+              onClick={saveReservation}
+              loading={savingRes}
+              label="Kaydet"
+            />
+          </>
+        )}
       </Section>
 
       {/* C) Bildirim testi */}
       <Section title="Bildirim Testi" fadeClass="fade-up-3">
         <p
-          style={{
-            fontSize: "13px",
-            color: "#1e1b4b",
-            margin: "0 0 12px",
-          }}
+          style={{ fontSize: "13px", color: "#1e1b4b", margin: "0 0 12px" }}
         >
           Yapılandırılan WhatsApp ayarlarını test etmek için yetkili numaraya bir test mesajı gönderir.
         </p>
@@ -338,10 +399,7 @@ function Field({
 
 function Row2({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="grid grid-cols-1 md:grid-cols-2"
-      style={{ gap: "12px" }}
-    >
+    <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "12px" }}>
       {children}
     </div>
   );
@@ -437,7 +495,9 @@ function Action({
   label: string;
 }) {
   return (
-    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "6px" }}>
+    <div
+      style={{ display: "flex", justifyContent: "flex-end", marginTop: "6px" }}
+    >
       <button
         type="button"
         className="btn-primary"
@@ -497,6 +557,25 @@ function InfoRow({
     >
       <span style={{ fontSize: "12px", color: "#818cf8" }}>{label}</span>
       <span style={{ fontSize: "13px", color, fontWeight: 500 }}>{value}</span>
+    </div>
+  );
+}
+
+function ShimmerForm({ rows }: { rows: number }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i}>
+          <div
+            className="shimmer"
+            style={{ height: "10px", width: "120px", borderRadius: "4px", marginBottom: "8px" }}
+          />
+          <div
+            className="shimmer"
+            style={{ height: "36px", width: "100%", borderRadius: "10px" }}
+          />
+        </div>
+      ))}
     </div>
   );
 }

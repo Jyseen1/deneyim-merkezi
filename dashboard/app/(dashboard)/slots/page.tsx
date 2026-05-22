@@ -1,49 +1,40 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { formatTrLongDate, toLocalIso, TR_DAYS_SHORT_MON } from "@/lib/date";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { apiFetch, ApiError } from "@/lib/api";
+import {
+  formatTrLongDate,
+  toLocalIso,
+  TR_DAYS_SHORT_MON,
+} from "@/lib/date";
+import { useBackendToken } from "@/hooks/useBackendToken";
+import { useToast } from "@/hooks/useToast";
+import { ToastViewport } from "@/components/ToastViewport";
 
-// TODO: Backend'e baglandiginda buradan kaldirilacak; simdilik mock.
 type SlotStatus = "available" | "booked" | "pending" | "closed";
 
 type Slot = {
-  start: string;
-  end: string;
+  startTime: string;
+  endTime: string;
   status: SlotStatus;
   label?: string;
-  reason?: string;
+  reservationId?: string;
+  blockId?: string;
 };
 
-const SLOT_TIMES: { start: string; end: string }[] = [
-  { start: "09:00", end: "11:00" },
-  { start: "11:00", end: "13:00" },
-  { start: "13:00", end: "15:00" },
-  { start: "15:00", end: "17:00" },
-  { start: "17:00", end: "19:00" },
-];
-
-function mockSlotsForDate(_dateISO: string): Slot[] {
-  // Tamamen deterministik mock: gercek veri yok.
-  return [
-    { start: "09:00", end: "11:00", status: "available" },
-    { start: "11:00", end: "13:00", status: "booked", label: "Demir Ailesi" },
-    { start: "13:00", end: "15:00", status: "pending", label: "Yılmaz Grubu" },
-    { start: "15:00", end: "17:00", status: "available" },
-    {
-      start: "17:00",
-      end: "19:00",
-      status: "closed",
-      reason: "Bakım",
-    },
-  ];
-}
+type SlotsResp = { date: string; slots: Slot[] };
 
 const CLOSE_REASONS = ["Bakım", "Özel Etkinlik", "Dolu", "Diğer"];
 
 export default function SlotsPage() {
+  const token = useBackendToken();
+  const { toasts, show, dismiss } = useToast();
+
   const [dateISO, setDateISO] = useState(toLocalIso(new Date()));
   const [weekView, setWeekView] = useState(false);
-  const [slots, setSlots] = useState<Slot[]>(mockSlotsForDate(dateISO));
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyIdx, setBusyIdx] = useState<number | null>(null);
 
   const [modal, setModal] = useState<{
     slotIndex: number;
@@ -51,48 +42,97 @@ export default function SlotsPage() {
     note: string;
   } | null>(null);
 
-  const selectedDate = useMemo(() => new Date(`${dateISO}T00:00:00`), [dateISO]);
+  const selectedDate = useMemo(
+    () => new Date(`${dateISO}T00:00:00`),
+    [dateISO],
+  );
   const longDate = formatTrLongDate(selectedDate);
 
-  function refreshForDate(iso: string) {
-    setDateISO(iso);
-    setSlots(mockSlotsForDate(iso));
-  }
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const res = await apiFetch<SlotsResp>(
+        `/dashboard/slots?date=${dateISO}`,
+        {},
+        token,
+      );
+      setSlots(res.slots);
+    } catch (e) {
+      show(
+        `Slotlar yüklenemedi: ${e instanceof ApiError ? e.message : (e as Error).message}`,
+        "error",
+      );
+      setSlots([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [dateISO, token, show]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   function openClose(idx: number) {
     setModal({ slotIndex: idx, selectedReason: CLOSE_REASONS[0], note: "" });
   }
 
-  function confirmClose() {
+  async function confirmClose() {
     if (!modal) return;
-    setSlots((prev) =>
-      prev.map((s, i) =>
-        i === modal.slotIndex
-          ? {
-              ...s,
-              status: "closed",
-              reason:
-                modal.selectedReason === "Diğer"
-                  ? modal.note.trim() || "Diğer"
-                  : modal.selectedReason,
-            }
-          : s,
-      ),
-    );
-    setModal(null);
+    const slot = slots[modal.slotIndex];
+    if (!slot) return;
+    const reason =
+      modal.selectedReason === "Diğer"
+        ? modal.note.trim() || "Diğer"
+        : modal.selectedReason;
+    setBusyIdx(modal.slotIndex);
+    try {
+      await apiFetch(
+        "/slots/block",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            date: dateISO,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            reason,
+          }),
+        },
+        token,
+      );
+      setModal(null);
+      show("Slot kapatıldı", "success");
+      await load();
+    } catch (e) {
+      show(
+        `Kapatılamadı: ${e instanceof ApiError ? e.message : (e as Error).message}`,
+        "error",
+      );
+    } finally {
+      setBusyIdx(null);
+    }
   }
 
-  function reopen(idx: number) {
-    setSlots((prev) =>
-      prev.map((s, i) =>
-        i === idx ? { ...s, status: "available", reason: undefined } : s,
-      ),
-    );
+  async function reopen(idx: number) {
+    const slot = slots[idx];
+    if (!slot?.blockId) return;
+    setBusyIdx(idx);
+    try {
+      await apiFetch(`/slots/block/${slot.blockId}`, { method: "DELETE" }, token);
+      show("Slot açıldı", "success");
+      await load();
+    } catch (e) {
+      show(
+        `Açılamadı: ${e instanceof ApiError ? e.message : (e as Error).message}`,
+        "error",
+      );
+    } finally {
+      setBusyIdx(null);
+    }
   }
 
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
-      {/* Header */}
       <div
         className="fade-up"
         style={{
@@ -116,13 +156,7 @@ export default function SlotsPage() {
           >
             Slot Yönetimi
           </h1>
-          <p
-            style={{
-              fontSize: "13px",
-              color: "#818cf8",
-              margin: "4px 0 0",
-            }}
-          >
+          <p style={{ fontSize: "13px", color: "#818cf8", margin: "4px 0 0" }}>
             Günlük slot durumunu yönetin, kapatma kuralları ekleyin.
           </p>
         </div>
@@ -138,7 +172,7 @@ export default function SlotsPage() {
           <input
             type="date"
             value={dateISO}
-            onChange={(e) => refreshForDate(e.target.value)}
+            onChange={(e) => setDateISO(e.target.value)}
             style={{
               background: "rgba(255,255,255,0.7)",
               border: "1px solid rgba(209,196,255,0.6)",
@@ -155,7 +189,9 @@ export default function SlotsPage() {
             onClick={() => setWeekView((v) => !v)}
             style={{
               background: weekView ? "#4338ca" : "rgba(255,255,255,0.7)",
-              border: weekView ? "1px solid #4338ca" : "1px solid rgba(209,196,255,0.6)",
+              border: weekView
+                ? "1px solid #4338ca"
+                : "1px solid rgba(209,196,255,0.6)",
               borderRadius: "99px",
               padding: "7px 16px",
               fontSize: "12px",
@@ -170,7 +206,6 @@ export default function SlotsPage() {
         </div>
       </div>
 
-      {/* Hizli eylemler */}
       <div
         className="glass fade-up fade-up-1"
         style={{
@@ -198,45 +233,45 @@ export default function SlotsPage() {
           icon={<CloseIcon />}
           label="Gün Kapat"
           tone="danger"
-          // eslint-disable-next-line no-alert
-          onClick={() => alert("Gün kapatma henüz bağlanmadı (mock).")}
+          onClick={() => show("Gün kapatma yakında", "error")}
         />
         <ActionButton
           icon={<RepeatIcon />}
           label="Tekrarlayan Kural"
-          // eslint-disable-next-line no-alert
-          onClick={() => alert("Tekrarlayan kural ekranı yakında.")}
+          onClick={() => show("Tekrarlayan kural ekranı yakında", "error")}
         />
         <ActionButton
           icon={<GiftIcon />}
           label="Tatil Ekle"
-          // eslint-disable-next-line no-alert
-          onClick={() => alert("Tatil tanımlama yakında.")}
+          onClick={() => show("Tatil tanımlama yakında", "error")}
         />
       </div>
 
-      {/* Slot grid */}
       {weekView ? (
         <WeekView selectedISO={dateISO} />
       ) : (
         <SingleDayView
           slots={slots}
+          loading={loading}
           longDate={longDate}
+          busyIdx={busyIdx}
           onClose={openClose}
           onReopen={reopen}
         />
       )}
 
-      {/* Close modal */}
       {modal && (
         <CloseModal
           slot={slots[modal.slotIndex]}
           state={modal}
+          busy={busyIdx === modal.slotIndex}
           onUpdate={(s) => setModal(s)}
           onCancel={() => setModal(null)}
           onConfirm={confirmClose}
         />
       )}
+
+      <ToastViewport toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }
@@ -257,7 +292,8 @@ function ActionButton({
       type="button"
       onClick={onClick}
       style={{
-        background: tone === "danger" ? "rgba(239,68,68,0.08)" : "rgba(67,56,202,0.08)",
+        background:
+          tone === "danger" ? "rgba(239,68,68,0.08)" : "rgba(67,56,202,0.08)",
         border: `1px solid ${tone === "danger" ? "rgba(239,68,68,0.3)" : "#ede9fe"}`,
         color: tone === "danger" ? "#ef4444" : "#4338ca",
         borderRadius: "99px",
@@ -279,12 +315,16 @@ function ActionButton({
 
 function SingleDayView({
   slots,
+  loading,
   longDate,
+  busyIdx,
   onClose,
   onReopen,
 }: {
   slots: Slot[];
+  loading: boolean;
   longDate: string;
+  busyIdx: number | null;
   onClose: (idx: number) => void;
   onReopen: (idx: number) => void;
 }) {
@@ -301,23 +341,56 @@ function SingleDayView({
         }}
       >
         <div>
-          <div style={{ fontSize: "14px", fontWeight: 600, color: "#1e1b4b" }}>
+          <div
+            style={{ fontSize: "14px", fontWeight: 600, color: "#1e1b4b" }}
+          >
             {longDate}
           </div>
-          <div style={{ fontSize: "11px", color: "#818cf8", marginTop: "2px" }}>
+          <div
+            style={{ fontSize: "11px", color: "#818cf8", marginTop: "2px" }}
+          >
             09:00 – 19:00 · 2 saatlik slotlar
           </div>
         </div>
       </div>
       <div>
-        {slots.map((s, i) => (
-          <SlotRow
-            key={i}
-            slot={s}
-            onClose={() => onClose(i)}
-            onReopen={() => onReopen(i)}
-          />
-        ))}
+        {loading
+          ? Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={`sk-${i}`}
+                style={{
+                  padding: "14px 20px",
+                  borderBottom: "1px solid rgba(209,196,255,0.4)",
+                }}
+              >
+                <div
+                  className="shimmer"
+                  style={{ height: "20px", width: "70%", borderRadius: "6px" }}
+                />
+              </div>
+            ))
+          : slots.length === 0
+          ? (
+              <div
+                style={{
+                  padding: "32px 16px",
+                  textAlign: "center",
+                  color: "#a5b4fc",
+                  fontSize: "13px",
+                }}
+              >
+                Slot bulunamadı.
+              </div>
+            )
+          : slots.map((s, i) => (
+              <SlotRow
+                key={`${s.startTime}-${i}`}
+                slot={s}
+                busy={busyIdx === i}
+                onClose={() => onClose(i)}
+                onReopen={() => onReopen(i)}
+              />
+            ))}
       </div>
     </div>
   );
@@ -325,10 +398,12 @@ function SingleDayView({
 
 function SlotRow({
   slot,
+  busy,
   onClose,
   onReopen,
 }: {
   slot: Slot;
+  busy: boolean;
   onClose: () => void;
   onReopen: () => void;
 }) {
@@ -342,7 +417,6 @@ function SlotRow({
         borderBottom: "1px solid rgba(209,196,255,0.4)",
       }}
     >
-      {/* Saat */}
       <div
         style={{
           fontSize: "13px",
@@ -352,29 +426,29 @@ function SlotRow({
           flexShrink: 0,
         }}
       >
-        {slot.start} – {slot.end}
+        {slot.startTime} – {slot.endTime}
       </div>
 
-      {/* Durum */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <SlotStatusBar slot={slot} />
       </div>
 
-      {/* Aksiyon */}
       <div style={{ flexShrink: 0 }}>
         {slot.status === "available" && (
           <button
             onClick={onClose}
+            disabled={busy}
             className="btn-ghost"
             style={{ padding: "6px 14px", fontSize: "12px" }}
           >
-            Kapat
+            {busy ? "..." : "Kapat"}
           </button>
         )}
         {slot.status === "closed" && (
           <button
             type="button"
             onClick={onReopen}
+            disabled={busy}
             style={{
               padding: "6px 14px",
               fontSize: "12px",
@@ -383,10 +457,12 @@ function SlotRow({
               border: "1px solid #ede9fe",
               borderRadius: "99px",
               color: "#a5b4fc",
-              cursor: "pointer",
+              cursor: busy ? "not-allowed" : "pointer",
+              opacity: busy ? 0.5 : 1,
               transition: "all 0.15s ease",
             }}
             onMouseOver={(e) => {
+              if (busy) return;
               e.currentTarget.style.borderColor = "#a7f3d0";
               e.currentTarget.style.color = "#059669";
             }}
@@ -395,13 +471,12 @@ function SlotRow({
               e.currentTarget.style.color = "#a5b4fc";
             }}
           >
-            Aç
+            {busy ? "..." : "Aç"}
           </button>
         )}
         {(slot.status === "booked" || slot.status === "pending") && (
           <button
             type="button"
-            // eslint-disable-next-line no-alert
             onClick={() => alert("Detay görünümü yakında.")}
             style={{
               padding: "6px 14px",
@@ -436,7 +511,9 @@ function SlotStatusBar({ slot }: { slot: Slot }) {
               flexShrink: 0,
             }}
           />
-          <span style={{ fontSize: "13px", color: "#059669", fontWeight: 500 }}>
+          <span
+            style={{ fontSize: "13px", color: "#059669", fontWeight: 500 }}
+          >
             Müsait
           </span>
         </div>
@@ -476,11 +553,15 @@ function SlotStatusBar({ slot }: { slot: Slot }) {
               boxShadow: "0 0 0 3px rgba(251,191,36,0.25)",
             }}
           />
-          <span style={{ fontSize: "13px", color: "#92400e", fontWeight: 500 }}>
+          <span
+            style={{ fontSize: "13px", color: "#92400e", fontWeight: 500 }}
+          >
             Onay bekliyor
           </span>
           {slot.label && (
-            <span style={{ fontSize: "12px", color: "#a5b4fc" }}>· {slot.label}</span>
+            <span style={{ fontSize: "12px", color: "#a5b4fc" }}>
+              · {slot.label}
+            </span>
           )}
         </div>
       );
@@ -504,11 +585,15 @@ function SlotStatusBar({ slot }: { slot: Slot }) {
           >
             ×
           </span>
-          <span style={{ fontSize: "13px", color: "#ef4444", fontWeight: 500 }}>
+          <span
+            style={{ fontSize: "13px", color: "#ef4444", fontWeight: 500 }}
+          >
             Kapalı
           </span>
-          {slot.reason && (
-            <span style={{ fontSize: "12px", color: "#a5b4fc" }}>· {slot.reason}</span>
+          {slot.label && (
+            <span style={{ fontSize: "12px", color: "#a5b4fc" }}>
+              · {slot.label}
+            </span>
           )}
         </div>
       );
@@ -528,49 +613,26 @@ function WeekView({ selectedISO }: { selectedISO: string }) {
     return d;
   });
 
-  // Her gun icin mock slot durumu (sadece gorsel).
-  function visualFor(dayIdx: number, slotIdx: number): SlotStatus {
-    const pattern: SlotStatus[][] = [
-      ["available", "booked", "available", "available", "closed"], // Pzt
-      ["booked", "available", "pending", "booked", "available"],   // Sal
-      ["available", "booked", "booked", "pending", "available"],   // Çar
-      ["pending", "available", "booked", "available", "closed"],   // Per
-      ["booked", "booked", "pending", "available", "available"],   // Cum
-      ["available", "pending", "available", "booked", "booked"],   // Cmt
-      ["closed", "closed", "closed", "closed", "closed"],          // Paz
-    ];
-    return pattern[dayIdx]?.[slotIdx] ?? "available";
-  }
-
-  function bgFor(s: SlotStatus): string {
-    switch (s) {
-      case "booked":
-        return "#4338ca";
-      case "pending":
-        return "#fbbf24";
-      case "closed":
-        return "rgba(239,68,68,0.15)";
-      case "available":
-      default:
-        return "rgba(255,255,255,0.6)";
-    }
-  }
-  function borderFor(s: SlotStatus): string {
-    switch (s) {
-      case "booked":
-        return "#4338ca";
-      case "pending":
-        return "#f59e0b";
-      case "closed":
-        return "rgba(239,68,68,0.3)";
-      case "available":
-      default:
-        return "#c4b5fd";
-    }
-  }
+  const SLOT_TIMES: { start: string; end: string }[] = [
+    { start: "09:00", end: "11:00" },
+    { start: "11:00", end: "13:00" },
+    { start: "13:00", end: "15:00" },
+    { start: "15:00", end: "17:00" },
+    { start: "17:00", end: "19:00" },
+  ];
 
   return (
     <div className="glass fade-up fade-up-2" style={{ padding: "16px 18px" }}>
+      <div
+        style={{
+          fontSize: "12px",
+          color: "#a5b4fc",
+          marginBottom: "10px",
+          textAlign: "center",
+        }}
+      >
+        Hafta görünümü gerçek verisi yakında — şimdilik şablon.
+      </div>
       <div
         style={{
           display: "grid",
@@ -591,7 +653,9 @@ function WeekView({ selectedISO }: { selectedISO: string }) {
             }}
           >
             <div>{TR_DAYS_SHORT_MON[i]}</div>
-            <div style={{ color: "#1e1b4b", marginTop: "2px" }}>{d.getDate()}</div>
+            <div style={{ color: "#1e1b4b", marginTop: "2px" }}>
+              {d.getDate()}
+            </div>
           </div>
         ))}
       </div>
@@ -616,55 +680,19 @@ function WeekView({ selectedISO }: { selectedISO: string }) {
           >
             {row.start}
           </div>
-          {days.map((_, dayIdx) => {
-            const s = visualFor(dayIdx, slotIdx);
-            return (
-              <div
-                key={dayIdx}
-                style={{
-                  background: bgFor(s),
-                  border: `1px solid ${borderFor(s)}`,
-                  borderRadius: "8px",
-                  height: "34px",
-                }}
-                title={s}
-              />
-            );
-          })}
+          {days.map((_, dayIdx) => (
+            <div
+              key={dayIdx}
+              style={{
+                background: "rgba(255,255,255,0.5)",
+                border: "1px solid #c4b5fd",
+                borderRadius: "8px",
+                height: "34px",
+              }}
+            />
+          ))}
         </div>
       ))}
-
-      <div style={{ display: "flex", gap: "14px", marginTop: "12px", fontSize: "11px", color: "#818cf8" }}>
-        <Legend color="#4338ca" label="Dolu" />
-        <Legend color="#fbbf24" label="Bekliyor" />
-        <Legend color="#c4b5fd" label="Müsait" outline />
-        <Legend color="#ef4444" label="Kapalı" outline />
-      </div>
-    </div>
-  );
-}
-
-function Legend({
-  color,
-  label,
-  outline,
-}: {
-  color: string;
-  label: string;
-  outline?: boolean;
-}) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-      <span
-        style={{
-          width: "10px",
-          height: "10px",
-          borderRadius: "3px",
-          background: outline ? "transparent" : color,
-          border: `1.5px solid ${color}`,
-        }}
-      />
-      <span>{label}</span>
     </div>
   );
 }
@@ -672,12 +700,14 @@ function Legend({
 function CloseModal({
   slot,
   state,
+  busy,
   onUpdate,
   onCancel,
   onConfirm,
 }: {
   slot: Slot;
   state: { slotIndex: number; selectedReason: string; note: string };
+  busy: boolean;
   onUpdate: (s: typeof state) => void;
   onCancel: () => void;
   onConfirm: () => void;
@@ -722,7 +752,7 @@ function CloseModal({
           Slot Kapat
         </h3>
         <p style={{ fontSize: "12px", color: "#818cf8", margin: "4px 0 16px" }}>
-          {slot.start} – {slot.end} slotunu neden kapatıyorsunuz?
+          {slot.startTime} – {slot.endTime} slotunu neden kapatıyorsunuz?
         </p>
 
         <div
@@ -796,11 +826,15 @@ function CloseModal({
             justifyContent: "flex-end",
           }}
         >
-          <button onClick={onCancel} className="btn-ghost">
+          <button onClick={onCancel} disabled={busy} className="btn-ghost">
             Vazgeç
           </button>
-          <button onClick={onConfirm} className="btn-primary">
-            Slotu Kapat
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="btn-primary"
+          >
+            {busy ? "..." : "Slotu Kapat"}
           </button>
         </div>
       </div>
@@ -810,7 +844,16 @@ function CloseModal({
 
 function CloseIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
@@ -818,7 +861,16 @@ function CloseIcon() {
 }
 function RepeatIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="17 1 21 5 17 9" />
       <path d="M3 11V9a4 4 0 0 1 4-4h14" />
       <polyline points="7 23 3 19 7 15" />
@@ -828,7 +880,16 @@ function RepeatIcon() {
 }
 function GiftIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="20 12 20 22 4 22 4 12" />
       <rect x="2" y="7" width="20" height="5" />
       <line x1="12" y1="22" x2="12" y2="7" />

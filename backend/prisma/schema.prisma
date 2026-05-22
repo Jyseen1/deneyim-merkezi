@@ -65,12 +65,13 @@ model Slot {
 }
 
 model Staff {
-  id       String  @id @default(uuid())
-  name     String
-  waPhone  String  @unique
-  email    String  @unique
-  role     String  @default("staff")
-  isActive Boolean @default(true)
+  id           String  @id @default(uuid())
+  name         String
+  waPhone      String  @unique
+  email        String  @unique
+  role         String  @default("staff")
+  isActive     Boolean @default(true)
+  passwordHash String?
 
   @@map("staff")
 }
@@ -87,6 +88,21 @@ model Notification {
   sentAt        DateTime    @default(now())
 
   @@map("notifications")
+}
+
+model Settings {
+  id              String   @id @default("singleton")
+  staffWaPhone    String?
+  approvalEnabled Boolean  @default(true)
+  reminderEnabled Boolean  @default(true)
+  defaultDuration Int      @default(120)
+  approvalTimeout Int      @default(2)
+  workStart       String   @default("09:00")
+  workEnd         String   @default("19:00")
+  reminderHours   Int      @default(24)
+  updatedAt       DateTime @updatedAt
+
+  @@map("settings")
 }
 
 model ApprovalToken {
