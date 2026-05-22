@@ -5,18 +5,39 @@ import {
   createReservation,
   rejectReservation,
 } from "../services/reservation.service";
-import { SlotUnavailableError } from "../types/reservation";
+import { sendFlowMessage } from "../services/whatsapp.service";
+import {
+  SlotUnavailableError,
+  type CreateReservationInput,
+} from "../types/reservation";
 
-const flowDataSchema = z.object({
-  name: z.string().min(1),
-  phone: z.string().min(5),
-  email: z.string().email().optional(),
-  visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/),
-  durationMinutes: z.number().int().positive().optional(),
-  groupSize: z.number().int().positive().optional(),
+// Meta WhatsApp Flow nfm_reply payload yapisi (flows.ts ile uyumlu snake_case).
+// duration ve group_size Flow icinde TextInput type="number" oldugu icin
+// string olarak gelir; toIntOptional ile coerce ediyoruz.
+const flowReplySchema = z.object({
+  visit_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  start_time: z.string().regex(/^\d{2}:\d{2}$/),
+  duration: z.union([z.string(), z.number()]).optional(),
+  visitor_name: z.string().min(1),
+  visitor_phone: z.string().min(5),
+  group_size: z.union([z.string(), z.number()]),
   note: z.string().optional(),
+  email: z.string().email().optional(),
 });
+
+function toIntOptional(v: unknown): number | undefined {
+  if (v == null || v === "") return undefined;
+  const n = parseInt(String(v), 10);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+function toIntRequired(v: unknown, fallback: number): number {
+  return toIntOptional(v) ?? fallback;
+}
+
+function normalizePhone(p?: string | null): string {
+  return (p ?? "").replace(/\D/g, "");
+}
 
 // Meta Cloud API webhook gövdesinin ilgili alanlari.
 // https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples
@@ -105,7 +126,7 @@ async function routeMessage(msg: WAMessage, log: FastifyBaseLogger) {
         "WA Flow form verisi alindi (yeni rezervasyon)",
       );
 
-      const validated = flowDataSchema.safeParse(parsed);
+      const validated = flowReplySchema.safeParse(parsed);
       if (!validated.success) {
         log.warn(
           { ...base, issues: validated.error.flatten() },
@@ -114,8 +135,19 @@ async function routeMessage(msg: WAMessage, log: FastifyBaseLogger) {
         return;
       }
 
+      const input: CreateReservationInput = {
+        name: validated.data.visitor_name,
+        phone: validated.data.visitor_phone,
+        email: validated.data.email,
+        visitDate: validated.data.visit_date,
+        startTime: validated.data.start_time,
+        durationMinutes: toIntOptional(validated.data.duration),
+        groupSize: toIntRequired(validated.data.group_size, 1),
+        note: validated.data.note?.trim() || undefined,
+      };
+
       try {
-        const res = await createReservation(validated.data);
+        const res = await createReservation(input);
         log.info(
           { ...base, reservationId: res.reservation.id },
           "Webhook'tan rezervasyon olusturuldu",
@@ -178,6 +210,30 @@ async function routeMessage(msg: WAMessage, log: FastifyBaseLogger) {
 
   if (msg.type === "text") {
     log.info({ ...base, text: msg.text?.body }, "WA text mesaji");
+
+    // Ziyaretci (yetkili degil) bir text yazarsa otomatik Flow gonder.
+    const from = normalizePhone(msg.from);
+    const staffPhone = normalizePhone(process.env.STAFF_WA_PHONE);
+    const isStaff = staffPhone.length > 0 && from === staffPhone;
+
+    if (!from || isStaff) return;
+
+    try {
+      const waMessageId = await sendFlowMessage(msg.from!);
+      if (waMessageId) {
+        log.info(
+          { ...base, waMessageId },
+          "Ziyaretci text mesaji -> Flow gonderildi",
+        );
+      } else {
+        log.warn(
+          base,
+          "Ziyaretci text mesaji -> Flow gonderilemedi (WA_FLOW_ID veya token eksik olabilir)",
+        );
+      }
+    } catch (err) {
+      log.error({ ...base, err }, "sendFlowMessage hata");
+    }
     return;
   }
 
