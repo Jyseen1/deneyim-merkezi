@@ -37,6 +37,8 @@ const createBodySchema = z
     durationMinutes: z.number().int().positive().max(600).optional(),
     groupSize: z.number().int().positive().max(50).optional(),
     note: z.string().max(1000).optional(),
+    source: z.enum(["web", "whatsapp", "telegram"]).optional(),
+    telegramChatId: z.string().max(64).optional(),
   })
   .refine(
     (b) => {

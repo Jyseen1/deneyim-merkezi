@@ -6,6 +6,7 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyJwt from "@fastify/jwt";
 import webhookRoutes from "./routes/webhooks";
 import flowDataRoutes from "./routes/flow-data";
+import telegramRoutes from "./routes/telegram";
 import reservationRoutes from "./routes/reservations";
 import dashboardRoutes from "./routes/dashboard";
 import slotRoutes from "./routes/slots";
@@ -60,6 +61,7 @@ async function main() {
   await app.register(authRoutes, { prefix: "/api/v1/auth" });
   await app.register(webhookRoutes, { prefix: "/api/v1/webhooks" });
   await app.register(flowDataRoutes, { prefix: "/api/v1/webhooks" });
+  await app.register(telegramRoutes, { prefix: "/api/v1/webhooks" });
   await app.register(reservationRoutes, { prefix: "/api/v1/reservations" });
   await app.register(slotRoutes, { prefix: "/api/v1/slots" });
   await app.register(dashboardRoutes, { prefix: "/api/v1/dashboard" });

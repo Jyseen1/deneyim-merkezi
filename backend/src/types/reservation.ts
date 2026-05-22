@@ -11,6 +11,8 @@ export type CreateReservationInput = {
   durationMinutes?: number;
   groupSize?: number;
   note?: string;
+  source?: "web" | "whatsapp" | "telegram";
+  telegramChatId?: string;
 };
 
 export type AvailableSlot = {

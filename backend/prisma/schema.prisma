@@ -30,6 +30,8 @@ model Reservation {
   groupSize       Int               @default(1)
   note            String?
   status          ReservationStatus @default(PENDING_APPROVAL)
+  source          String?           @default("web") // web | whatsapp | telegram
+  telegramChatId  String?
   waMessageId     String?
   approvedAt      DateTime?
   approvedBy      String?

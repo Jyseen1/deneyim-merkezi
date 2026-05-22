@@ -1,11 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Script from "next/script";
 import { apiFetch, ApiError } from "@/lib/api";
 import { formatTrLongDate, toLocalIso } from "@/lib/date";
 
+export const dynamic = "force-dynamic";
+
 type AvailableSlot = { startTime: string; endTime: string };
 type SlotsResp = { date: string; durationMinutes: number; slots: AvailableSlot[] };
+
+// Telegram Web App SDK runtime tipi
+type TelegramWebApp = {
+  ready: () => void;
+  expand: () => void;
+  close: () => void;
+  sendData: (data: string) => void;
+  themeParams?: Record<string, string>;
+};
+declare global {
+  interface Window {
+    Telegram?: { WebApp?: TelegramWebApp };
+  }
+}
 
 const DURATION_OPTIONS = [60, 90, 120, 150, 180];
 
@@ -44,6 +62,24 @@ function PageBg() {
 }
 
 export default function PublicReservationPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#a5b4fc", fontSize: "13px" }}>
+          Yükleniyor…
+        </div>
+      }
+    >
+      <ReservationForm />
+    </Suspense>
+  );
+}
+
+function ReservationForm() {
+  const params = useSearchParams();
+  const isTelegram = params.get("source") === "telegram";
+  const telegramChatId = params.get("chat_id") || undefined;
+
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Adim 1
@@ -101,22 +137,61 @@ export default function PublicReservationPage() {
     return true;
   }
 
+  // Telegram Web App: hazir ve genis modda baslat
+  useEffect(() => {
+    if (!isTelegram) return;
+    const tg = typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
+    try {
+      tg?.ready();
+      tg?.expand();
+    } catch {
+      /* sessiz */
+    }
+  }, [isTelegram]);
+
   async function submit() {
     if (!selectedSlot) return;
     setSubmitting(true);
     setSubmitErr(null);
     setAlts([]);
+
+    const body = {
+      name: name.trim(),
+      phone,
+      email: email.trim() || undefined,
+      visitDate: dateISO,
+      startTime: selectedSlot.startTime,
+      durationMinutes: duration,
+      groupSize,
+      note: note.trim() || undefined,
+    };
+
+    // Telegram Web App: sendData ile formu Telegram'a yolla
+    // (backend webhook /telegram → createReservation).
+    if (isTelegram) {
+      const tg =
+        typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
+      if (!tg) {
+        setSubmitErr("Telegram WebApp SDK yüklenemedi.");
+        setSubmitting(false);
+        return;
+      }
+      try {
+        const payload = JSON.stringify({ ...body, telegramChatId });
+        tg.sendData(payload);
+        // Onay sonucu Telegram chat'inden gelecek; mini-app penceresi
+        // Telegram tarafindan otomatik kapanir.
+        setSuccessId(`TG-${Date.now().toString(36)}`);
+      } catch (e) {
+        setSubmitErr((e as Error).message);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Normal web akisi: backend'e POST
     try {
-      const body = {
-        name: name.trim(),
-        phone,
-        email: email.trim() || undefined,
-        visitDate: dateISO,
-        startTime: selectedSlot.startTime,
-        durationMinutes: duration,
-        groupSize,
-        note: note.trim() || undefined,
-      };
       const res = await apiFetch<{ id: string }>("/reservations", {
         method: "POST",
         body: JSON.stringify(body),
@@ -124,9 +199,11 @@ export default function PublicReservationPage() {
       setSuccessId(res.id);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        const body = e.body as { available_slots?: AvailableSlot[] } | null;
-        setAlts(body?.available_slots ?? []);
-        setSubmitErr("Bu saat artık müsait değil. Aşağıdaki saatlerden birini deneyebilirsiniz.");
+        const errBody = e.body as { available_slots?: AvailableSlot[] } | null;
+        setAlts(errBody?.available_slots ?? []);
+        setSubmitErr(
+          "Bu saat artık müsait değil. Aşağıdaki saatlerden birini deneyebilirsiniz.",
+        );
       } else {
         setSubmitErr(
           e instanceof ApiError ? e.message : (e as Error).message,
@@ -139,6 +216,12 @@ export default function PublicReservationPage() {
 
   return (
     <div style={{ minHeight: "100vh", padding: "32px 16px" }}>
+      {isTelegram && (
+        <Script
+          src="https://telegram.org/js/telegram-web-app.js"
+          strategy="beforeInteractive"
+        />
+      )}
       <PageBg />
 
       <div style={{ maxWidth: "560px", margin: "0 auto" }}>

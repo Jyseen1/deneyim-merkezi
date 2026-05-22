@@ -9,6 +9,11 @@ import {
   sendRejection,
 } from "./whatsapp.service";
 import {
+  sendStaffApprovalRequest as sendTelegramStaffApproval,
+  sendVisitorConfirmation as sendTelegramConfirmation,
+  sendVisitorRejection as sendTelegramRejection,
+} from "./telegram.service";
+import {
   reminderQueue,
   removeJobSafe,
   timeoutQueue,
@@ -82,6 +87,8 @@ export async function createReservation(input: CreateReservationInput) {
         groupSize,
         note: input.note ?? undefined,
         status: "PENDING_APPROVAL",
+        source: input.source ?? "web",
+        telegramChatId: input.telegramChatId ?? null,
       },
     });
 
@@ -127,26 +134,86 @@ export async function createReservation(input: CreateReservationInput) {
     status: result.reservation.status,
   });
 
-  // Transaction disinda WA bildirim (HTTP cagrisi tx'i kilitlemesin).
-  // Hata firlatmiyoruz: rezervasyon olusturulmus, bildirim ayri retry'a tabi olmali.
-  try {
-    await sendApprovalRequest({
-      ...result.reservation,
-      visitor: result.visitor,
-    });
-  } catch (err) {
-    console.error(
-      JSON.stringify({
-        level: "error",
-        scope: "reservation",
-        msg: "sendApprovalRequest hata - rezervasyon yine de olusturuldu",
-        reservationId: result.reservation.id,
-        err: (err as Error).message,
-      }),
-    );
-  }
+  // Yetkiliye bildirim — hangi kanal env'de yapilandirilmissa o
+  // (her ikisi de doluysa paralel gonderilir; biri hata verirse digeri devam eder).
+  const reservationWithVisitor: ReservationWithVisitor = {
+    ...result.reservation,
+    visitor: result.visitor,
+  };
+  await Promise.allSettled([
+    process.env.WA_ACCESS_TOKEN
+      ? sendApprovalRequest(reservationWithVisitor).catch((err) =>
+          logJobError("reservation", "sendApprovalRequest hata", {
+            reservationId: result.reservation.id,
+            err: (err as Error).message,
+          }),
+        )
+      : Promise.resolve(),
+    process.env.TELEGRAM_BOT_TOKEN
+      ? sendTelegramStaffApproval(reservationWithVisitor).catch((err) =>
+          logJobError("reservation", "telegram staff approval hata", {
+            reservationId: result.reservation.id,
+            err: (err as Error).message,
+          }),
+        )
+      : Promise.resolve(),
+  ]);
 
   return result;
+}
+
+// Ziyaretciye onay bildirimi (kanal secimi: source/telegramChatId).
+async function notifyVisitorApproved(
+  reservation: ReservationWithVisitor,
+): Promise<void> {
+  if (reservation.source === "telegram" && reservation.telegramChatId) {
+    try {
+      await sendTelegramConfirmation(reservation.telegramChatId, reservation);
+    } catch (err) {
+      logJobError("reservation", "telegram visitor confirm hata", {
+        reservationId: reservation.id,
+        err: (err as Error).message,
+      });
+    }
+    return;
+  }
+  try {
+    await sendConfirmation(reservation);
+  } catch (err) {
+    logJobError("reservation", "sendConfirmation hata", {
+      reservationId: reservation.id,
+      err: (err as Error).message,
+    });
+  }
+}
+
+async function notifyVisitorRejected(
+  reservation: ReservationWithVisitor,
+  alternatives: { startTime: string; endTime: string }[],
+): Promise<void> {
+  if (reservation.source === "telegram" && reservation.telegramChatId) {
+    try {
+      await sendTelegramRejection(
+        reservation.telegramChatId,
+        reservation,
+        alternatives,
+      );
+    } catch (err) {
+      logJobError("reservation", "telegram visitor reject hata", {
+        reservationId: reservation.id,
+        err: (err as Error).message,
+      });
+    }
+    return;
+  }
+  try {
+    await sendRejection(reservation, alternatives);
+  } catch (err) {
+    logJobError("reservation", "sendRejection hata", {
+      reservationId: reservation.id,
+      err: (err as Error).message,
+    });
+  }
 }
 
 export async function approveReservation(
@@ -170,14 +237,7 @@ export async function approveReservation(
     visitorName: updated.visitor.name,
   });
 
-  try {
-    await sendConfirmation(updated);
-  } catch (err) {
-    logJobError("reservation", "sendConfirmation hata", {
-      reservationId,
-      err: (err as Error).message,
-    });
-  }
+  await notifyVisitorApproved(updated);
 
   // Approve edildigine gore timeout job'u artik gereksiz - kuyrukta beklemesin.
   await removeJobSafe(timeoutQueue, timeoutJobId(reservationId));
@@ -255,14 +315,7 @@ export async function rejectReservation(
     visitorName: result.reservation.visitor.name,
   });
 
-  try {
-    await sendRejection(result.reservation, result.alternatives);
-  } catch (err) {
-    logJobError("reservation", "sendRejection hata", {
-      reservationId,
-      err: (err as Error).message,
-    });
-  }
+  await notifyVisitorRejected(result.reservation, result.alternatives);
 
   await Promise.all([
     removeJobSafe(timeoutQueue, timeoutJobId(reservationId)),
