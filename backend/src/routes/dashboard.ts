@@ -125,6 +125,16 @@ const dateQuery = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD bekleniyor"),
 });
 
+const weekQuery = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD bekleniyor"),
+});
+
+function isoPlusDays(startISO: string, n: number): string {
+  const d = new Date(`${startISO}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 const dashboardRoutes: FastifyPluginAsync = async (app) => {
   app.addHook("preHandler", verifyJWT);
 
@@ -193,6 +203,23 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
     }
     const slots = await buildDaySlots(parsed.data.date);
     return reply.send({ date: parsed.data.date, slots });
+  });
+
+  app.get("/week-slots", async (req, reply) => {
+    const parsed = weekQuery.safeParse(req.query);
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: "validation_failed", details: parsed.error.flatten() });
+    }
+    const { startDate } = parsed.data;
+    const dates = Array.from({ length: 7 }, (_, i) => isoPlusDays(startDate, i));
+    const slotsPerDay = await Promise.all(dates.map((d) => buildDaySlots(d)));
+    const days: Record<string, DaySlot[]> = {};
+    dates.forEach((d, i) => {
+      days[d] = slotsPerDay[i];
+    });
+    return reply.send({ startDate, days });
   });
 };
 

@@ -248,7 +248,7 @@ export default function SlotsPage() {
       </div>
 
       {weekView ? (
-        <WeekView selectedISO={dateISO} />
+        <WeekView selectedISO={dateISO} token={token} />
       ) : (
         <SingleDayView
           slots={slots}
@@ -600,39 +600,97 @@ function SlotStatusBar({ slot }: { slot: Slot }) {
   }
 }
 
-function WeekView({ selectedISO }: { selectedISO: string }) {
+type WeekResp = {
+  startDate: string;
+  days: Record<string, Slot[]>;
+};
+
+const SLOT_TIMES: { start: string; end: string }[] = [
+  { start: "09:00", end: "11:00" },
+  { start: "11:00", end: "13:00" },
+  { start: "13:00", end: "15:00" },
+  { start: "15:00", end: "17:00" },
+  { start: "17:00", end: "19:00" },
+];
+
+function cellVisual(status: SlotStatus | undefined): {
+  bg: string;
+  border: string;
+  color: string;
+} {
+  switch (status) {
+    case "booked":
+      return { bg: "#4338ca", border: "#4338ca", color: "#e0e7ff" };
+    case "pending":
+      return { bg: "#fbbf24", border: "#f59e0b", color: "#78350f" };
+    case "closed":
+      return {
+        bg: "rgba(239,68,68,0.15)",
+        border: "rgba(239,68,68,0.4)",
+        color: "#991b1b",
+      };
+    case "available":
+    default:
+      return { bg: "rgba(255,255,255,0.5)", border: "#c4b5fd", color: "#4338ca" };
+  }
+}
+
+function WeekView({
+  selectedISO,
+  token,
+}: {
+  selectedISO: string;
+  token: string | undefined;
+}) {
   const date = new Date(`${selectedISO}T00:00:00`);
   const day = date.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   const monday = new Date(date);
   monday.setDate(date.getDate() + diff);
+  const startISO = toLocalIso(monday);
 
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     return d;
   });
+  const dayKeys = days.map((d) => toLocalIso(d));
 
-  const SLOT_TIMES: { start: string; end: string }[] = [
-    { start: "09:00", end: "11:00" },
-    { start: "11:00", end: "13:00" },
-    { start: "13:00", end: "15:00" },
-    { start: "15:00", end: "17:00" },
-    { start: "17:00", end: "19:00" },
-  ];
+  const [data, setData] = useState<Record<string, Slot[]>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    setLoading(true);
+    apiFetch<WeekResp>(
+      `/dashboard/week-slots?startDate=${startISO}`,
+      {},
+      token,
+    )
+      .then((r) => {
+        if (!cancelled) setData(r.days ?? {});
+      })
+      .catch(() => {
+        if (!cancelled) setData({});
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [startISO, token]);
+
+  function statusAt(dayKey: string, startTime: string): SlotStatus | undefined {
+    return data[dayKey]?.find((s) => s.startTime === startTime)?.status;
+  }
+  function labelAt(dayKey: string, startTime: string): string | undefined {
+    return data[dayKey]?.find((s) => s.startTime === startTime)?.label;
+  }
 
   return (
     <div className="glass fade-up fade-up-2" style={{ padding: "16px 18px" }}>
-      <div
-        style={{
-          fontSize: "12px",
-          color: "#a5b4fc",
-          marginBottom: "10px",
-          textAlign: "center",
-        }}
-      >
-        Hafta görünümü gerçek verisi yakında — şimdilik şablon.
-      </div>
       <div
         style={{
           display: "grid",
@@ -680,19 +738,91 @@ function WeekView({ selectedISO }: { selectedISO: string }) {
           >
             {row.start}
           </div>
-          {days.map((_, dayIdx) => (
-            <div
-              key={dayIdx}
-              style={{
-                background: "rgba(255,255,255,0.5)",
-                border: "1px solid #c4b5fd",
-                borderRadius: "8px",
-                height: "34px",
-              }}
-            />
-          ))}
+          {dayKeys.map((dayKey) => {
+            if (loading) {
+              return (
+                <div
+                  key={dayKey}
+                  className="shimmer"
+                  style={{ height: "34px", borderRadius: "8px" }}
+                />
+              );
+            }
+            const status = statusAt(dayKey, row.start);
+            const label = labelAt(dayKey, row.start);
+            const v = cellVisual(status);
+            return (
+              <div
+                key={dayKey}
+                title={label ?? status ?? "müsait"}
+                style={{
+                  background: v.bg,
+                  border: `1px solid ${v.border}`,
+                  borderRadius: "8px",
+                  height: "34px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: v.color,
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                  textOverflow: "ellipsis",
+                  padding: "0 6px",
+                }}
+              >
+                {status === "booked" || status === "pending"
+                  ? (label ?? "").slice(0, 12)
+                  : status === "closed"
+                  ? "kapalı"
+                  : ""}
+              </div>
+            );
+          })}
         </div>
       ))}
+
+      <div
+        style={{
+          marginTop: "10px",
+          display: "flex",
+          gap: "14px",
+          fontSize: "11px",
+          color: "#818cf8",
+          flexWrap: "wrap",
+        }}
+      >
+        <WeekLegend color="#4338ca" label="Dolu" />
+        <WeekLegend color="#fbbf24" label="Bekliyor" />
+        <WeekLegend color="#c4b5fd" outline label="Müsait" />
+        <WeekLegend color="#ef4444" outline label="Kapalı" />
+      </div>
+    </div>
+  );
+}
+
+function WeekLegend({
+  color,
+  label,
+  outline,
+}: {
+  color: string;
+  label: string;
+  outline?: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+      <span
+        style={{
+          width: "10px",
+          height: "10px",
+          borderRadius: "3px",
+          background: outline ? "transparent" : color,
+          border: `1.5px solid ${color}`,
+        }}
+      />
+      <span>{label}</span>
     </div>
   );
 }
