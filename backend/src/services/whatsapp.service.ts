@@ -143,6 +143,47 @@ export async function sendApprovalRequest(
   return waMessageId;
 }
 
+export async function sendFlowMessage(
+  toPhone: string,
+): Promise<string | null> {
+  const flowId = process.env.WA_FLOW_ID;
+  if (!flowId) {
+    logError("WA_FLOW_ID tanimli degil — flow mesaji gonderilmedi");
+    return null;
+  }
+  const payload = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: normalizePhone(toPhone),
+    type: "interactive",
+    interactive: {
+      type: "flow",
+      header: { type: "text", text: "Deneyim Merkezi" },
+      body: {
+        text:
+          "Rezervasyon yapmak için aşağıdaki butona tıklayın. " +
+          "Tarih ve saat seçimini WhatsApp içinden tamamlayabilirsiniz.",
+      },
+      footer: { text: "Form WhatsApp üzerinden gönderilir." },
+      action: {
+        name: "flow",
+        parameters: {
+          flow_message_version: "3",
+          flow_token: `${Date.now()}_${normalizePhone(toPhone)}`,
+          flow_id: flowId,
+          flow_cta: "Rezervasyon Yap",
+          flow_action: "navigate",
+          flow_action_payload: {
+            screen: "TARIH_SAAT",
+            data: {},
+          },
+        },
+      },
+    },
+  };
+  return postMessage(payload);
+}
+
 export async function sendConfirmation(
   reservation: ReservationWithVisitor,
 ): Promise<string | null> {
