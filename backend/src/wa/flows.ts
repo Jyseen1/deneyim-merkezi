@@ -3,7 +3,7 @@
 // Meta Flow Builder'a yuklenebilir. Iki dosyayi senkronize tutun.
 
 export const flowJson = {
-  version: "5.0",
+  version: "7.0",
   data_api_version: "3.0",
   routing_model: {
     TARIH_SAAT: ["BILGILER"],
