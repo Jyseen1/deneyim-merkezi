@@ -232,62 +232,93 @@ function ReservationForm() {
   }, [isTelegram]);
 
   async function submit() {
-    if (!selectedSlot) return;
+    // Defansif: hicbir kosulda sessizce dusmesin. Dis try/catch sync
+    // hatalari (JSON.stringify, string coercion vs.) da yakalar.
     setSubmitting(true);
     setSubmitErr(null);
     setAlts([]);
 
-    // Backend Zod tip kontrolleri icin defansif primitive coercion.
-    // Onemli: phone state'i RAW "+905321234567" formatinda — display
-    // (boslukli) sadece input value'sunda, body'ye ham gider.
-    const body: Record<string, unknown> = {
-      name: name.trim(),
-      phone: phone.trim(),
-      email: email.trim() || undefined,
-      visitDate: dateISO,
-      startTime: selectedSlot.startTime,
-      durationMinutes: Number(duration),
-      groupSize: Number(groupSize),
-      note: note.trim() || undefined,
-    };
-
-    // Telegram modunda source + chat_id ekle ki backend onay/red mesajini
-    // dogru chat'e gondersin. NOT: sendData() SADECE keyboard-button ile
-    // acilan Web App'lerde calisir; persistent menu button'dan acilanda
-    // sessizce hata verir. Bu yuzden Telegram dahil HER durumda HTTP POST
-    // kullaniyoruz.
-    if (isTelegram && telegramChatId) {
-      body.source = "telegram";
-      body.telegramChatId = telegramChatId;
-    }
-
     try {
+      if (!selectedSlot) {
+        setSubmitErr("Lütfen önce bir saat seçin.");
+        return;
+      }
+
+      // Backend Zod tip kontrolleri icin defansif primitive coercion.
+      // Phone state'i RAW "+905321234567" formatinda — display (boslukli)
+      // sadece input value'sunda, body'ye ham gider.
+      const body: Record<string, unknown> = {
+        name: String(name).trim(),
+        phone: String(phone).trim(),
+        email: email.trim() || undefined,
+        visitDate: String(dateISO),
+        startTime: String(selectedSlot.startTime),
+        durationMinutes: Number(duration),
+        groupSize: Number(groupSize),
+        note: note.trim() || undefined,
+      };
+
+      // Telegram modunda source + chat_id ekle ki backend onay/red mesajini
+      // dogru chat'e gondersin. NOT: WebApp.sendData() SADECE keyboard-button
+      // ile acilan Web App'lerde calisir; persistent menu button'dan acilanda
+      // sessizce hata verir + Telegram pencereyi yine de kapatir. Bu yuzden
+      // Telegram dahil HER durumda HTTP POST kullaniyoruz.
+      if (isTelegram && telegramChatId) {
+        body.source = "telegram";
+        body.telegramChatId = String(telegramChatId);
+      }
+
+      // Debug: gercek payload'u Telegram'da Web Inspector ile gormek icin.
+      // Gerekmiyorsa kaldirilabilir.
+      console.log("[rezervasyon] submit", {
+        isTelegram,
+        telegramChatId,
+        bodyPreview: { ...body, phone: "***" },
+      });
+
+      let payload: string;
+      try {
+        payload = JSON.stringify(body);
+      } catch (jsonErr) {
+        console.error("[rezervasyon] JSON.stringify hata", jsonErr);
+        setSubmitErr("Form verisi seri hale getirilemedi.");
+        return;
+      }
+
+      console.log("[rezervasyon] POST /reservations start, bytes:", payload.length);
       const res = await apiFetch<{ id: string }>("/reservations", {
         method: "POST",
-        body: JSON.stringify(body),
+        body: payload,
       });
+      console.log("[rezervasyon] POST success, id:", res.id);
       setSuccessId(res.id);
-      // Telegram: success sonrasi mini-app'i kapat — onay mesaji
-      // chat'e dusecek (sendStaffApproval -> staff onaylar -> visitor confirm).
+
+      // Telegram: success sonrasi mini-app'i kapat — onay mesaji chat'e dusecek.
+      // 1500ms gecikme: kullanici success kartini gorsun + state guvenle commit
+      // edilsin. close() KESINLIKLE await sonrasinda, basariliysa cagriliyor.
       if (isTelegram && typeof window !== "undefined") {
         setTimeout(() => {
           try {
             window.Telegram?.WebApp?.close();
-          } catch {
-            /* sessiz */
+          } catch (closeErr) {
+            console.warn("[rezervasyon] WebApp.close hata", closeErr);
           }
         }, 1500);
       }
     } catch (e) {
+      console.error("[rezervasyon] submit hata", e);
       if (e instanceof ApiError && e.status === 409) {
         const errBody = e.body as { available_slots?: AvailableSlot[] } | null;
         setAlts(errBody?.available_slots ?? []);
         setSubmitErr(
           "Bu saat artık müsait değil. Aşağıdaki saatlerden birini deneyebilirsiniz.",
         );
+      } else if (e instanceof ApiError) {
+        // Backend dogrulama/HTTP hatasi — message + status
+        setSubmitErr(`Hata: ${e.message} (HTTP ${e.status})`);
       } else {
         setSubmitErr(
-          e instanceof ApiError ? e.message : (e as Error).message,
+          `Beklenmeyen hata: ${(e as Error).message || String(e)}`,
         );
       }
     } finally {
