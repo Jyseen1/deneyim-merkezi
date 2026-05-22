@@ -7,7 +7,6 @@ import {
   getBotUsername,
   sendMessage,
   sendPhoto,
-  sendWebAppButton,
   statusLabel,
 } from "../services/telegram.service";
 import {
@@ -92,16 +91,17 @@ async function handleUpdate(
   update: TgUpdate,
   log: { error: (...a: unknown[]) => void; warn: (...a: unknown[]) => void; info: (...a: unknown[]) => void },
 ) {
-  // 1) Komut: /start → Web App butonlu karsilama
+  // 1) Komut: /start → kisa karsilama. Persistent menu butonu zaten
+  // sol-altta duruyor, inline buton eklemiyoruz (cift gorunmesin).
   if (update.message?.text === "/start") {
     const chatId = update.message.chat.id;
-    const dashboardUrl =
-      process.env.DASHBOARD_URL || "http://localhost:3000";
-    const webAppUrl = `${dashboardUrl.replace(/\/$/, "")}/rezervasyon?source=telegram&chat_id=${chatId}`;
-    await sendWebAppButton(
+    await sendMessage(
       chatId,
-      "👋 *Deneyim Merkezi*'ne hoş geldiniz.\n\nRezervasyon yapmak için aşağıdaki butona dokunun.",
-      webAppUrl,
+      [
+        "👋 *Deneyim Merkezi*'ne hoş geldiniz.",
+        "",
+        "Rezervasyon yapmak için aşağıdaki *Rezervasyon Yap* menü butonunu kullanabilirsiniz.",
+      ].join("\n"),
     );
     return;
   }
@@ -111,14 +111,10 @@ async function handleUpdate(
     const chatId = update.message.chat.id;
     const staffChatId = process.env.TELEGRAM_STAFF_CHAT_ID;
     if (!staffChatId || String(chatId) !== String(staffChatId)) {
-      // Yetkili olmayanlara normal karsilama
-      const dashboardUrl =
-        process.env.DASHBOARD_URL || "http://localhost:3000";
-      const webAppUrl = `${dashboardUrl.replace(/\/$/, "")}/rezervasyon?source=telegram&chat_id=${chatId}`;
-      await sendWebAppButton(
+      // Yetkili olmayanlara duz bilgilendirme (menu butonuna yonlendir)
+      await sendMessage(
         chatId,
-        "Rezervasyon yapmak için aşağıdaki butona dokunun.",
-        webAppUrl,
+        "Rezervasyon yapmak için sol-alttaki *Rezervasyon Yap* menü butonunu kullanabilirsiniz.",
       );
       return;
     }
@@ -277,16 +273,12 @@ async function handleUpdate(
     return;
   }
 
-  // 4) Diger metin: bilgi mesaji
+  // 4) Diger metin: kisa yonlendirme (persistent menu butonuna)
   if (update.message?.text) {
     const chatId = update.message.chat.id;
-    const dashboardUrl =
-      process.env.DASHBOARD_URL || "http://localhost:3000";
-    const webAppUrl = `${dashboardUrl.replace(/\/$/, "")}/rezervasyon?source=telegram&chat_id=${chatId}`;
-    await sendWebAppButton(
+    await sendMessage(
       chatId,
-      "Rezervasyon yapmak için aşağıdaki butona dokunun.",
-      webAppUrl,
+      "Rezervasyon yapmak için sol-alttaki *Rezervasyon Yap* menü butonunu kullanabilirsiniz.",
     );
   }
 }

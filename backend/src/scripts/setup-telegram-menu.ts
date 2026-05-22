@@ -23,7 +23,8 @@ import { setChatMenuButton } from "../services/telegram.service";
 
   const webAppUrl = `${dashboardUrl.replace(/\/$/, "")}/rezervasyon?source=telegram`;
   console.log(`[telegram] setChatMenuButton → ${webAppUrl}`);
-  const result = await setChatMenuButton(webAppUrl);
+  // Emoji KULLANMA — bazi Telegram istemcileri "??" olarak goruyor.
+  const result = await setChatMenuButton(webAppUrl, "Rezervasyon Yap");
   console.log("[telegram] sonuc:", JSON.stringify(result, null, 2));
 
   if (!result?.ok) {

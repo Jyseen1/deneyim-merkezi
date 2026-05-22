@@ -160,9 +160,11 @@ export async function sendPhoto(
 
 // Bot icin sol-alt persistent menu butonu — kullanici /start yazmadan
 // dogrudan Web App'i acabilir. scope yoksa default (tum kullanicilar).
+// NOT: Buton metninde emoji KULLANMA — Telegram bazi istemcilerde glyph'i
+// "??" olarak render ediyor.
 export async function setChatMenuButton(
   webAppUrl: string,
-  buttonText = "🎫 Rezervasyon Yap",
+  buttonText = "Rezervasyon Yap",
 ): Promise<TelegramResponse | null> {
   return callApi("setChatMenuButton", {
     menu_button: {
