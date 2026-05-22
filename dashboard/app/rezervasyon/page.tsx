@@ -48,6 +48,29 @@ function todayISO(): string {
   return toLocalIso(new Date());
 }
 
+// Telefon: store "+905321234567" (sabit +90 prefix + 10 hane);
+// goster "+90 532 123 45 67" (3-3-2-2 gruplama).
+function formatPhoneDisplay(stored: string): string {
+  const digits = stored.replace(/\D/g, "").replace(/^90/, "").slice(0, 10);
+  const parts = [
+    digits.slice(0, 3),
+    digits.slice(3, 6),
+    digits.slice(6, 8),
+    digits.slice(8, 10),
+  ].filter(Boolean);
+  return parts.length === 0 ? "+90 " : "+90 " + parts.join(" ");
+}
+
+// Kullanici girdisini normalize et: tum non-digit'leri at, leading 90/0 strip,
+// ilk 10 haneyi al, "+90" prefix ekle.
+function parsePhoneInput(input: string): string {
+  let digits = input.replace(/\D/g, "");
+  if (digits.startsWith("90")) digits = digits.slice(2);
+  if (digits.startsWith("0")) digits = digits.slice(1);
+  digits = digits.slice(0, 10);
+  return "+90" + digits;
+}
+
 function PageBg() {
   return (
     <div
@@ -284,7 +307,13 @@ function ReservationForm() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", padding: "24px 12px" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        padding: "24px 12px",
+        overflowX: "hidden",
+      }}
+    >
       <PageBg />
 
       <div style={{ maxWidth: "560px", margin: "0 auto" }}>
@@ -684,9 +713,11 @@ function Step2(props: {
       <Field label="Telefon *" style={{ marginTop: "12px" }}>
         <input
           type="tel"
-          value={props.phone}
-          onChange={(e) => props.setPhone(e.target.value)}
-          placeholder="+905XXXXXXXXX"
+          inputMode="numeric"
+          autoComplete="tel"
+          value={formatPhoneDisplay(props.phone)}
+          onChange={(e) => props.setPhone(parsePhoneInput(e.target.value))}
+          placeholder="+90 5XX XXX XX XX"
           style={fieldInput()}
         />
         <div style={{ fontSize: "11px", color: "#a5b4fc", marginTop: "4px" }}>
@@ -703,13 +734,9 @@ function Step2(props: {
         />
       </Field>
       <Field label="Kişi sayısı *" style={{ marginTop: "12px" }}>
-        <input
-          type="number"
-          min={1}
-          max={20}
+        <GroupSizeStepper
           value={props.groupSize}
-          onChange={(e) => props.setGroupSize(Number(e.target.value))}
-          style={fieldInput()}
+          onChange={props.setGroupSize}
         />
       </Field>
       <Field label="Not (opsiyonel)" style={{ marginTop: "12px" }}>
@@ -1016,6 +1043,99 @@ function SuccessCard({
   );
 }
 
+function GroupSizeStepper({
+  value,
+  onChange,
+  min = 1,
+  max = 20,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+}) {
+  const safe = Math.max(min, Math.min(max, Math.trunc(value) || min));
+  const dec = () => onChange(Math.max(min, safe - 1));
+  const inc = () => onChange(Math.min(max, safe + 1));
+  const atMin = safe <= min;
+  const atMax = safe >= max;
+
+  const btnBase: React.CSSProperties = {
+    minWidth: "40px",
+    minHeight: "40px",
+    borderRadius: "10px",
+    border: "1px solid #ddd6fe",
+    background: "#ede9fe",
+    color: "#4338ca",
+    fontSize: "20px",
+    fontWeight: 600,
+    lineHeight: 1,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    userSelect: "none",
+    transition: "background 0.15s ease, opacity 0.15s ease",
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "stretch",
+        gap: "8px",
+        width: "100%",
+      }}
+    >
+      <button
+        type="button"
+        onClick={dec}
+        disabled={atMin}
+        aria-label="Azalt"
+        style={{
+          ...btnBase,
+          opacity: atMin ? 0.4 : 1,
+          cursor: atMin ? "not-allowed" : "pointer",
+        }}
+      >
+        −
+      </button>
+      <div
+        style={{
+          flex: 1,
+          minHeight: "40px",
+          borderRadius: "10px",
+          border: "1px solid #ede9fe",
+          background: "rgba(255,255,255,0.85)",
+          color: "#1e1b4b",
+          fontSize: "14px",
+          fontWeight: 600,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          letterSpacing: "0.01em",
+        }}
+        aria-live="polite"
+      >
+        {safe} kişi
+      </div>
+      <button
+        type="button"
+        onClick={inc}
+        disabled={atMax}
+        aria-label="Arttır"
+        style={{
+          ...btnBase,
+          opacity: atMax ? 0.4 : 1,
+          cursor: atMax ? "not-allowed" : "pointer",
+        }}
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
 function Field({
   label,
   children,
@@ -1048,6 +1168,9 @@ function Field({
 function fieldInput(): React.CSSProperties {
   return {
     width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box", // padding+border ic genislige dahil — dar viewport'ta yatay tasmayi onler
+    display: "block",
     padding: "10px 12px",
     borderRadius: "10px",
     border: "1px solid #ede9fe",
