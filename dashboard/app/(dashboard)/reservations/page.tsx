@@ -13,6 +13,7 @@ import { EmptyState, InboxIcon } from "@/components/EmptyState";
 import { formatTrShortDate } from "@/lib/date";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useBackendToken } from "@/hooks/useBackendToken";
+import { useToast } from "@/hooks/useToast";
 
 type StatusFilter = "ALL" | ReservationStatus;
 
@@ -67,10 +68,51 @@ const inputStyle: React.CSSProperties = {
   fontFamily: "inherit",
 };
 
+function backendBase(): string {
+  return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+}
+
 export default function ReservationsPage() {
   const { data: session } = useSession();
   const staffId = session?.user?.id || session?.user?.email || "staff";
   const token = useBackendToken();
+  const { show } = useToast();
+  const [exporting, setExporting] = useState(false);
+
+  async function exportCSV() {
+    if (!token) return;
+    setExporting(true);
+    try {
+      const sp = new URLSearchParams();
+      if (status !== "ALL") sp.set("status", status);
+      if (dateFrom) sp.set("date_from", dateFrom);
+      if (dateTo) sp.set("date_to", dateTo);
+      const url = `${backendBase()}/api/v1/reservations/export?${sp.toString()}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = dlUrl;
+      // Sunucudaki Content-Disposition'dan filename'i cek
+      const cd = res.headers.get("Content-Disposition") ?? "";
+      const m = /filename="?([^";]+)"?/.exec(cd);
+      a.download = m?.[1] ?? `reservations_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 1000);
+      show("CSV indirildi", "success");
+    } catch (e) {
+      show(`CSV indirilemedi: ${(e as Error).message}`, "error");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const [status, setStatus] = useState<StatusFilter>("ALL");
   const [dateFrom, setDateFrom] = useState("");
@@ -289,6 +331,15 @@ export default function ReservationsPage() {
               }}
             />
             {hidePast ? "Geçmişi gizle" : "Geçmişi göster"}
+          </button>
+          <button
+            type="button"
+            onClick={exportCSV}
+            disabled={exporting}
+            className="btn-ghost"
+            title="Mevcut filtrelere göre CSV indir"
+          >
+            {exporting ? "..." : "CSV İndir"}
           </button>
           <button
             onClick={load}

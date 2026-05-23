@@ -99,6 +99,32 @@ const rescheduleBodySchema = z.object({
   durationMinutes: z.number().int().positive().max(600).optional(),
 });
 
+const exportQuerySchema = z.object({
+  status: z.enum(reservationStatuses).optional(),
+  date_from: isoDate.optional(),
+  date_to: isoDate.optional(),
+});
+
+// CSV satir alanini sarar: tirnak, virgul, satir sonu varsa cift tirnak icine alir,
+// icindeki cift tirnaklari escape eder. Excel uyumlu.
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+const STATUS_LABEL_TR: Record<string, string> = {
+  PENDING_APPROVAL: "Bekliyor",
+  APPROVED: "Onaylı",
+  REJECTED: "Reddedildi",
+  CANCELLED: "İptal",
+  COMPLETED: "Tamamlandı",
+  NO_SHOW: "Gelmedi",
+};
+
 const reservationRoutes: FastifyPluginAsync = async (app) => {
   app.post("/", async (req, reply) => {
     const parsed = createBodySchema.safeParse(req.body);
@@ -210,6 +236,75 @@ const reservationRoutes: FastifyPluginAsync = async (app) => {
 
     return reply.send({ items, total, page, limit });
   });
+
+  // CSV export: mevcut filtrelere gore (status + date_from/date_to) tum
+  // rezervasyonlari indirir. UTF-8 BOM + Excel uyumlu virgul ayrac.
+  app.get(
+    "/export",
+    { preHandler: verifyJWT },
+    async (req, reply) => {
+      const parsed = exportQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send({ error: "validation_failed", details: parsed.error.flatten() });
+      }
+      const { status, date_from, date_to } = parsed.data;
+
+      const where: Prisma.ReservationWhereInput = {};
+      if (status) where.status = status;
+      if (date_from || date_to) {
+        where.visitDate = {};
+        if (date_from) where.visitDate.gte = new Date(`${date_from}T00:00:00Z`);
+        if (date_to) where.visitDate.lte = new Date(`${date_to}T00:00:00Z`);
+      }
+
+      const items = await prisma.reservation.findMany({
+        where,
+        include: { visitor: true },
+        orderBy: [{ visitDate: "asc" }, { startTime: "asc" }],
+      });
+
+      const headers = [
+        "Tarih",
+        "Saat",
+        "Ad",
+        "Telefon",
+        "E-posta",
+        "Kişi sayısı",
+        "Süre (dk)",
+        "Durum",
+        "Kanal",
+        "Not",
+        "Oluşturulma",
+      ];
+      const rows = items.map((r) => [
+        new Date(r.visitDate).toISOString().slice(0, 10),
+        r.startTime,
+        r.visitor?.name ?? "",
+        r.visitor?.phone ?? "",
+        r.visitor?.email ?? "",
+        r.groupSize,
+        r.durationMinutes,
+        STATUS_LABEL_TR[r.status] ?? r.status,
+        r.source ?? "",
+        r.note ?? "",
+        new Date(r.createdAt).toISOString(),
+      ]);
+
+      const csv =
+        [headers, ...rows]
+          .map((cols) => cols.map(csvCell).join(","))
+          .join("\r\n") + "\r\n";
+      const BOM = "﻿"; // Excel UTF-8 algilamasi icin
+      const fname = `reservations_${new Date().toISOString().slice(0, 10)}.csv`;
+
+      reply
+        .header("Content-Type", "text/csv; charset=utf-8")
+        .header("Content-Disposition", `attachment; filename="${fname}"`)
+        .send(BOM + csv);
+    },
+  );
 
   app.get<{ Params: { id: string } }>("/:id", { preHandler: verifyJWT }, async (req, reply) => {
     const r = await prisma.reservation.findUnique({
