@@ -12,6 +12,7 @@ import {
   TooManyPendingReservationsError,
   type CreateReservationInput,
 } from "../types/reservation";
+import { notifyAdminError } from "../services/error-alert.service";
 
 // Meta WhatsApp Flow nfm_reply payload yapisi (flows.ts ile uyumlu snake_case).
 // duration ve group_size Flow icinde TextInput type="number" oldugu icin
@@ -169,6 +170,7 @@ async function routeMessage(msg: WAMessage, log: FastifyBaseLogger) {
           // TODO: ziyaretciye 'cok talep var' WA mesaji
         } else {
           log.error({ ...base, err }, "createReservation webhook hata");
+          void notifyAdminError("wa.webhook.createReservation", err, base);
         }
       }
       return;

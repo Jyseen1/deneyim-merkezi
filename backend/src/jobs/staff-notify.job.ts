@@ -59,8 +59,19 @@ staffNotifyWorker.on("failed", (job, err) => {
     jobId: job?.id,
     reservationId: job?.data?.reservationId,
     attempt: job?.data?.attempt,
+    attemptsMade: job?.attemptsMade,
     err: err.message,
   });
+  const attempts = job?.attemptsMade ?? 0;
+  const max = job?.opts?.attempts ?? 1;
+  if (attempts >= max) {
+    void import("../services/error-alert.service").then((m) =>
+      m.notifyAdminError("staff-notify.job", err, {
+        reservationId: job?.data?.reservationId,
+        attempt: job?.data?.attempt,
+      }),
+    );
+  }
 });
 
 staffNotifyWorker.on("ready", () => {

@@ -232,13 +232,15 @@ export default function CalendarPage() {
         token,
       );
       setItems(resvRes.items);
-      // Debug: takvim hangi araligi cekiyor, kac kayit donmus
-      console.log("[calendar] reservations", {
-        startISO,
-        endISO,
-        count: resvRes.items.length,
-        sample: resvRes.items[0],
-      });
+      // Debug: sadece dev'de (production'da bos)
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[calendar] reservations", {
+          startISO,
+          endISO,
+          count: resvRes.items.length,
+          sample: resvRes.items[0],
+        });
+      }
     } catch (err) {
       const msg =
         err instanceof ApiError

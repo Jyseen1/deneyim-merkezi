@@ -21,8 +21,15 @@ import "./jobs/timeout.job";
 import "./jobs/staff-notify.job";
 import { shutdownQueues } from "./jobs/queue";
 import { prisma } from "./db/client";
+import { notifyAdminError } from "./services/error-alert.service";
 
-const app = Fastify({ logger: true });
+const isProduction = process.env.NODE_ENV === "production";
+const app = Fastify({
+  // Production'da info, dev'de debug. Hatalar her ortamda log'lanir.
+  logger: {
+    level: isProduction ? "info" : "debug",
+  },
+});
 
 async function main() {
   app.addHook("onClose", async () => {
@@ -44,7 +51,17 @@ async function main() {
     credentials: true,
   });
   await app.register(helmet);
-  await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
+  // Global rate limit: IP basina dakikada 100 istek. Webhook'lar mefuf
+  // (Telegram/WhatsApp burst gondurebilir + onlarin kendi guvenligi var).
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: "1 minute",
+    allowList: (req) => {
+      const url = req.url || "";
+      // /api/v1/webhooks/* yolu - Telegram + WhatsApp webhook'lari muaf
+      return url.startsWith("/api/v1/webhooks/");
+    },
+  });
 
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret) throw new Error("JWT_SECRET tanimli degil");
@@ -58,6 +75,44 @@ async function main() {
     timestamp: new Date(),
     env: process.env.NODE_ENV,
   }));
+
+  // Fastify global error handler: sadece 500+ sunucu hatalarinda alarm.
+  // 4xx (validation, not_found, vs.) zaten musteri tarafi sorun, alarm degil.
+  app.setErrorHandler((err, req, reply) => {
+    const status =
+      (err as { statusCode?: number }).statusCode ??
+      reply.statusCode ??
+      500;
+    if (status >= 500) {
+      req.log.error({ err, url: req.url, method: req.method }, "5xx server error");
+      void notifyAdminError(
+        `${req.method} ${req.url}`,
+        err,
+        { reqId: req.id },
+      );
+    } else {
+      req.log.warn({ err, url: req.url, method: req.method, status }, "4xx client error");
+    }
+    // Default Fastify formatting yerine kendi cevabımız — gizlemek istemiyoruz
+    if (!reply.sent) {
+      reply.code(status).send({
+        error: status >= 500 ? "internal_error" : (err as { code?: string }).code ?? "error",
+        message:
+          status >= 500 ? "Sunucu hatasi olustu" : err.message,
+      });
+    }
+  });
+
+  // DEV/test alarm tetikleyici. Production'da kapali.
+  if (!isProduction) {
+    app.get("/debug/test-alert", async (req) => {
+      req.log.info("test-alert tetiklendi");
+      await notifyAdminError("test-alert", new Error("Bu bir test alarmidir"), {
+        kaynak: "debug endpoint",
+      });
+      return { ok: true, sentTo: process.env.TELEGRAM_STAFF_CHAT_ID, throttled: "5dk icinde tekrar atilirsa engellenir" };
+    });
+  }
 
   await app.register(authRoutes, { prefix: "/api/v1/auth" });
   await app.register(webhookRoutes, { prefix: "/api/v1/webhooks" });
@@ -146,7 +201,36 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   });
 }
 
+// Yakalanmamis hatalar — alarm + log, sonra graceful shutdown
+process.on("unhandledRejection", (reason) => {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      scope: "process",
+      msg: "unhandledRejection",
+      reason: reason instanceof Error ? reason.message : String(reason),
+      stack: reason instanceof Error ? reason.stack : undefined,
+    }),
+  );
+  void notifyAdminError("unhandledRejection", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      scope: "process",
+      msg: "uncaughtException",
+      err: err.message,
+      stack: err.stack,
+    }),
+  );
+  void notifyAdminError("uncaughtException", err);
+  // uncaught exception sonrasi state belirsiz — graceful shutdown
+  void gracefulShutdown("uncaughtException");
+});
+
 main().catch((err) => {
   console.error(err);
+  void notifyAdminError("server.main", err);
   process.exit(1);
 });

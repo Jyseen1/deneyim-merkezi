@@ -48,8 +48,19 @@ reminderWorker.on("failed", (job, err) => {
   log("error", "reminder worker failed", {
     jobId: job?.id,
     reservationId: job?.data?.reservationId,
+    attemptsMade: job?.attemptsMade,
     err: err.message,
   });
+  // BullMQ default attempt sayisini astiysa terminal failure — alarm at
+  const attempts = job?.attemptsMade ?? 0;
+  const max = job?.opts?.attempts ?? 1;
+  if (attempts >= max) {
+    void import("../services/error-alert.service").then((m) =>
+      m.notifyAdminError("reminder.job", err, {
+        reservationId: job?.data?.reservationId,
+      }),
+    );
+  }
 });
 
 reminderWorker.on("ready", () => {

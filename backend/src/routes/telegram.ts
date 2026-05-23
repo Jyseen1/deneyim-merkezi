@@ -20,6 +20,7 @@ import {
   TooManyPendingReservationsError,
   type CreateReservationInput,
 } from "../types/reservation";
+import { notifyAdminError } from "../services/error-alert.service";
 
 // Telegram webhook payload sablonu (gerekli alanlar).
 type TgUpdate = {
@@ -81,6 +82,9 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
       await handleUpdate(update, req.log);
     } catch (err) {
       req.log.error({ err }, "Telegram update isleme hatasi");
+      void notifyAdminError("telegram.webhook.handleUpdate", err, {
+        updateId: update.update_id,
+      });
     }
 
     // Telegram her zaman 200 bekler; aksi halde retry yagar

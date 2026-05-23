@@ -63,8 +63,18 @@ timeoutWorker.on("failed", (job, err) => {
   log("error", "timeout worker failed", {
     jobId: job?.id,
     reservationId: job?.data?.reservationId,
+    attemptsMade: job?.attemptsMade,
     err: err.message,
   });
+  const attempts = job?.attemptsMade ?? 0;
+  const max = job?.opts?.attempts ?? 1;
+  if (attempts >= max) {
+    void import("../services/error-alert.service").then((m) =>
+      m.notifyAdminError("timeout.job", err, {
+        reservationId: job?.data?.reservationId,
+      }),
+    );
+  }
 });
 
 timeoutWorker.on("ready", () => {

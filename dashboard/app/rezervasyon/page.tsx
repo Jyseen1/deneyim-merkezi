@@ -268,29 +268,31 @@ function ReservationForm() {
         body.telegramChatId = String(telegramChatId);
       }
 
-      // Debug: gercek payload'u Telegram'da Web Inspector ile gormek icin.
-      // Gerekmiyorsa kaldirilabilir.
-      console.log("[rezervasyon] submit", {
-        isTelegram,
-        telegramChatId,
-        bodyPreview: { ...body, phone: "***" },
-      });
+      // Debug — sadece dev, production'da sessiz
+      const DEBUG_DEV = process.env.NODE_ENV !== "production";
+      if (DEBUG_DEV) {
+        console.log("[rezervasyon] submit", {
+          isTelegram,
+          telegramChatId,
+          bodyPreview: { ...body, phone: "***" },
+        });
+      }
 
       let payload: string;
       try {
         payload = JSON.stringify(body);
       } catch (jsonErr) {
-        console.error("[rezervasyon] JSON.stringify hata", jsonErr);
+        if (DEBUG_DEV) console.error("[rezervasyon] JSON.stringify hata", jsonErr);
         setSubmitErr("Form verisi seri hale getirilemedi.");
         return;
       }
 
-      console.log("[rezervasyon] POST /reservations start, bytes:", payload.length);
+      if (DEBUG_DEV) console.log("[rezervasyon] POST start, bytes:", payload.length);
       const res = await apiFetch<{ id: string }>("/reservations", {
         method: "POST",
         body: payload,
       });
-      console.log("[rezervasyon] POST success, id:", res.id);
+      if (DEBUG_DEV) console.log("[rezervasyon] POST success, id:", res.id);
       setSuccessId(res.id);
 
       // Telegram: success sonrasi mini-app'i kapat — onay mesaji chat'e dusecek.
@@ -300,12 +302,13 @@ function ReservationForm() {
         setTimeout(() => {
           try {
             window.Telegram?.WebApp?.close();
-          } catch (closeErr) {
-            console.warn("[rezervasyon] WebApp.close hata", closeErr);
+          } catch {
+            /* sessiz — WebApp.close kritik degil */
           }
         }, 1500);
       }
     } catch (e) {
+      // Hatalar her zaman log'lansin (error visibility için).
       console.error("[rezervasyon] submit hata", e);
       if (e instanceof ApiError && e.status === 409) {
         const errBody = e.body as { available_slots?: AvailableSlot[] } | null;
