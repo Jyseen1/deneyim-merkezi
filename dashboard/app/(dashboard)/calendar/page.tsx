@@ -60,16 +60,41 @@ const DEFAULT_SETTINGS: SettingsLite = {
   defaultDuration: 120,
 };
 
+// GigaX paleti — saturated cam tonlari, koyu zeminde okunaklı.
 const STATUS_COLORS: Record<
   ReservationStatus,
   { bg: string; border: string; fg: string }
 > = {
-  PENDING_APPROVAL: { bg: "#ef9f27", border: "#d97706", fg: "#7c2d12" },
-  APPROVED: { bg: "#1d9e75", border: "#15835f", fg: "#e7fbf3" },
-  REJECTED: { bg: "#fee2e2", border: "#fca5a5", fg: "#7f1d1d" },
-  CANCELLED: { bg: "#e2e8f0", border: "#94a3b8", fg: "#1e293b" },
-  COMPLETED: { bg: "#dbeafe", border: "#93c5fd", fg: "#1e3a8a" },
-  NO_SHOW: { bg: "#ffedd5", border: "#fdba74", fg: "#7c2d12" },
+  PENDING_APPROVAL: {
+    bg: "rgba(124,58,237,0.22)",
+    border: "rgba(124,58,237,0.50)",
+    fg: "#C4B5FD",
+  },
+  APPROVED: {
+    bg: "rgba(74,222,128,0.22)",
+    border: "rgba(74,222,128,0.50)",
+    fg: "#86EFAC",
+  },
+  REJECTED: {
+    bg: "rgba(239,68,68,0.18)",
+    border: "rgba(239,68,68,0.40)",
+    fg: "#FCA5A5",
+  },
+  CANCELLED: {
+    bg: "rgba(161,161,170,0.18)",
+    border: "rgba(161,161,170,0.40)",
+    fg: "#D4D4D8",
+  },
+  COMPLETED: {
+    bg: "rgba(96,165,250,0.18)",
+    border: "rgba(96,165,250,0.40)",
+    fg: "#93C5FD",
+  },
+  NO_SHOW: {
+    bg: "rgba(251,191,36,0.18)",
+    border: "rgba(251,191,36,0.40)",
+    fg: "#FCD34D",
+  },
 };
 
 const DAYS_FULL = [
@@ -315,7 +340,7 @@ export default function CalendarPage() {
           >
             Takvim
           </h1>
-          <p style={{ fontSize: "13px", color: "#818cf8", margin: "4px 0 0" }}>
+          <p style={{ fontSize: "13px", color: "var(--gx-text-muted)", margin: "4px 0 0" }}>
             Rezervasyonlar, kapatmalar ve kurallar tek yerde.
           </p>
         </div>
@@ -373,8 +398,8 @@ export default function CalendarPage() {
             display: "flex",
             alignItems: "center",
             gap: "8px",
-            background: "rgba(255,255,255,0.7)",
-            border: "1px solid rgba(209,196,255,0.6)",
+            background: "var(--gx-surface)",
+            border: "1px solid var(--gx-border)",
             borderRadius: "99px",
             padding: "4px 4px 4px 12px",
           }}
@@ -387,9 +412,9 @@ export default function CalendarPage() {
               fontWeight: 600,
               padding: "4px 12px",
               borderRadius: "99px",
-              border: "1px solid #ede9fe",
+              border: "1px solid var(--gx-border)",
               background: "rgba(255,255,255,0.8)",
-              color: "#4338ca",
+              color: "var(--gx-accent-light)",
               cursor: "pointer",
             }}
           >
@@ -407,7 +432,7 @@ export default function CalendarPage() {
             style={{
               fontSize: "13px",
               fontWeight: 600,
-              color: "#1e1b4b",
+              color: "var(--gx-text)",
               minWidth: "180px",
               textAlign: "center",
             }}
@@ -435,9 +460,9 @@ export default function CalendarPage() {
           <span
             style={{
               fontSize: "11px",
-              color: "#818cf8",
-              background: "rgba(67,56,202,0.06)",
-              border: "1px solid #ede9fe",
+              color: "var(--gx-text-muted)",
+              background: "rgba(124,58,237,0.10)",
+              border: "1px solid var(--gx-border)",
               padding: "4px 10px",
               borderRadius: "99px",
               whiteSpace: "nowrap",
@@ -456,9 +481,9 @@ export default function CalendarPage() {
           style={{
             marginBottom: "14px",
             padding: "10px 14px",
-            background: "#fee2e2",
-            border: "1px solid #fecaca",
-            color: "#991b1b",
+            background: "rgba(239,68,68,0.10)",
+            border: "1px solid rgba(239,68,68,0.30)",
+            color: "var(--gx-danger)",
             borderRadius: "12px",
             fontSize: "13px",
           }}
@@ -518,7 +543,7 @@ export default function CalendarPage() {
               top: 8,
               right: 12,
               fontSize: "11px",
-              color: "#a5b4fc",
+              color: "var(--gx-text-hint)",
             }}
           >
             Yükleniyor…
@@ -648,23 +673,24 @@ function ActionPillButton({
   if (tone === "primary") {
     style = {
       ...base,
-      background: "#4338ca",
-      border: "1px solid #4338ca",
-      color: "#e0e7ff",
+      background: "var(--gx-gradient)",
+      border: "1px solid var(--gx-accent)",
+      color: "#ffffff",
+      boxShadow: "0 4px 14px rgba(124,58,237,0.30)",
     };
   } else if (tone === "danger") {
     style = {
       ...base,
-      background: "rgba(239,68,68,0.08)",
-      border: "1px solid rgba(239,68,68,0.3)",
-      color: "#ef4444",
+      background: "rgba(239,68,68,0.10)",
+      border: "1px solid rgba(239,68,68,0.30)",
+      color: "var(--gx-danger)",
     };
   } else {
     style = {
       ...base,
-      background: "rgba(255,255,255,0.7)",
-      border: "1px solid rgba(209,196,255,0.6)",
-      color: "#4338ca",
+      background: "var(--gx-surface)",
+      border: "1px solid var(--gx-border)",
+      color: "var(--gx-text-muted)",
     };
   }
   return (
@@ -681,7 +707,7 @@ function navArrow(): React.CSSProperties {
     borderRadius: "50%",
     border: "none",
     background: "transparent",
-    color: "#4338ca",
+    color: "var(--gx-accent-light)",
     fontSize: "20px",
     lineHeight: 1,
     cursor: "pointer",
@@ -704,8 +730,8 @@ function ViewSwitcher({
     <div
       style={{
         display: "inline-flex",
-        background: "rgba(255,255,255,0.7)",
-        border: "1px solid rgba(209,196,255,0.6)",
+        background: "var(--gx-surface)",
+        border: "1px solid var(--gx-border)",
         borderRadius: "99px",
         padding: "4px",
         gap: "2px",
@@ -723,12 +749,13 @@ function ViewSwitcher({
               padding: "6px 16px",
               borderRadius: "99px",
               border: "none",
-              background: active ? "#4338ca" : "transparent",
-              color: active ? "#e0e7ff" : "#4338ca",
+              background: active ? "var(--gx-gradient)" : "transparent",
+              color: active ? "#ffffff" : "var(--gx-text-muted)",
               fontSize: "12px",
               fontWeight: 600,
               cursor: "pointer",
               transition: "all 0.15s ease",
+              boxShadow: active ? "0 2px 10px rgba(124,58,237,0.35)" : "none",
             }}
           >
             {o.label}
@@ -757,7 +784,7 @@ function Legend() {
         flexWrap: "wrap",
         gap: "14px",
         fontSize: "11px",
-        color: "#818cf8",
+        color: "var(--gx-text-muted)",
       }}
     >
       {items.map((i) => (
@@ -827,7 +854,7 @@ function HourCell(props: GridCellProps) {
           : isClosed
             ? "rgba(239,68,68,0.10)"
             : "rgba(255,255,255,0.55)",
-        border: "1px solid rgba(209,196,255,0.4)",
+        border: "1px solid var(--gx-border)",
         borderTop: "none",
         borderLeft: "none",
         padding: reservations.length || isClosed ? "4px" : "0",
@@ -1090,11 +1117,11 @@ function DayWeekGrid(props: {
               padding: "12px 8px",
               fontSize: "10px",
               fontWeight: 600,
-              color: "#818cf8",
+              color: "var(--gx-text-muted)",
               textAlign: "center",
               letterSpacing: "0.05em",
               textTransform: "uppercase",
-              borderBottom: "1px solid rgba(209,196,255,0.5)",
+              borderBottom: "1px solid var(--gx-border)",
               background: "rgba(245,243,255,0.6)",
             }}
           >
@@ -1114,17 +1141,17 @@ function DayWeekGrid(props: {
                 style={{
                   padding: "10px 8px",
                   textAlign: "center",
-                  borderBottom: "1px solid rgba(209,196,255,0.5)",
+                  borderBottom: "1px solid var(--gx-border)",
                   background: isToday
-                    ? "rgba(67,56,202,0.06)"
+                    ? "rgba(124,58,237,0.10)"
                     : "rgba(245,243,255,0.6)",
-                  borderLeft: "1px solid rgba(209,196,255,0.4)",
+                  borderLeft: "1px solid var(--gx-border)",
                 }}
               >
                 <div
                   style={{
                     fontSize: "10px",
-                    color: "#818cf8",
+                    color: "var(--gx-text-muted)",
                     letterSpacing: "0.05em",
                     fontWeight: 600,
                     textTransform: "uppercase",
@@ -1136,7 +1163,7 @@ function DayWeekGrid(props: {
                   style={{
                     fontSize: "15px",
                     fontWeight: isToday ? 700 : 600,
-                    color: isToday ? "#4338ca" : "#1e1b4b",
+                    color: isToday ? "var(--gx-accent-light)" : "var(--gx-text)",
                     marginTop: "2px",
                   }}
                 >
@@ -1228,9 +1255,9 @@ function FragRow(props: {
           padding: "6px 6px",
           fontSize: "10px",
           fontWeight: 600,
-          color: inWork ? "#475569" : "#cbd5e1",
+          color: inWork ? "var(--gx-text-muted)" : "var(--gx-text-hint)",
           textAlign: "right",
-          borderTop: "1px solid rgba(209,196,255,0.3)",
+          borderTop: "1px solid var(--gx-border)",
           background: "rgba(250,250,255,0.6)",
           minHeight: "56px",
         }}
@@ -1324,7 +1351,7 @@ function MonthView(props: {
             style={{
               fontSize: "11px",
               fontWeight: 600,
-              color: "#818cf8",
+              color: "var(--gx-text-muted)",
               textAlign: "center",
               letterSpacing: "0.04em",
             }}
@@ -1364,13 +1391,13 @@ function MonthView(props: {
                 background: closed
                   ? "rgba(239,68,68,0.08)"
                   : isToday
-                    ? "rgba(67,56,202,0.06)"
+                    ? "rgba(124,58,237,0.10)"
                     : "rgba(255,255,255,0.55)",
                 border: closed
                   ? "1px dashed rgba(239,68,68,0.4)"
                   : isToday
-                    ? "2px solid #4338ca"
-                    : "1px solid rgba(209,196,255,0.5)",
+                    ? "2px solid var(--gx-accent)"
+                    : "1px solid var(--gx-border)",
                 opacity: inMonth ? 1 : 0.35,
                 cursor: "pointer",
                 textAlign: "left",
@@ -1378,7 +1405,7 @@ function MonthView(props: {
                 flexDirection: "column",
                 gap: "6px",
                 fontFamily: "inherit",
-                color: "#1e1b4b",
+                color: "var(--gx-text)",
               }}
             >
               <div
@@ -1392,7 +1419,7 @@ function MonthView(props: {
                   style={{
                     fontSize: "12px",
                     fontWeight: isToday ? 700 : 500,
-                    color: isToday ? "#4338ca" : "#1e1b4b",
+                    color: isToday ? "var(--gx-accent-light)" : "var(--gx-text)",
                   }}
                 >
                   {d.getDate()}
@@ -1491,14 +1518,14 @@ function ModalShell({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(30,27,75,0.45)",
+        background: "rgba(0,0,0,0.65)",
         zIndex: 60,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         padding: "20px",
-        backdropFilter: "blur(2px)",
-        WebkitBackdropFilter: "blur(2px)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
       }}
     >
       <div
@@ -1506,13 +1533,14 @@ function ModalShell({
         style={{
           width: "100%",
           maxWidth: `${width}px`,
-          background: "#ffffff",
+          background: "var(--gx-surface-2)",
           borderRadius: "16px",
           padding: "22px",
-          boxShadow: "0 24px 48px rgba(30,27,75,0.25)",
-          border: "1px solid #ede9fe",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
+          border: "1px solid var(--gx-border-accent)",
           maxHeight: "90vh",
           overflowY: "auto",
+          color: "var(--gx-text)",
         }}
       >
         <h3
@@ -1530,7 +1558,7 @@ function ModalShell({
           <p
             style={{
               fontSize: "12px",
-              color: "#818cf8",
+              color: "var(--gx-text-muted)",
               margin: "4px 0 16px",
             }}
           >
@@ -1561,7 +1589,7 @@ function modalLabel(): React.CSSProperties {
   return {
     display: "block",
     fontSize: "10px",
-    color: "#818cf8",
+    color: "var(--gx-text-muted)",
     fontWeight: 600,
     letterSpacing: "0.06em",
     textTransform: "uppercase",
@@ -1573,9 +1601,9 @@ function modalInput(): React.CSSProperties {
     width: "100%",
     padding: "9px 12px",
     borderRadius: "10px",
-    border: "1px solid #ede9fe",
+    border: "1px solid var(--gx-border)",
     fontSize: "13px",
-    color: "#1e1b4b",
+    color: "var(--gx-text)",
     outline: "none",
     fontFamily: "inherit",
     boxSizing: "border-box",
@@ -1960,12 +1988,12 @@ function EmptyCellMenu({
                     padding: "10px 12px",
                     borderRadius: "10px",
                     border: active
-                      ? "1px solid #4338ca"
-                      : "1px solid #ede9fe",
+                      ? "1px solid var(--gx-accent)"
+                      : "1px solid var(--gx-border)",
                     background: active
-                      ? "rgba(67,56,202,0.08)"
-                      : "#ffffff",
-                    color: active ? "#4338ca" : "#1e1b4b",
+                      ? "rgba(124,58,237,0.18)"
+                      : "var(--gx-surface)",
+                    color: active ? "var(--gx-accent-light)" : "var(--gx-text)",
                     fontSize: "13px",
                     fontWeight: 500,
                     cursor: "pointer",
@@ -2032,10 +2060,10 @@ function menuActionStyle(tone: "primary" | "danger"): React.CSSProperties {
     borderRadius: "10px",
     border:
       tone === "primary"
-        ? "1px solid #4338ca"
+        ? "1px solid var(--gx-accent)"
         : "1px solid rgba(239,68,68,0.3)",
     background:
-      tone === "primary" ? "rgba(67,56,202,0.06)" : "rgba(239,68,68,0.06)",
+      tone === "primary" ? "rgba(124,58,237,0.10)" : "rgba(239,68,68,0.06)",
     color: tone === "primary" ? "#4338ca" : "#ef4444",
     fontSize: "13px",
     fontWeight: 600,
@@ -2130,17 +2158,17 @@ function BlockDetailModal({
       <div
         style={{
           fontSize: "13px",
-          color: "#1e1b4b",
+          color: "var(--gx-text)",
           padding: "10px 12px",
           background: "#faf5ff",
-          border: "1px solid #ede9fe",
+          border: "1px solid var(--gx-border)",
           borderRadius: "10px",
         }}
       >
         <div
           style={{
             fontSize: "10px",
-            color: "#818cf8",
+            color: "var(--gx-text-muted)",
             fontWeight: 600,
             letterSpacing: "0.05em",
             textTransform: "uppercase",
@@ -2309,14 +2337,14 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
         style={{
           fontSize: "10px",
           fontWeight: 600,
-          color: "#818cf8",
+          color: "var(--gx-text-muted)",
           letterSpacing: "0.08em",
           textTransform: "uppercase",
         }}
       >
         {title}
       </div>
-      <div style={{ fontSize: "11px", color: "#a5b4fc" }}>{count}</div>
+      <div style={{ fontSize: "11px", color: "var(--gx-text-hint)" }}>{count}</div>
     </div>
   );
 }
@@ -2327,7 +2355,7 @@ function EmptyHint({ text }: { text: string }) {
         padding: "16px 14px",
         textAlign: "center",
         fontSize: "12px",
-        color: "#a5b4fc",
+        color: "var(--gx-text-hint)",
         background: "rgba(255,255,255,0.5)",
         border: "1px dashed #c4b5fd",
         borderRadius: "10px",
@@ -2371,7 +2399,7 @@ function ManagedRow({
         gap: "12px",
         padding: "10px 12px",
         background: "rgba(255,255,255,0.65)",
-        border: "1px solid #ede9fe",
+        border: "1px solid var(--gx-border)",
         borderRadius: "10px",
       }}
     >
@@ -2380,8 +2408,8 @@ function ManagedRow({
           width: "32px",
           height: "32px",
           borderRadius: "8px",
-          background: "rgba(148,163,184,0.18)",
-          color: "#475569",
+          background: "rgba(124,58,237,0.15)",
+          color: "var(--gx-accent-light)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -2396,7 +2424,7 @@ function ManagedRow({
           style={{
             fontSize: "13px",
             fontWeight: 600,
-            color: "#1e1b4b",
+            color: "var(--gx-text)",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -2407,7 +2435,7 @@ function ManagedRow({
         <div
           style={{
             fontSize: "11px",
-            color: "#818cf8",
+            color: "var(--gx-text-muted)",
             marginTop: "2px",
             whiteSpace: "nowrap",
             overflow: "hidden",
