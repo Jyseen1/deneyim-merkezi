@@ -8,12 +8,27 @@ import {
   createReservation,
   markNoShow,
   rejectReservation,
+  sendStaffApprovalNotifications,
 } from "../services/reservation.service";
 import {
   ReservationAlreadyProcessedError,
   SlotUnavailableError,
 } from "../types/reservation";
 import { verifyJWT } from "../middleware/auth";
+import { requireAdmin } from "../middleware/requireAdmin";
+
+// Bir rezervasyon icin yetkili bildirim durumu: en son outbound + staff_approval
+// notification status'u. "pending" = hic gonderim yapilmamis. "sent"/"failed"
+// = son denemenin sonucu.
+type StaffNotifyStatus = "sent" | "failed" | "pending";
+type WithNotifs = { notifications: { status: string; sentAt: Date }[] };
+function staffNotificationStatusOf(r: WithNotifs): StaffNotifyStatus {
+  // notifications zaten desc sirali geldi (orderBy sentAt desc) — index 0 son.
+  const last = r.notifications[0];
+  if (!last) return "pending";
+  if (last.status === "sent") return "sent";
+  return "failed";
+}
 
 const reservationStatuses = [
   "PENDING_APPROVAL",
@@ -146,10 +161,23 @@ const reservationRoutes: FastifyPluginAsync = async (app) => {
       };
     }
 
-    const [items, total] = await Promise.all([
+    const [rawItems, total] = await Promise.all([
       prisma.reservation.findMany({
         where,
-        include: { visitor: true },
+        include: {
+          visitor: true,
+          // Yetkili (outbound + staff_approval) son notification kayitlari
+          // istemciye gonderilmiyor; sadece status hesabi icin cekilir.
+          notifications: {
+            where: {
+              direction: "outbound",
+              templateName: "staff_approval",
+            },
+            orderBy: { sentAt: "desc" },
+            take: 1,
+            select: { status: true, sentAt: true },
+          },
+        },
         // En yeni gelen talep en ustte — pagination + canli SSE ile uyumlu.
         orderBy: [{ createdAt: "desc" }],
         skip: (page - 1) * limit,
@@ -158,16 +186,35 @@ const reservationRoutes: FastifyPluginAsync = async (app) => {
       prisma.reservation.count({ where }),
     ]);
 
+    // notifications array'ini payload'dan cikar, computed field ekle.
+    const items = rawItems.map(({ notifications, ...rest }) => ({
+      ...rest,
+      staffNotificationStatus: staffNotificationStatusOf({ notifications }),
+    }));
+
     return reply.send({ items, total, page, limit });
   });
 
   app.get<{ Params: { id: string } }>("/:id", { preHandler: verifyJWT }, async (req, reply) => {
     const r = await prisma.reservation.findUnique({
       where: { id: req.params.id },
-      include: { visitor: true, approvalToken: true, notifications: true },
+      include: {
+        visitor: true,
+        approvalToken: true,
+        notifications: { orderBy: { sentAt: "desc" } },
+      },
     });
     if (!r) return reply.code(404).send({ error: "not_found" });
-    return reply.send(r);
+    // staffNotificationStatus: en son outbound + staff_approval kaydina bak.
+    const staffNotif = r.notifications.find(
+      (n) => n.direction === "outbound" && n.templateName === "staff_approval",
+    );
+    const staffNotificationStatus: StaffNotifyStatus = !staffNotif
+      ? "pending"
+      : staffNotif.status === "sent"
+        ? "sent"
+        : "failed";
+    return reply.send({ ...r, staffNotificationStatus });
   });
 
   app.patch<{ Params: { id: string } }>("/:id/status", { preHandler: verifyJWT }, async (req, reply) => {
@@ -226,6 +273,32 @@ const reservationRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(500).send({ error: "internal_error" });
     }
   });
+
+  // Yetkili bildirimini tekrar dene. PENDING_APPROVAL disindaki statuslarda
+  // anlam yok (zaten islenmis). requireAdmin korur — sadece adminler retry.
+  app.post<{ Params: { id: string } }>(
+    "/:id/resend-notification",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => {
+      const r = await prisma.reservation.findUnique({
+        where: { id: req.params.id },
+        include: { visitor: true },
+      });
+      if (!r) return reply.code(404).send({ error: "not_found" });
+      if (r.status !== "PENDING_APPROVAL") {
+        return reply.code(400).send({
+          error: "not_pending",
+          message: `Rezervasyon zaten ${r.status} durumunda; bildirim gönderilmez.`,
+        });
+      }
+      const result = await sendStaffApprovalNotifications(r, 0);
+      return reply.send({
+        ok: result.anySent,
+        result,
+        staffNotificationStatus: result.anySent ? "sent" : "failed",
+      });
+    },
+  );
 };
 
 export default reservationRoutes;

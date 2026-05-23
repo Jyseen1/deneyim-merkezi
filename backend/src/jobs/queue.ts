@@ -8,6 +8,9 @@ if (!REDIS_URL) {
 
 export const REMINDER_QUEUE = "reservation-reminders";
 export const TIMEOUT_QUEUE = "reservation-timeouts";
+// Yetkili (staff) bildirimi yeniden gonderim kuyruğu. createReservation ilk
+// denemede gonderimde basarisiz olursa, gecikmeli retry'lar buraya dusurulur.
+export const STAFF_NOTIFY_QUEUE = "staff-notify-retry";
 
 // BullMQ Worker'lari maxRetriesPerRequest=null ve enableReadyCheck=false bekler.
 // Queue baglantilari icin de aynisini kullaniyoruz - Upstash uzerinde sorunsuz.
@@ -36,6 +39,10 @@ export const timeoutQueue = new Queue(TIMEOUT_QUEUE, {
   connection: queueConnection,
 });
 
+export const staffNotifyQueue = new Queue(STAFF_NOTIFY_QUEUE, {
+  connection: queueConnection,
+});
+
 const workers: Worker[] = [];
 export function registerWorker(w: Worker): void {
   workers.push(w);
@@ -49,7 +56,11 @@ export async function shutdownQueues(): Promise<void> {
 
   // Once worker'lar - aktif job'larin temiz birakmasi icin.
   await Promise.allSettled(workers.map((w) => w.close()));
-  await Promise.allSettled([reminderQueue.close(), timeoutQueue.close()]);
+  await Promise.allSettled([
+    reminderQueue.close(),
+    timeoutQueue.close(),
+    staffNotifyQueue.close(),
+  ]);
   await queueConnection.quit().catch(() => {});
 
   console.log(JSON.stringify({ level: "info", scope: "jobs", msg: "shutdown tamam" }));

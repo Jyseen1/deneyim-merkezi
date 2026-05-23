@@ -14,6 +14,8 @@ export type Visitor = {
   createdAt: string;
 };
 
+export type StaffNotificationStatus = "sent" | "failed" | "pending";
+
 export type Reservation = {
   id: string;
   visitorId: string;
@@ -31,6 +33,9 @@ export type Reservation = {
   cancelReason: string | null;
   createdAt: string;
   updatedAt: string;
+  // Backend her GET'te hesaplar: en son outbound + staff_approval notification
+  // status'u. "pending" hic gonderilmemis, "failed" basarisiz, "sent" basarili.
+  staffNotificationStatus?: StaffNotificationStatus;
 };
 
 export type ReservationList = {

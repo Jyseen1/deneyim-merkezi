@@ -17,8 +17,10 @@ import {
 import {
   reminderQueue,
   removeJobSafe,
+  staffNotifyQueue,
   timeoutQueue,
 } from "../jobs/queue";
+import { logNotification } from "./notification.service";
 import {
   ReservationAlreadyProcessedError,
   SlotUnavailableError,
@@ -38,9 +40,164 @@ function timeoutJobId(id: string) {
 function reminderJobId(id: string) {
   return `reminder_${id}`;
 }
+function staffNotifyJobId(id: string, attempt: number) {
+  return `staffnotify_${id}_${attempt}`;
+}
 
 function logJobError(scope: string, msg: string, ctx: Record<string, unknown>) {
   console.error(JSON.stringify({ level: "error", scope, msg, ...ctx }));
+}
+
+// Yetkili bildirim retry parametreleri: 0=ilk, 1=30sn, 2=2dk, 3=5dk
+const STAFF_NOTIFY_DELAYS_MS = [30_000, 120_000, 300_000];
+const MAX_STAFF_NOTIFY_ATTEMPTS = STAFF_NOTIFY_DELAYS_MS.length + 1; // 4 toplam
+
+// Tek bildirim girisimi: WA + Telegram paralel, her biri notification log'lar,
+// gerekirse sonraki attempt'i kuyruga koyar.
+export type StaffNotifyResult = {
+  whatsapp: "sent" | "failed" | "skipped";
+  telegram: "sent" | "failed" | "skipped";
+  anySent: boolean;
+  attempted: boolean;
+};
+
+async function trySendStaffWA(
+  reservation: ReservationWithVisitor,
+): Promise<"sent" | "failed" | "skipped"> {
+  if (!process.env.WA_ACCESS_TOKEN) return "skipped";
+  try {
+    const msgId = await sendApprovalRequest(reservation);
+    await logNotification({
+      reservationId: reservation.id,
+      channel: "whatsapp",
+      direction: "outbound",
+      templateName: "staff_approval",
+      waMessageId: msgId ?? undefined,
+      status: msgId ? "sent" : "failed",
+    });
+    return msgId ? "sent" : "failed";
+  } catch (err) {
+    logJobError("reservation", "staff WA send hata", {
+      reservationId: reservation.id,
+      err: (err as Error).message,
+    });
+    await logNotification({
+      reservationId: reservation.id,
+      channel: "whatsapp",
+      direction: "outbound",
+      templateName: "staff_approval",
+      status: "failed",
+    });
+    return "failed";
+  }
+}
+
+async function trySendStaffTelegram(
+  reservation: ReservationWithVisitor,
+): Promise<"sent" | "failed" | "skipped"> {
+  if (!process.env.TELEGRAM_BOT_TOKEN) return "skipped";
+  try {
+    const refs = await sendTelegramStaffApproval(reservation);
+    if (refs) {
+      // Mesaj refs'lerini reservation'a yaz: ileride site/telegram/whatsapp
+      // hangi kanaldan onay/red gelirse gelsin bu mesaji guncellemek icin.
+      try {
+        await prisma.reservation.update({
+          where: { id: reservation.id },
+          data: {
+            telegramStaffMessageId: String(refs.messageId),
+            telegramStaffChatId: refs.chatId,
+          },
+        });
+      } catch (err) {
+        logJobError("reservation", "telegram staff refs persist hata", {
+          reservationId: reservation.id,
+          err: (err as Error).message,
+        });
+      }
+      await logNotification({
+        reservationId: reservation.id,
+        channel: "telegram",
+        direction: "outbound",
+        templateName: "staff_approval",
+        status: "sent",
+      });
+      return "sent";
+    }
+    await logNotification({
+      reservationId: reservation.id,
+      channel: "telegram",
+      direction: "outbound",
+      templateName: "staff_approval",
+      status: "failed",
+    });
+    return "failed";
+  } catch (err) {
+    logJobError("reservation", "staff Telegram send hata", {
+      reservationId: reservation.id,
+      err: (err as Error).message,
+    });
+    await logNotification({
+      reservationId: reservation.id,
+      channel: "telegram",
+      direction: "outbound",
+      templateName: "staff_approval",
+      status: "failed",
+    });
+    return "failed";
+  }
+}
+
+// Tek attempt'lik gonderim — basariliysa retry zinciri durur, basarisiz +
+// attempt < MAX ise sonraki attempt kuyruga eklenir.
+export async function sendStaffApprovalNotifications(
+  reservation: ReservationWithVisitor,
+  attempt = 0,
+): Promise<StaffNotifyResult> {
+  const [whatsapp, telegram] = await Promise.all([
+    trySendStaffWA(reservation),
+    trySendStaffTelegram(reservation),
+  ]);
+  const attempted =
+    whatsapp !== "skipped" || telegram !== "skipped";
+  const anySent = whatsapp === "sent" || telegram === "sent";
+
+  // Hicbir kanal denenmediyse retry'a gerek yok (yapilandirma yok).
+  if (attempted && !anySent && attempt + 1 < MAX_STAFF_NOTIFY_ATTEMPTS) {
+    const nextAttempt = attempt + 1;
+    const delay =
+      STAFF_NOTIFY_DELAYS_MS[nextAttempt - 1] ??
+      STAFF_NOTIFY_DELAYS_MS[STAFF_NOTIFY_DELAYS_MS.length - 1];
+    try {
+      await staffNotifyQueue.add(
+        "retry-staff-notify",
+        { reservationId: reservation.id, attempt: nextAttempt },
+        {
+          jobId: staffNotifyJobId(reservation.id, nextAttempt),
+          delay,
+          removeOnComplete: true,
+          removeOnFail: 100,
+        },
+      );
+      console.log(
+        JSON.stringify({
+          level: "info",
+          scope: "reservation",
+          msg: "staff notify retry kuyruğa eklendi",
+          reservationId: reservation.id,
+          nextAttempt,
+          delay,
+        }),
+      );
+    } catch (err) {
+      logJobError("reservation", "staff notify retry enqueue hata", {
+        reservationId: reservation.id,
+        err: (err as Error).message,
+      });
+    }
+  }
+
+  return { whatsapp, telegram, anySent, attempted };
 }
 
 export async function createReservation(input: CreateReservationInput) {
@@ -136,51 +293,14 @@ export async function createReservation(input: CreateReservationInput) {
     status: result.reservation.status,
   });
 
-  // Yetkiliye bildirim — hangi kanal env'de yapilandirilmissa o
-  // (her ikisi de doluysa paralel gonderilir; biri hata verirse digeri devam eder).
+  // Yetkiliye bildirim — yeni helper notification log + retry yapiyor.
+  // Basarisiz ise dashboard'da gorunur olur ve staffNotifyQueue 30sn/2dk/5dk
+  // sonra tekrar dener.
   const reservationWithVisitor: ReservationWithVisitor = {
     ...result.reservation,
     visitor: result.visitor,
   };
-  await Promise.allSettled([
-    process.env.WA_ACCESS_TOKEN
-      ? sendApprovalRequest(reservationWithVisitor).catch((err) =>
-          logJobError("reservation", "sendApprovalRequest hata", {
-            reservationId: result.reservation.id,
-            err: (err as Error).message,
-          }),
-        )
-      : Promise.resolve(),
-    process.env.TELEGRAM_BOT_TOKEN
-      ? sendTelegramStaffApproval(reservationWithVisitor)
-          .then(async (refs) => {
-            if (!refs) return;
-            // Mesaj refs'lerini reservation'a yaz: ileride site/telegram/whatsapp
-            // hangi kanaldan onay/red gelirse gelsin, bu mesaji guncellemek icin
-            // gerekli.
-            try {
-              await prisma.reservation.update({
-                where: { id: result.reservation.id },
-                data: {
-                  telegramStaffMessageId: String(refs.messageId),
-                  telegramStaffChatId: refs.chatId,
-                },
-              });
-            } catch (err) {
-              logJobError("reservation", "telegram staff refs persist hata", {
-                reservationId: result.reservation.id,
-                err: (err as Error).message,
-              });
-            }
-          })
-          .catch((err) =>
-            logJobError("reservation", "telegram staff approval hata", {
-              reservationId: result.reservation.id,
-              err: (err as Error).message,
-            }),
-          )
-      : Promise.resolve(),
-  ]);
+  await sendStaffApprovalNotifications(reservationWithVisitor, 0);
 
   return result;
 }

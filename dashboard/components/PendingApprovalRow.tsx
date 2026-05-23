@@ -127,6 +127,24 @@ export function PendingApprovalRow({
           >
             {dateStr} · {reservation.startTime} · {reservation.groupSize} kişi
           </div>
+          {reservation.staffNotificationStatus === "failed" && (
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 600,
+                color: "#92400e",
+                background: "#fef3c7",
+                border: "1px solid #fde68a",
+                padding: "2px 8px",
+                borderRadius: "99px",
+                marginTop: "4px",
+                display: "inline-block",
+              }}
+              title="Yetkili bildirimi gönderilemedi. Detay sayfasından tekrar deneyebilirsiniz."
+            >
+              ⚠ Bildirim gönderilemedi
+            </div>
+          )}
           {err && (
             <div style={{ fontSize: "11px", color: "#ef4444", marginTop: "4px" }}>
               {err}

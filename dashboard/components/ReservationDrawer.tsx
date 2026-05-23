@@ -11,6 +11,7 @@ import {
 import { formatTrDateTime, formatTrShortDate } from "@/lib/date";
 
 type Action = "approve" | "reject" | "cancel" | "no_show";
+type ResendState = "idle" | "sending" | "ok" | "err";
 
 type VisitorHistory = {
   visitor: {
@@ -127,6 +128,43 @@ export function ReservationDrawer({
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<Action | null>(null);
+  const [resend, setResend] = useState<ResendState>("idle");
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
+
+  async function resendNotification() {
+    if (!data) return;
+    setResend("sending");
+    setResendMsg(null);
+    try {
+      const res = await apiFetch<{
+        ok: boolean;
+        staffNotificationStatus: "sent" | "failed";
+      }>(
+        `/reservations/${data.id}/resend-notification`,
+        { method: "POST" },
+        token,
+      );
+      setResend(res.ok ? "ok" : "err");
+      setResendMsg(
+        res.ok
+          ? "Bildirim gönderildi."
+          : "Bildirim hâlâ başarısız — arka planda otomatik tekrar denenecek.",
+      );
+      // Re-fetch to refresh staffNotificationStatus + general state
+      const fresh = await apiFetch<Reservation>(
+        `/reservations/${data.id}`,
+        {},
+        token,
+      );
+      setData(fresh);
+      onMutated();
+    } catch (e) {
+      setResend("err");
+      setResendMsg(
+        e instanceof ApiError ? `${e.status}: ${e.message}` : (e as Error).message,
+      );
+    }
+  }
 
   useEffect(() => {
     if (!reservationId) return;
@@ -135,6 +173,8 @@ export function ReservationDrawer({
     setErr(null);
     setData(null);
     setHistory(null);
+    setResend("idle");
+    setResendMsg(null);
     apiFetch<Reservation>(`/reservations/${reservationId}`, {}, token)
       .then((r) => {
         if (!cancelled) setData(r);
@@ -364,6 +404,96 @@ export function ReservationDrawer({
                   </span>
                 )}
               </div>
+
+              {data.staffNotificationStatus === "failed" && (
+                <div
+                  style={{
+                    marginTop: "16px",
+                    padding: "12px 14px",
+                    background: "#fef3c7",
+                    border: "1px solid #fde68a",
+                    borderRadius: "12px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "#92400e",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <span aria-hidden>⚠</span>
+                    Yetkili bildirimi gönderilemedi
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#92400e", opacity: 0.85 }}>
+                    Telegram/WhatsApp bildirimi başarısız oldu. Sistem 30sn,
+                    2dk ve 5dk sonra otomatik tekrar deniyor. Manuel tetiklemek
+                    için aşağıdaki butonu kullanın.
+                  </div>
+                  {resendMsg && (
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: resend === "ok" ? "#065f46" : "#92400e",
+                        background:
+                          resend === "ok" ? "#d1fae5" : "rgba(255,255,255,0.5)",
+                        border:
+                          resend === "ok"
+                            ? "1px solid #a7f3d0"
+                            : "1px solid #fde68a",
+                        padding: "6px 10px",
+                        borderRadius: "8px",
+                      }}
+                    >
+                      {resendMsg}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={resendNotification}
+                    disabled={resend === "sending"}
+                    style={{
+                      alignSelf: "flex-end",
+                      padding: "7px 14px",
+                      borderRadius: "99px",
+                      border: "1px solid #d97706",
+                      background: "#fbbf24",
+                      color: "#7c2d12",
+                      fontWeight: 600,
+                      fontSize: "12px",
+                      cursor: resend === "sending" ? "not-allowed" : "pointer",
+                      opacity: resend === "sending" ? 0.6 : 1,
+                    }}
+                  >
+                    {resend === "sending"
+                      ? "Gönderiliyor..."
+                      : "Bildirimi tekrar gönder"}
+                  </button>
+                </div>
+              )}
+              {data.staffNotificationStatus === "sent" &&
+                resend === "ok" &&
+                resendMsg && (
+                  <div
+                    style={{
+                      marginTop: "16px",
+                      padding: "10px 14px",
+                      background: "#d1fae5",
+                      border: "1px solid #a7f3d0",
+                      borderRadius: "12px",
+                      fontSize: "12px",
+                      color: "#065f46",
+                    }}
+                  >
+                    {resendMsg}
+                  </div>
+                )}
 
               <Block title="Ziyaretçi">
                 <Row label="Ad" value={data.visitor?.name ?? "-"} />
