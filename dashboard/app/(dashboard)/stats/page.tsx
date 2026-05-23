@@ -133,18 +133,34 @@ export default function StatsPage() {
       >
         <div>
           <h1
-            className="gradient-text font-display"
+            className="font-display"
             style={{
-              fontSize: "26px",
-              fontWeight: 700,
-              letterSpacing: "-0.5px",
+              fontSize: "32px",
+              fontWeight: 400,
+              letterSpacing: "-0.02em",
+              color: "var(--gx-text)",
+              lineHeight: 1.1,
               margin: 0,
             }}
           >
             İstatistik
           </h1>
-          <p style={{ fontSize: "13px", color: "var(--gx-text-muted)", margin: "4px 0 0" }}>
-            Rezervasyon eğilimleri ve performans göstergeleri.
+          <p
+            style={{
+              fontSize: "13px",
+              color: "var(--gx-text-muted)",
+              margin: "8px 0 0",
+              lineHeight: 1.5,
+            }}
+          >
+            Rezervasyon{" "}
+            <span
+              className="font-serif font-italic"
+              style={{ color: "var(--gx-accent-light)" }}
+            >
+              eğilimleri
+            </span>{" "}
+            ve performans göstergeleri.
           </p>
         </div>
 
@@ -561,11 +577,11 @@ function KpiCard({
     >
       <div
         style={{
-          fontSize: "11px",
-          color: "var(--gx-text-muted)",
-          letterSpacing: "0.05em",
+          fontSize: "10px",
+          color: "var(--gx-text-hint)",
+          letterSpacing: "0.15em",
           textTransform: "uppercase",
-          fontWeight: 500,
+          fontWeight: 700,
         }}
       >
         {label}
@@ -577,21 +593,25 @@ function KpiCard({
         />
       ) : (
         <div
+          className="font-display"
           style={{
-            fontSize: "32px",
-            fontWeight: 700,
+            fontSize: "36px",
+            fontWeight: 300, // INCE
             letterSpacing: "-1.5px",
             color: numberColor,
             lineHeight: 1,
+            display: "inline-flex",
+            alignItems: "baseline",
+            gap: "3px",
           }}
         >
           {value}
           {suffix && (
             <span
+              className="font-serif font-italic"
               style={{
-                fontSize: "16px",
-                fontWeight: 500,
-                marginLeft: "3px",
+                fontSize: "18px",
+                fontWeight: 400,
                 color: "var(--gx-text-muted)",
                 letterSpacing: 0,
               }}
