@@ -10,6 +10,7 @@ import {
   type ReservationStatus,
 } from "@/lib/types";
 import { formatTrDateTime, formatTrShortDate } from "@/lib/date";
+import { DatePicker } from "@/components/ui/DatePicker";
 
 type Action = "approve" | "reject" | "cancel" | "no_show";
 
@@ -86,7 +87,7 @@ function Block({
   title,
   children,
 }: {
-  title: string;
+  title: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -417,22 +418,18 @@ export function ReservationDrawer({
                     style={{
                       fontSize: "11px",
                       fontWeight: 600,
-                      padding: "2px 8px",
+                      padding: "2px 10px",
                       borderRadius: "99px",
-                      background:
-                        history.stats.total <= 1
-                          ? "rgba(124,58,237,0.18)"
-                          : "rgba(74,222,128,0.18)",
-                      color:
-                        history.stats.total <= 1
-                          ? "var(--gx-accent-light)"
-                          : "var(--gx-success)",
-                      border: `1px solid ${history.stats.total <= 1 ? "rgba(124,58,237,0.35)" : "rgba(74,222,128,0.35)"}`,
+                      background: "rgba(139,92,246,0.10)",
+                      color: "#C4B5FD",
+                      border: "1px solid rgba(139,92,246,0.20)",
                     }}
                   >
                     {history.stats.total <= 1
                       ? "İlk ziyaret"
-                      : `${history.stats.total}. ziyaret`}
+                      : history.stats.total === 2
+                        ? "Tekrar ziyaretçi"
+                        : "Sadık ziyaretçi ✦"}
                   </span>
                 )}
               </div>
@@ -510,7 +507,22 @@ export function ReservationDrawer({
                 {data.note && <Row label="Not" value={data.note} />}
               </Block>
 
-              <Block title="Durum Geçmişi">
+              <Block
+                title={
+                  <span
+                    className="font-serif font-italic"
+                    style={{
+                      fontSize: "12px",
+                      letterSpacing: "0",
+                      textTransform: "none",
+                      color: "var(--gx-accent-light)",
+                      fontWeight: 400,
+                    }}
+                  >
+                    Geçmiş
+                  </span>
+                }
+              >
                 <Row
                   label="Oluşturuldu"
                   value={formatTrDateTime(data.createdAt)}
@@ -843,21 +855,7 @@ function RescheduleModal({
         >
           Yeni Tarih
         </label>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "9px 12px",
-            borderRadius: "10px",
-            border: "1px solid var(--gx-border)",
-            fontSize: "13px",
-            outline: "none",
-            fontFamily: "inherit",
-            boxSizing: "border-box",
-          }}
-        />
+        <DatePicker value={date} onChange={setDate} ariaLabel="Yeni tarih" zIndex={80} />
 
         <div
           style={{

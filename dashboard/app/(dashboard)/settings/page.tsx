@@ -340,8 +340,14 @@ function Section({
 }) {
   return (
     <section
-      className={`glass fade-up ${fadeClass}`}
-      style={{ padding: "20px 22px", marginTop: "16px" }}
+      className={`gx-card fade-up ${fadeClass}`}
+      style={{
+        padding: "20px 22px 20px 24px",
+        marginTop: "16px",
+        borderLeft: "2px solid var(--gx-accent-light)",
+        borderTopLeftRadius: "16px",
+        borderBottomLeftRadius: "16px",
+      }}
     >
       <div
         style={{
@@ -359,8 +365,6 @@ function Section({
             color: "var(--gx-text)",
             letterSpacing: "-0.01em",
             margin: 0,
-            paddingLeft: "12px",
-            borderLeft: "3px solid var(--gx-accent-light)",
             lineHeight: 1.2,
           }}
         >
@@ -477,7 +481,7 @@ function Toggle({
           height: "24px",
           borderRadius: "99px",
           border: "none",
-          background: value ? "#4338ca" : "#cbd5e1",
+          background: value ? "var(--gx-accent)" : "rgba(255,255,255,0.12)",
           padding: 0,
           position: "relative",
           cursor: "pointer",

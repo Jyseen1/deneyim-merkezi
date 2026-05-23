@@ -10,6 +10,7 @@ import {
 } from "@/lib/types";
 import { ReservationDrawer } from "@/components/ReservationDrawer";
 import { EmptyState, InboxIcon } from "@/components/EmptyState";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { formatTrShortDate } from "@/lib/date";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useBackendToken } from "@/hooks/useBackendToken";
@@ -266,7 +267,7 @@ export default function ReservationsPage() {
             ))}
           </select>
         </div>
-        <div>
+        <div style={{ minWidth: "180px" }}>
           <label
             style={{
               display: "block",
@@ -280,16 +281,14 @@ export default function ReservationsPage() {
           >
             Başlangıç
           </label>
-          <input
-            type="date"
+          <DatePicker
             value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            onFocus={applyFocusRing}
-            onBlur={removeFocusRing}
-            style={inputStyle}
+            onChange={setDateFrom}
+            placeholder="Tarih seç"
+            ariaLabel="Başlangıç tarihi"
           />
         </div>
-        <div>
+        <div style={{ minWidth: "180px" }}>
           <label
             style={{
               display: "block",
@@ -303,13 +302,12 @@ export default function ReservationsPage() {
           >
             Bitiş
           </label>
-          <input
-            type="date"
+          <DatePicker
             value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            onFocus={applyFocusRing}
-            onBlur={removeFocusRing}
-            style={inputStyle}
+            onChange={setDateTo}
+            placeholder="Tarih seç"
+            min={dateFrom || undefined}
+            ariaLabel="Bitiş tarihi"
           />
         </div>
         <div

@@ -288,12 +288,19 @@ export async function sendConfirmation(
     return sendAndLog(reservation, "reservation_confirmed", payload);
   }
 
+  const endTime = computeEndTime(
+    reservation.startTime,
+    reservation.durationMinutes,
+  );
   const text =
-    `Merhaba ${reservation.visitor.name},\n\n` +
-    `Rezervasyonunuz onaylanmistir.\n` +
-    `Tarih: ${date}\n` +
-    `Saat: ${reservation.startTime}\n\n` +
-    `Goruşmek uzere!`;
+    `Merhaba ${reservation.visitor.name},\n` +
+    `Rezervasyonunuz onaylandı. ✓\n` +
+    `📅 ${date}\n` +
+    `🕐 ${reservation.startTime} – ${endTime}\n` +
+    `📍 GigaX Deneyim Merkezi\n\n` +
+    `Sorularınız için bu numaradan ulaşabilirsiniz.\n` +
+    `Görüşmek üzere.\n` +
+    `— GigaX`;
 
   return sendAndLog(reservation, "reservation_confirmed", {
     messaging_product: "whatsapp",
@@ -303,24 +310,30 @@ export async function sendConfirmation(
   });
 }
 
+function computeEndTime(startTime: string, durationMinutes: number): string {
+  const [h, m] = startTime.split(":").map(Number);
+  const total = (h || 0) * 60 + (m || 0) + durationMinutes;
+  const eh = Math.floor(total / 60) % 24;
+  const em = total % 60;
+  return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+}
+
 export async function sendRejection(
   reservation: ReservationWithVisitor,
-  alternativeSlots: AvailableSlot[],
+  _alternativeSlots: AvailableSlot[],
 ): Promise<string | null> {
+  // _alternativeSlots geriye doniik uyum icin korundu; yeni metinde liste yok.
+  void _alternativeSlots;
   const to = normalizePhone(reservation.visitor.phone);
   const date = formatDate(reservation.visitDate);
 
-  const altLines = alternativeSlots.length
-    ? alternativeSlots
-        .map((s, i) => `${i + 1}. ${s.startTime} - ${s.endTime}`)
-        .join("\n")
-    : "(Bu gun icin uygun saat kalmadi)";
-
   const text =
-    `Merhaba ${reservation.visitor.name},\n\n` +
-    `${date} ${reservation.startTime} icin talebiniz maalesef karsilanamadi.\n\n` +
-    `Alternatif saatler:\n${altLines}\n\n` +
-    `Yeni rezervasyon icin tekrar form gondermeniz yeterli.`;
+    `Merhaba ${reservation.visitor.name},\n` +
+    `${date} · ${reservation.startTime} için rezervasyon talebinizi\n` +
+    `karşılayamıyoruz.\n` +
+    `Farklı bir tarih veya saat için yeniden\n` +
+    `rezervasyon yapabilirsiniz.\n` +
+    `— GigaX`;
 
   return sendAndLog(reservation, "reservation_rejected", {
     messaging_product: "whatsapp",
@@ -356,11 +369,13 @@ export async function sendReminder(
   const date = formatDate(reservation.visitDate);
 
   const text =
-    `Merhaba ${reservation.visitor.name},\n\n` +
-    `Yarinki ziyaretinizi hatirlatmak isteriz.\n` +
-    `Tarih: ${date}\n` +
-    `Saat: ${reservation.startTime}\n\n` +
-    `Sizi bekliyoruz!`;
+    `Merhaba ${reservation.visitor.name},\n` +
+    `Yarın sizi bekliyoruz.\n` +
+    `📅 ${date} · ${reservation.startTime}\n` +
+    `GigaX Deneyim Merkezi\n` +
+    `─────────────────\n` +
+    `İptal veya değişiklik için lütfen önceden bildirin.\n` +
+    `— GigaX`;
 
   return sendAndLog(reservation, "reservation_reminder", {
     messaging_product: "whatsapp",

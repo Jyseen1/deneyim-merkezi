@@ -24,6 +24,7 @@ import { useBackendToken } from "@/hooks/useBackendToken";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/useToast";
 import { ReservationDrawer } from "@/components/ReservationDrawer";
+import { DatePicker } from "@/components/ui/DatePicker";
 
 // ─────────────────────────────────────────────────────────
 // Types + sabitler
@@ -879,19 +880,27 @@ function HourCell(props: GridCellProps) {
   const blocked = block ?? null;
   const recur = !block ? recurringRule ?? null : null;
 
-  // Koyu GigaX zemini — beyazımsı 0.55 yerine cok hafif beyaz overlay (0.02)
-  // veya tamamen koyu. Bugun sütununda hafif mor vurgu.
+  // GigaX zemini — kullanici brifi:
+  //   normal: #0F0F18, hover: #141420, geçmiş ay: #0A0A10 + opacity 0.5,
+  //   bugün: mor outline + hafif mor zemin, kapalı: kırmızı tint
   let cellBg: string;
+  let cellBorderColor = "rgba(255,255,255,0.06)";
+  let cellOpacity = 1;
   if (!inWorkHours) {
     cellBg =
-      "repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 6px, transparent 6px 12px)";
+      "repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0 6px, transparent 6px 12px), #0A0A10";
+    cellOpacity = 0.5;
   } else if (isClosed) {
-    cellBg = "rgba(239,68,68,0.12)";
+    cellBg = "rgba(239,68,68,0.06)";
+    cellBorderColor = "rgba(239,68,68,0.20)";
   } else if (isToday) {
-    cellBg = "rgba(124,58,237,0.08)";
+    cellBg = "rgba(124,58,237,0.06)";
+    cellBorderColor = "rgba(124,58,237,0.45)";
   } else {
-    cellBg = "rgba(255,255,255,0.02)";
+    cellBg = "#0F0F18";
   }
+
+  const hoverBg = isToday ? "rgba(124,58,237,0.10)" : "#141420";
 
   return (
     <div
@@ -899,15 +908,16 @@ function HourCell(props: GridCellProps) {
         position: "relative",
         minHeight: "56px",
         background: cellBg,
-        borderRight: "1px solid rgba(255,255,255,0.06)",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        borderRight: `1px solid ${cellBorderColor}`,
+        borderBottom: `1px solid ${cellBorderColor}`,
+        opacity: cellOpacity,
         padding: reservations.length || isClosed ? "4px" : "0",
         cursor: inWorkHours && !isClosed ? "pointer" : "default",
         transition: "background 0.12s ease",
       }}
       onMouseEnter={(e) => {
         if (inWorkHours && !isClosed && reservations.length === 0) {
-          e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+          e.currentTarget.style.background = hoverBg;
         }
       }}
       onMouseLeave={(e) => {
@@ -1452,16 +1462,18 @@ function MonthView(props: {
                 padding: "8px",
                 borderRadius: "10px",
                 background: closed
-                  ? "rgba(239,68,68,0.08)"
+                  ? "rgba(239,68,68,0.06)"
                   : isToday
-                    ? "rgba(124,58,237,0.10)"
-                    : "rgba(255,255,255,0.55)",
+                    ? "rgba(124,58,237,0.06)"
+                    : inMonth
+                      ? "#0F0F18"
+                      : "#0A0A10",
                 border: closed
-                  ? "1px dashed rgba(239,68,68,0.4)"
+                  ? "1px solid rgba(239,68,68,0.20)"
                   : isToday
-                    ? "2px solid var(--gx-accent)"
-                    : "1px solid var(--gx-border)",
-                opacity: inMonth ? 1 : 0.35,
+                    ? "1.5px solid var(--gx-accent)"
+                    : "1px solid rgba(255,255,255,0.06)",
+                opacity: inMonth ? 1 : 0.5,
                 cursor: "pointer",
                 textAlign: "left",
                 display: "flex",
@@ -1469,6 +1481,19 @@ function MonthView(props: {
                 gap: "6px",
                 fontFamily: "inherit",
                 color: "var(--gx-text)",
+                transition: "background 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (closed || isToday) return;
+                e.currentTarget.style.background = inMonth
+                  ? "#141420"
+                  : "#0A0A10";
+              }}
+              onMouseLeave={(e) => {
+                if (closed || isToday) return;
+                e.currentTarget.style.background = inMonth
+                  ? "#0F0F18"
+                  : "#0A0A10";
               }}
             >
               <div
@@ -1725,12 +1750,7 @@ function BlockDayModal({
     >
       <div>
         <label style={modalLabel()}>Tarih</label>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          style={modalInput()}
-        />
+        <DatePicker value={date} onChange={setDate} ariaLabel="Kapatılacak tarih" zIndex={80} />
       </div>
       <div>
         <label style={modalLabel()}>Neden (opsiyonel)</label>
@@ -1814,20 +1834,16 @@ function BlockRangeModal({
       >
         <div>
           <label style={modalLabel()}>Başlangıç</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            style={modalInput()}
-          />
+          <DatePicker value={startDate} onChange={setStartDate} ariaLabel="Başlangıç tarihi" zIndex={80} />
         </div>
         <div>
           <label style={modalLabel()}>Bitiş</label>
-          <input
-            type="date"
+          <DatePicker
             value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            style={modalInput()}
+            onChange={setEndDate}
+            min={startDate || undefined}
+            ariaLabel="Bitiş tarihi"
+            zIndex={80}
           />
         </div>
       </div>

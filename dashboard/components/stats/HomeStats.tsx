@@ -8,6 +8,7 @@ import { EMPTY_STATS, type StatsResult } from "./server-fetch";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useBackendToken } from "@/hooks/useBackendToken";
 import { EmptyState, CheckCircleIcon } from "@/components/EmptyState";
+import { TodayVisitsStrip } from "@/components/TodayVisitsStrip";
 
 const POLL_MS_WHEN_OK = 30_000;
 const POLL_MS_WHEN_DOWN = 4_000;
@@ -346,6 +347,9 @@ export function HomeStats({
           ))
         )}
       </div>
+
+      {/* Bugunun ziyaret seridi — sadece bugun planli ziyaret varsa cikar */}
+      <TodayVisitsStrip />
     </>
   );
 }

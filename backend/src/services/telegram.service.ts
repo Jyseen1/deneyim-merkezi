@@ -226,23 +226,23 @@ function buildStaffApprovalText(
   statusSuffix?: string,
 ): string {
   const lines = [
-    "*Yeni rezervasyon talebi*",
-    "",
-    `👤 *Ziyaretçi:* ${tgEscape(reservation.visitor.name)}`,
-    `📱 *Telefon:* ${tgEscape(reservation.visitor.phone)}`,
-    `📅 *Tarih:* ${fmtVisitDate(reservation.visitDate)}`,
-    `🕒 *Saat:* ${reservation.startTime}`,
-    `⏱ *Süre:* ${reservation.durationMinutes} dk`,
-    `👥 *Kişi:* ${reservation.groupSize}`,
+    "🔔 *Yeni rezervasyon talebi*",
+    `👤 ${tgEscape(reservation.visitor.name)}`,
+    `📞 ${tgEscape(reservation.visitor.phone)}`,
+    `📅 ${fmtVisitDate(reservation.visitDate)} · ${reservation.startTime}`,
+    `⏱ ${reservation.durationMinutes} dk · ${reservation.groupSize} kişi`,
   ];
-  if (reservation.note) {
-    lines.push(`📝 *Not:* ${tgEscape(reservation.note)}`);
-  }
   if (reservation.source) {
-    lines.push("", `_Kanal: ${reservation.source}_`);
+    lines.push(`📲 ${tgEscape(reservation.source)}`);
   }
+  if (reservation.note) {
+    lines.push(`📝 ${tgEscape(reservation.note)}`);
+  }
+  lines.push("─────────────────");
   if (statusSuffix) {
-    lines.push("", `*${statusSuffix}*`);
+    lines.push(`*${statusSuffix}*`);
+  } else {
+    lines.push("Onaylamak veya reddetmek için dashboard'u kullanın.");
   }
   return lines.join("\n");
 }
@@ -288,14 +288,20 @@ export async function sendVisitorConfirmation(
   chatId: number | string,
   reservation: ReservationWithVisitor,
 ): Promise<string | null> {
+  const endTime = computeEndTime(
+    reservation.startTime,
+    reservation.durationMinutes,
+  );
   const text = [
     `Merhaba ${tgEscape(reservation.visitor.name)},`,
+    "Rezervasyonunuz onaylandı. ✓",
+    `📅 ${fmtVisitDate(reservation.visitDate)}`,
+    `🕐 ${reservation.startTime} – ${endTime}`,
+    "📍 GigaX Deneyim Merkezi",
     "",
-    "✅ Rezervasyonunuz *onaylandı*!",
-    `📅 Tarih: ${fmtVisitDate(reservation.visitDate)}`,
-    `🕒 Saat: ${reservation.startTime}`,
-    "",
-    "Görüşmek üzere!",
+    "Sorularınız için bu numaradan ulaşabilirsiniz.",
+    "Görüşmek üzere.",
+    "— GigaX",
   ].join("\n");
   const r = await sendMessage(chatId, text);
   return r?.ok ? "sent" : null;
@@ -305,15 +311,19 @@ export async function sendVisitorReschedule(
   chatId: number | string,
   reservation: ReservationWithVisitor,
 ): Promise<string | null> {
+  const endTime = computeEndTime(
+    reservation.startTime,
+    reservation.durationMinutes,
+  );
   const text = [
     `Merhaba ${tgEscape(reservation.visitor.name)},`,
+    "Rezervasyonunuz güncellendi.",
+    `📅 ${fmtVisitDate(reservation.visitDate)}`,
+    `🕐 ${reservation.startTime} – ${endTime}`,
+    "📍 GigaX Deneyim Merkezi",
     "",
-    "🔄 Rezervasyonunuz *güncellendi*.",
-    `📅 Yeni tarih: ${fmtVisitDate(reservation.visitDate)}`,
-    `🕒 Yeni saat: ${reservation.startTime}`,
-    `⏱ Süre: ${reservation.durationMinutes} dk`,
-    "",
-    "Bu değişiklik konusunda sorularınız varsa cevap verebilirsiniz.",
+    "Sorularınız için bu numaradan ulaşabilirsiniz.",
+    "— GigaX",
   ].join("\n");
   const r = await sendMessage(chatId, text);
   return r?.ok ? "sent" : null;
@@ -322,24 +332,28 @@ export async function sendVisitorReschedule(
 export async function sendVisitorRejection(
   chatId: number | string,
   reservation: ReservationWithVisitor,
-  alternatives: AvailableSlot[],
+  _alternatives: AvailableSlot[],
 ): Promise<string | null> {
-  const altLines = alternatives.length
-    ? alternatives
-        .map((s, i) => `${i + 1}\\. ${s.startTime} - ${s.endTime}`)
-        .join("\n")
-    : "_(Bu gün için uygun saat kalmadı)_";
-
+  // _alternatives parametresi geriye doniik uyum icin korundu — yeni metin
+  // kisaltilmis (alternatif listesi iletmek yerine kullaniciyi yeni form'a yonlendiriyoruz).
+  void _alternatives;
   const text = [
     `Merhaba ${tgEscape(reservation.visitor.name)},`,
-    "",
-    `❌ ${fmtVisitDate(reservation.visitDate)} ${reservation.startTime} için talebiniz maalesef karşılanamadı.`,
-    "",
-    "*Alternatif saatler:*",
-    altLines,
-    "",
-    "Yeni rezervasyon için /start yazabilirsiniz.",
+    `${fmtVisitDate(reservation.visitDate)} · ${reservation.startTime} için rezervasyon talebinizi`,
+    "karşılayamıyoruz.",
+    "Farklı bir tarih veya saat için yeniden",
+    "rezervasyon yapabilirsiniz.",
+    "— GigaX",
   ].join("\n");
   const r = await sendMessage(chatId, text);
   return r?.ok ? "sent" : null;
+}
+
+// "HH:MM" + dakika -> "HH:MM" (24h, gun atlama edge case ignore: ziyaretler ayni gun)
+function computeEndTime(startTime: string, durationMinutes: number): string {
+  const [h, m] = startTime.split(":").map(Number);
+  const total = (h || 0) * 60 + (m || 0) + durationMinutes;
+  const eh = Math.floor(total / 60) % 24;
+  const em = total % 60;
+  return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
 }
