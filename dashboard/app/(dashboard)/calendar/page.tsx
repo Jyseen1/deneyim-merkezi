@@ -228,7 +228,7 @@ export default function CalendarPage() {
     // gorunur olsun, digerleri sessizce best-effort yuklensin.
     try {
       const resvRes = await apiFetch<ReservationList>(
-        `/reservations?date_from=${startISO}&date_to=${endISO}&limit=300`,
+        `/reservations?date_from=${startISO}&date_to=${endISO}&limit=500`,
         {},
         token,
       );
