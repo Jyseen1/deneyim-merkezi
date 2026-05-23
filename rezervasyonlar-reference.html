@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GigaX — Rezervasyonlar (Tarih Gruplu) Referans</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0F;--bg2:#0F0F18;--bg3:#141420;
+    --accent:#7C3AED;--accent2:#8B5CF6;--accent3:#A78BFA;
+    --green:#4ADE80;--red:#EF4444;--amber:#F59E0B;
+    --line:rgba(255,255,255,0.08);--line2:rgba(255,255,255,0.05);
+    --txt:#E4E4E7;--muted:#71717A;--muted2:#52525B;--muted3:#3F3F46;
+    --grotesk:'Space Grotesk',sans-serif;--inter:'Inter',sans-serif;--serif:'Instrument Serif',serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--txt);font-family:var(--inter);-webkit-font-smoothing:antialiased;padding:40px;position:relative;overflow-x:hidden}
+  .glow{position:absolute;border-radius:50%;pointer-events:none;filter:blur(80px);
+    top:-100px;right:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(124,58,237,0.15),transparent 70%)}
+  .page-h{margin-bottom:24px}
+  .page-h h1{font-family:var(--grotesk);font-size:30px;font-weight:600;letter-spacing:-0.5px}
+  .page-h .sub{font-size:13px;color:var(--muted);margin-top:4px}
+  .page-h .sub em{font-family:var(--serif);font-style:italic;color:var(--accent3)}
+  .card{background:linear-gradient(135deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02));
+    border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(20px)}
+  .pill{font-size:11px;padding:4px 11px;border-radius:999px;display:inline-block;font-weight:500}
+  .pill.ok{background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.2)}
+  .pill.wait{background:rgba(139,92,246,0.14);color:var(--accent3);border:1px solid rgba(139,92,246,0.3)}
+
+  /* filter bar */
+  .filterbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:14px 16px;margin-bottom:14px;overflow:visible}
+  .ff{display:flex;flex-direction:column;gap:6px}
+  .ff label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted2)}
+  .ff .inp{background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:9px;
+    padding:9px 12px;font-size:13px;color:var(--txt);min-width:130px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .ff .inp .ph{color:var(--muted3)}
+  .filter-left{display:flex;gap:12px}
+  .filter-right{display:flex;gap:10px}
+  .btn{padding:9px 16px;border-radius:9px;font-size:13px;cursor:pointer;border:none;font-weight:500;white-space:nowrap}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),#6D28D9);color:#fff}
+  .btn-ghost-mor{background:transparent;color:var(--accent3);border:1px solid rgba(124,58,237,0.4)}
+
+  /* tarih gruplu */
+  .daygroup{margin-bottom:20px}
+  .daygroup .dh{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;padding:0 4px}
+  .daygroup .dh .big{font-family:var(--grotesk);font-size:15px;font-weight:600}
+  .daygroup .dh .big em{font-family:var(--serif);font-style:italic;color:var(--accent3)}
+  .daygroup .dh .cnt{font-size:11px;color:var(--muted2)}
+  .rmini{display:flex;align-items:center;gap:14px;padding:12px 18px;border-radius:11px;
+    background:rgba(255,255,255,0.025);border:1px solid var(--line);cursor:pointer;transition:all 150ms;margin-bottom:6px}
+  .rmini:hover{border-color:rgba(124,58,237,0.4);background:rgba(124,58,237,0.05)}
+  .rmini.pend{border-left:2px solid var(--accent2)}
+  .rmini .tm{font-family:var(--grotesk);font-size:14px;font-weight:500;width:52px;color:var(--accent3)}
+  .rmini .nm{font-weight:600;font-size:14px;flex:1}
+  .rmini .ph{font-size:12px;color:var(--muted);width:140px}
+  .rmini .ppl{font-size:12px;color:var(--muted2);width:50px}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div style="max-width:1100px;margin:0 auto">
+  <div class="page-h"><h1>Rezervasyonlar</h1><div class="sub">Tüm <em>kayıtlar</em> güne göre gruplu — filtrele, dışa aktar, detay aç.</div></div>
+  <div class="card filterbar">
+    <div class="filter-left">
+      <div class="ff"><label>Durum</label><div class="inp">Tümü <span style="color:var(--muted3)">▾</span></div></div>
+      <div class="ff"><label>Başlangıç</label><div class="inp"><span class="ph">—</span> 📅</div></div>
+      <div class="ff"><label>Bitiş</label><div class="inp"><span class="ph">—</span> 📅</div></div>
+    </div>
+    <div class="filter-right">
+      <button class="btn btn-primary">● Geçmişi gizle</button>
+      <button class="btn btn-ghost-mor">CSV İndir</button>
+      <button class="btn btn-primary">Yenile</button>
+    </div>
+  </div>
+
+  <div class="daygroup">
+    <div class="dh"><span class="big">23 <em>Mayıs</em></span><span class="cnt">· Cumartesi · 2 rezervasyon</span></div>
+    <div class="rmini"><div class="tm">13:30</div><div class="nm">poyraz</div><div class="ph">+90 555 555 55 55</div><div class="ppl">3 kişi</div><span class="pill ok">Onaylı</span></div>
+    <div class="rmini"><div class="tm">17:00</div><div class="nm">poyraz</div><div class="ph">+90 555 555 55 55</div><div class="ppl">1 kişi</div><span class="pill ok">Onaylı</span></div>
+  </div>
+  <div class="daygroup">
+    <div class="dh"><span class="big">24 <em>Mayıs</em></span><span class="cnt">· Pazar · 1 rezervasyon</span></div>
+    <div class="rmini"><div class="tm">11:00</div><div class="nm">poyrwz</div><div class="ph">+90 546 446 22 15</div><div class="ppl">2 kişi</div><span class="pill ok">Onaylı</span></div>
+  </div>
+  <div class="daygroup">
+    <div class="dh"><span class="big">28 <em>Mayıs</em></span><span class="cnt">· Perşembe · 1 rezervasyon</span></div>
+    <div class="rmini"><div class="tm">15:00</div><div class="nm">poyrwz</div><div class="ph">+90 546 446 22 15</div><div class="ppl">1 kişi</div><span class="pill ok">Onaylı</span></div>
+  </div>
+  <div class="daygroup">
+    <div class="dh"><span class="big">29 <em>Mayıs</em></span><span class="cnt">· Cuma · 1 rezervasyon</span></div>
+    <div class="rmini pend"><div class="tm">11:00</div><div class="nm">hhhh</div><div class="ph">+90 666 666 66 66</div><div class="ppl">1 kişi</div><span class="pill wait">Bekliyor</span></div>
+  </div>
+</div>
+</body>
+</html>

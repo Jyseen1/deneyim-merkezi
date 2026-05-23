@@ -313,6 +313,44 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .btn-ghost:disabled,
 .gx-btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* .btn-red — referans: tehlikeli aksiyon (Gün Kapat vs.) */
+.btn-red {
+  background: transparent;
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--inter);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.btn-red:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.6);
+}
+.btn-red:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* .btn-ghost-mor — referans: ikincil mor ghost (CSV İndir vs.) */
+.btn-ghost-mor {
+  background: transparent;
+  color: var(--accent3);
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  padding: 9px 16px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--inter);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.btn-ghost-mor:hover:not(:disabled) {
+  background: rgba(124, 58, 237, 0.10);
+  border-color: rgba(124, 58, 237, 0.6);
+}
+.btn-ghost-mor:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* Mobil dokunma hedefleri: butonlar min 40px yukseklik */
 @media (max-width: 768px) {
   .btn-primary,
@@ -790,4 +828,459 @@ input:-webkit-autofill:focus {
   font-style: italic;
   color: var(--accent3);
   font-weight: 400;
+}
+
+/* ─────────────────────────────────────────────────────────
+ * TAKVIM YOĞUNLUK — takvim-reference.html
+ * Gün / Hafta (özet kart) / Ay (mini bar) modları için class'lar
+ * ───────────────────────────────────────────────────────── */
+
+/* Kontrol barı: sol Bugün ‹ tarih › navigasyon — sağ rezcount + segment */
+.navg {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 5px 8px;
+}
+.navg .today {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--txt);
+  cursor: pointer;
+  border: none;
+  font-family: var(--inter);
+  transition: background 120ms ease;
+}
+.navg .today:hover {
+  background: rgba(124, 58, 237, 0.18);
+  color: var(--accent3);
+}
+.navg .arr {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  line-height: 1;
+  transition: background 120ms ease, color 120ms ease;
+}
+.navg .arr:hover {
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--accent3);
+}
+.navg .rng {
+  font-family: var(--grotesk);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 0 8px;
+  color: var(--txt);
+  white-space: nowrap;
+}
+
+/* Rezervasyon sayısı rozeti (üst kontrol barı sağ) */
+.rezcount {
+  font-size: 11px;
+  color: var(--accent3);
+  background: rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.rezcount em {
+  font-family: var(--serif);
+  font-style: italic;
+}
+
+/* HAFTA — 7 gün özet kart, mini bar yoğunluk */
+.heat {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+  padding: 16px;
+}
+.ht-day {
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: 12px;
+  padding: 14px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 150ms ease;
+  min-width: 0;
+}
+.ht-day:hover {
+  border-color: rgba(124, 58, 237, 0.4);
+}
+.ht-day.today {
+  border-color: rgba(124, 58, 237, 0.5);
+  background: rgba(124, 58, 237, 0.06);
+}
+.ht-day .dow {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--muted3);
+  letter-spacing: 0.05em;
+}
+.ht-day .dn {
+  font-family: var(--grotesk);
+  font-size: 24px;
+  font-weight: 300;
+  margin: 8px 0;
+  color: var(--txt);
+  line-height: 1;
+}
+.ht-day.today .dn {
+  color: #fff;
+  font-weight: 600;
+}
+.ht-bars {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  margin: 10px 0 8px;
+  align-items: flex-end;
+  height: 36px;
+}
+.ht-bar {
+  width: 8px;
+  border-radius: 2px;
+  background: rgba(124, 58, 237, 0.6);
+}
+.ht-cnt {
+  font-size: 11px;
+  color: var(--accent3);
+  font-weight: 500;
+}
+.ht-cnt.zero {
+  color: var(--muted3);
+}
+.ht-day.closed {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.ht-cnt.closed {
+  color: #f87171;
+}
+
+/* GÜN — saat saat doluluk + üst özet */
+.day-wrap {
+  padding: 20px;
+}
+.day-summary {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 6px 18px;
+  border-bottom: 1px solid var(--line2);
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.day-big {
+  text-align: center;
+}
+.day-big .dn {
+  font-family: var(--grotesk);
+  font-size: 48px;
+  font-weight: 300;
+  line-height: 1;
+  color: var(--txt);
+}
+.day-big .dn em {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--accent3);
+  font-weight: 400;
+}
+.day-big .dow {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--muted2);
+  margin-top: 4px;
+  letter-spacing: 0.1em;
+}
+.day-stats {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.day-stat .v {
+  font-family: var(--grotesk);
+  font-size: 28px;
+  font-weight: 300;
+  color: var(--txt);
+}
+.day-stat .v.mor {
+  color: var(--accent3);
+}
+.day-stat .l {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--muted2);
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+
+/* Saat satırı: 50px etiket + flex track + dolu/boş içerik */
+.hrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 0;
+}
+.hrow .ht {
+  width: 50px;
+  font-family: var(--grotesk);
+  font-size: 13px;
+  color: var(--muted2);
+  text-align: right;
+  flex-shrink: 0;
+}
+.hrow .track {
+  flex: 1;
+  height: 34px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line2);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.hrow .track:hover {
+  border-color: rgba(124, 58, 237, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+}
+.hrow .fill {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 12px;
+  border-radius: 8px;
+  color: var(--txt);
+}
+.hrow .fill.busy {
+  background: rgba(124, 58, 237, 0.18);
+  border: 1px solid rgba(124, 58, 237, 0.35);
+}
+.hrow .fill.pend {
+  background: rgba(167, 139, 250, 0.10);
+  border: 1px solid rgba(167, 139, 250, 0.30);
+}
+.hrow .fill.closed {
+  background: rgba(239, 68, 68, 0.10);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+}
+.hrow .fill .who {
+  font-weight: 600;
+}
+.hrow .fill .mt {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+.hrow .empty {
+  color: var(--muted3);
+  font-size: 11px;
+  padding: 0 14px;
+  line-height: 34px;
+}
+
+/* AY — 7 sütun, her hücre mini bar + count */
+.month {
+  padding: 14px;
+}
+.m-dow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.m-dow span {
+  text-align: center;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--muted3);
+  letter-spacing: 0.05em;
+}
+.m-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.m-cell {
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: 9px;
+  padding: 8px;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: all 120ms ease;
+  position: relative;
+}
+.m-cell:hover {
+  border-color: rgba(124, 58, 237, 0.4);
+}
+.m-cell.dim {
+  opacity: 0.3;
+}
+.m-cell.today {
+  border-color: var(--accent);
+  background: rgba(124, 58, 237, 0.07);
+}
+.m-cell .n {
+  font-size: 11px;
+  color: var(--muted);
+}
+.m-cell.today .n {
+  color: #fff;
+  font-weight: 600;
+}
+.m-cell .mbars {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 24px;
+  margin-top: auto;
+}
+.m-bar {
+  flex: 1;
+  max-width: 6px;
+  border-radius: 1px;
+  background: rgba(124, 58, 237, 0.55);
+}
+.m-cell .mcnt {
+  font-size: 9px;
+  color: var(--accent3);
+  margin-top: 4px;
+}
+.m-cell.closed {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.m-cell .closed-tag {
+  font-size: 9px;
+  color: #f87171;
+  margin-top: auto;
+}
+
+/* Sayfa altı bilgi şeridi (ipucu satırı) */
+.legend {
+  display: inline-flex;
+  gap: 16px;
+  padding: 10px 16px;
+  margin-top: 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  align-items: center;
+  color: var(--muted);
+}
+
+/* ─────────────────────────────────────────────────────────
+ * REZERVASYONLAR TARİH GRUPLU — rezervasyonlar-reference.html
+ * .daygroup başlık + .rmini satırlar
+ * ───────────────────────────────────────────────────────── */
+.daygroup {
+  margin-bottom: 20px;
+}
+.daygroup .dh {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+.daygroup .dh .big {
+  font-family: var(--grotesk);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--txt);
+}
+.daygroup .dh .big em {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--accent3);
+  font-weight: 400;
+}
+.daygroup .dh .cnt {
+  font-size: 11px;
+  color: var(--muted2);
+}
+.rmini {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: all 150ms ease;
+  margin-bottom: 6px;
+}
+.rmini:hover {
+  border-color: rgba(124, 58, 237, 0.4);
+  background: rgba(124, 58, 237, 0.05);
+}
+.rmini.pend {
+  border-left: 2px solid var(--accent2);
+}
+.rmini .tm {
+  font-family: var(--grotesk);
+  font-size: 14px;
+  font-weight: 500;
+  width: 52px;
+  color: var(--accent3);
+  flex-shrink: 0;
+}
+.rmini .nm {
+  font-weight: 600;
+  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  color: var(--txt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rmini .ph {
+  font-size: 12px;
+  color: var(--muted);
+  width: 150px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rmini .ppl {
+  font-size: 12px;
+  color: var(--muted2);
+  width: 56px;
+  flex-shrink: 0;
+}
+@media (max-width: 720px) {
+  .rmini .ph {
+    display: none;
+  }
+  .rmini .ppl {
+    width: auto;
+  }
 }

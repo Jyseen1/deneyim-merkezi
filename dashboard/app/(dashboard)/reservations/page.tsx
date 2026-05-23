@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { apiFetch, ApiError } from "@/lib/api";
 import {
   STATUS_LABEL,
+  type Reservation,
   type ReservationList,
   type ReservationStatus,
 } from "@/lib/types";
@@ -12,7 +13,7 @@ import { ReservationDrawer } from "@/components/ReservationDrawer";
 import { EmptyState, InboxIcon } from "@/components/EmptyState";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { GXSelect } from "@/components/ui/GXSelect";
-import { formatTrShortDate } from "@/lib/date";
+import { TR_DAYS, toLocalIso } from "@/lib/date";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useBackendToken } from "@/hooks/useBackendToken";
 import { useToast } from "@/hooks/useToast";
@@ -26,6 +27,21 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "REJECTED", label: "Reddedildi" },
   { value: "CANCELLED", label: "İptal" },
   { value: "NO_SHOW", label: "Gelmedi" },
+];
+
+const MONTHS = [
+  "Ocak",
+  "Şubat",
+  "Mart",
+  "Nisan",
+  "Mayıs",
+  "Haziran",
+  "Temmuz",
+  "Ağustos",
+  "Eylül",
+  "Ekim",
+  "Kasım",
+  "Aralık",
 ];
 
 function pillClass(s: ReservationStatus): string {
@@ -45,14 +61,14 @@ function pillClass(s: ReservationStatus): string {
   }
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 const HIDE_PAST_KEY = "dm.hidePastReservations";
 
 function readHidePast(): boolean {
   if (typeof window === "undefined") return true;
   try {
     const raw = window.localStorage.getItem(HIDE_PAST_KEY);
-    if (raw === null) return true; // varsayilan: gizli
+    if (raw === null) return true;
     return raw === "1" || raw === "true";
   } catch {
     return true;
@@ -71,6 +87,14 @@ function backendBase(): string {
   return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 }
 
+// Telefon (+90 5XX XXX XX XX); değişken format gelirse aynen göster.
+function formatPhone(raw: string | null | undefined): string {
+  if (!raw) return "—";
+  const d = raw.replace(/\D/g, "").replace(/^90/, "").slice(0, 10);
+  if (d.length !== 10) return raw;
+  return `+90 ${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6, 8)} ${d.slice(8, 10)}`;
+}
+
 export default function ReservationsPage() {
   const { data: session } = useSession();
   const staffId = session?.user?.id || session?.user?.email || "staff";
@@ -82,8 +106,7 @@ export default function ReservationsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
-  // localStorage hydrate: SSR'da false dondurmemek icin ilk render true
-  // (varsayilan) ile baslar, useEffect ile gercek deger okunur.
+
   const [hidePast, setHidePastState] = useState<boolean>(true);
   useEffect(() => {
     setHidePastState(readHidePast());
@@ -110,9 +133,7 @@ export default function ReservationsPage() {
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
       const dlUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -182,17 +203,39 @@ export default function ReservationsPage() {
   const hasActiveFilter =
     status !== "ALL" || dateFrom !== "" || dateTo !== "" || !hidePast;
 
+  // TARİH GRUPLAMA — sayfanın görünen kayıtlarını güne göre grupla.
+  // Backend sıralaması korunur; sadece görsel olarak başlıklarla bölünür.
+  const groups = useMemo(() => {
+    if (!data) return [] as { iso: string; date: Date; items: Reservation[] }[];
+    const m = new Map<string, Reservation[]>();
+    const order: string[] = [];
+    for (const r of data.items) {
+      const iso = toLocalIso(new Date(r.visitDate));
+      if (!m.has(iso)) {
+        m.set(iso, []);
+        order.push(iso);
+      }
+      m.get(iso)!.push(r);
+    }
+    return order.map((iso) => {
+      const items = (m.get(iso) ?? []).sort((a, b) =>
+        a.startTime.localeCompare(b.startTime),
+      );
+      return { iso, date: new Date(iso), items };
+    });
+  }, [data]);
+
   return (
-    <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+    <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
       {/* Header */}
       <div className="fade-up">
         <h1
           className="font-display"
           style={{
-            fontSize: "32px",
-            fontWeight: 400,
-            letterSpacing: "-0.02em",
-            color: "var(--gx-text)",
+            fontSize: "30px",
+            fontWeight: 600,
+            letterSpacing: "-0.5px",
+            color: "var(--txt)",
             margin: 0,
             lineHeight: 1.1,
           }}
@@ -202,23 +245,23 @@ export default function ReservationsPage() {
         <p
           style={{
             fontSize: "13px",
-            color: "var(--gx-text-muted)",
-            margin: "8px 0 0",
+            color: "var(--muted)",
+            margin: "6px 0 0",
             lineHeight: 1.5,
           }}
         >
           Tüm{" "}
           <span
             className="font-serif font-italic"
-            style={{ color: "var(--gx-accent-light)" }}
+            style={{ color: "var(--accent3)" }}
           >
             kayıtlar
           </span>{" "}
-          tek yerde — filtrele, dışa aktar, detay aç.
+          güne göre gruplu — filtrele, dışa aktar, detay aç.
         </p>
       </div>
 
-      {/* Filters — kompakt grup */}
+      {/* Filtre barı */}
       <div
         className="card fade-up fade-up-1"
         style={{
@@ -227,19 +270,17 @@ export default function ReservationsPage() {
           display: "flex",
           flexWrap: "wrap",
           alignItems: "flex-end",
-          gap: "20px",
+          gap: "16px",
           overflow: "visible",
+          justifyContent: "space-between",
         }}
       >
-        {/* Sol grup: filtreler */}
         <div
           style={{
             display: "flex",
             flexWrap: "wrap",
+            gap: "12px",
             alignItems: "flex-end",
-            gap: "10px",
-            flex: "1 1 auto",
-            minWidth: 0,
           }}
         >
           <FilterField label="Durum" width={150}>
@@ -269,15 +310,7 @@ export default function ReservationsPage() {
           </FilterField>
         </div>
 
-        {/* Sağ grup: aksiyonlar */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           <button
             type="button"
             onClick={() => setHidePast(!hidePast)}
@@ -287,34 +320,31 @@ export default function ReservationsPage() {
                 ? "Biten/iptal/geçmiş tarihli rezervasyonlar gizli"
                 : "Tüm rezervasyonlar görünür"
             }
-            style={{
-              padding: "9px 14px",
-              borderRadius: "10px",
-              fontSize: "12px",
-              fontWeight: 600,
-              border: hidePast
-                ? "1px solid rgba(124,58,237,0.5)"
-                : "1px solid var(--line)",
-              background: hidePast
-                ? "rgba(124,58,237,0.18)"
-                : "rgba(255,255,255,0.04)",
-              color: hidePast ? "var(--accent3)" : "var(--muted)",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              whiteSpace: "nowrap",
-              fontFamily: "var(--inter)",
-            }}
+            className="btn"
+            style={
+              hidePast
+                ? {
+                    background:
+                      "linear-gradient(135deg, var(--accent), #6D28D9)",
+                    color: "#fff",
+                  }
+                : {
+                    background: "rgba(255,255,255,0.05)",
+                    color: "var(--muted)",
+                    border: "1px solid var(--line)",
+                  }
+            }
           >
             <span
-              aria-hidden="true"
+              aria-hidden
               style={{
+                display: "inline-block",
                 width: "6px",
                 height: "6px",
                 borderRadius: "50%",
-                background: hidePast ? "var(--accent2)" : "var(--muted2)",
+                background: hidePast ? "#fff" : "var(--muted2)",
+                marginRight: "6px",
+                verticalAlign: "middle",
               }}
             />
             {hidePast ? "Geçmişi gizle" : "Geçmişi göster"}
@@ -324,36 +354,15 @@ export default function ReservationsPage() {
             onClick={exportCSV}
             disabled={exporting}
             title="Mevcut filtrelere göre CSV indir"
-            style={{
-              padding: "9px 14px",
-              fontSize: "12px",
-              fontWeight: 600,
-              borderRadius: "10px",
-              background: "rgba(124,58,237,0.08)",
-              border: "1px solid rgba(124,58,237,0.25)",
-              color: "var(--accent3)",
-              cursor: exporting ? "not-allowed" : "pointer",
-              opacity: exporting ? 0.6 : 1,
-              transition: "all 0.18s ease",
-              fontFamily: "var(--inter)",
-            }}
-            onMouseOver={(e) => {
-              if (exporting) return;
-              e.currentTarget.style.background = "rgba(124,58,237,0.16)";
-              e.currentTarget.style.borderColor = "rgba(124,58,237,0.45)";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = "rgba(124,58,237,0.08)";
-              e.currentTarget.style.borderColor = "rgba(124,58,237,0.25)";
-            }}
+            className="btn btn-ghost-mor"
           >
             {exporting ? "..." : "CSV İndir"}
           </button>
           <button
+            type="button"
             onClick={load}
             disabled={loading}
-            className="btn-primary"
-            style={{ padding: "9px 16px", fontSize: "12px" }}
+            className="btn btn-primary"
           >
             {loading ? "Yükleniyor..." : "Yenile"}
           </button>
@@ -377,78 +386,34 @@ export default function ReservationsPage() {
         </div>
       )}
 
-      {/* Table */}
-      <div
-        className="card fade-up fade-up-2"
-        style={{
-          marginTop: "12px",
-          padding: 0,
-          overflow: "hidden",
-        }}
-      >
-        <div style={{ overflowX: "auto" }}>
-          <table className="gx-table" style={{ minWidth: "600px" }}>
-            <thead>
-              <tr>
-                <th>Ad</th>
-                <th className="hidden md:table-cell">Telefon</th>
-                <th>Tarih · Saat</th>
-                <th className="hidden sm:table-cell">Kişi</th>
-                <th>Durum</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.items.length === 0 && !loading && (
-                <tr>
-                  <td colSpan={5} style={{ padding: 0 }}>
-                    <EmptyState
-                      icon={<InboxIcon />}
-                      title={
-                        hasActiveFilter
-                          ? "Filtreyle eşleşen rezervasyon yok"
-                          : "Henüz rezervasyon yok"
-                      }
-                      description={
-                        hasActiveFilter
-                          ? "Filtreleri temizleyerek veya 'Geçmişi göster' seçeneğini açarak diğer kayıtları görebilirsiniz."
-                          : "Müşterileriniz Telegram/WhatsApp veya web formundan rezervasyon yapınca burada görünür."
-                      }
-                    />
-                  </td>
-                </tr>
-              )}
-              {data?.items.map((r) => (
-                <tr
-                  key={r.id}
-                  onClick={() => setActiveId(r.id)}
-                  className={
-                    r.status === "PENDING_APPROVAL" ? "pending-row" : undefined
-                  }
-                  style={{ cursor: "pointer" }}
-                >
-                  <td style={{ fontWeight: 600 }}>
-                    {r.visitor?.name ?? "—"}
-                  </td>
-                  <td
-                    className="hidden md:table-cell"
-                    style={{ color: "var(--muted)" }}
-                  >
-                    {r.visitor?.phone ?? "—"}
-                  </td>
-                  <td>
-                    {formatTrShortDate(r.visitDate)} · {r.startTime}
-                  </td>
-                  <td className="hidden sm:table-cell">{r.groupSize}</td>
-                  <td>
-                    <span className={pillClass(r.status)}>
-                      {STATUS_LABEL[r.status]}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* TARİH GRUPLU LİSTE */}
+      <div className="fade-up fade-up-2" style={{ marginTop: "16px" }}>
+        {data && data.items.length === 0 && !loading ? (
+          <div className="card" style={{ padding: 0 }}>
+            <EmptyState
+              icon={<InboxIcon />}
+              title={
+                hasActiveFilter
+                  ? "Filtreyle eşleşen rezervasyon yok"
+                  : "Henüz rezervasyon yok"
+              }
+              description={
+                hasActiveFilter
+                  ? "Filtreleri temizleyerek veya 'Geçmişi göster' seçeneğini açarak diğer kayıtları görebilirsiniz."
+                  : "Müşterileriniz Telegram/WhatsApp veya web formundan rezervasyon yapınca burada görünür."
+              }
+            />
+          </div>
+        ) : (
+          groups.map((g) => (
+            <DayGroup
+              key={g.iso}
+              date={g.date}
+              items={g.items}
+              onClick={(id) => setActiveId(id)}
+            />
+          ))
+        )}
       </div>
 
       {/* Pagination */}
@@ -518,6 +483,57 @@ export default function ReservationsPage() {
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────
+// Gün grubu
+// ─────────────────────────────────────────────────────────
+
+function DayGroup({
+  date,
+  items,
+  onClick,
+}: {
+  date: Date;
+  items: Reservation[];
+  onClick: (id: string) => void;
+}) {
+  const dayName = TR_DAYS[date.getDay()];
+  const monthName = MONTHS[date.getMonth()];
+  const countWord =
+    items.length === 1 ? "1 rezervasyon" : `${items.length} rezervasyon`;
+
+  return (
+    <div className="daygroup">
+      <div className="dh">
+        <span className="big">
+          {date.getDate()} <em>{monthName}</em>
+        </span>
+        <span className="cnt">· {dayName} · {countWord}</span>
+      </div>
+      {items.map((r) => {
+        const isPending = r.status === "PENDING_APPROVAL";
+        return (
+          <div
+            key={r.id}
+            className={`rmini${isPending ? " pend" : ""}`}
+            onClick={() => onClick(r.id)}
+            role="button"
+          >
+            <div className="tm">{r.startTime}</div>
+            <div className="nm">{r.visitor?.name ?? "—"}</div>
+            <div className="ph">{formatPhone(r.visitor?.phone)}</div>
+            <div className="ppl">{r.groupSize} kişi</div>
+            <span className={pillClass(r.status)}>{STATUS_LABEL[r.status]}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────
 
 function FilterField({
   label,
