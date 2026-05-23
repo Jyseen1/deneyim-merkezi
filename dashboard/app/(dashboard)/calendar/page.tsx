@@ -798,21 +798,24 @@ function ViewSwitcher({
 
 function Legend() {
   const items: { color: string; label: string; outline?: boolean }[] = [
-    { color: STATUS_COLORS.APPROVED.bg, label: "Onaylı" },
-    { color: STATUS_COLORS.PENDING_APPROVAL.bg, label: "Bekliyor" },
-    {
-      color: "rgba(239,68,68,0.4)",
-      label: "Kapalı",
-    },
-    { color: "#cbd5e1", label: "Çalışma dışı", outline: true },
+    { color: "#4ADE80", label: "Onaylı" },
+    { color: "#8B5CF6", label: "Bekliyor" },
+    { color: "#EF4444", label: "Kapalı" },
+    { color: "#71717A", label: "Çalışma dışı", outline: true },
   ];
   return (
     <div
       style={{
         marginTop: "14px",
-        display: "flex",
+        background: "rgba(255,255,255,0.03)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: "12px",
+        padding: "10px 14px",
+        display: "inline-flex",
         flexWrap: "wrap",
-        gap: "14px",
+        gap: "16px",
         fontSize: "11px",
         color: "var(--gx-text-muted)",
       }}
@@ -820,12 +823,12 @@ function Legend() {
       {items.map((i) => (
         <div
           key={i.label}
-          style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          style={{ display: "flex", alignItems: "center", gap: "8px" }}
         >
           <span
             style={{
-              width: "12px",
-              height: "12px",
+              width: "10px",
+              height: "10px",
               borderRadius: "3px",
               background: i.outline ? "transparent" : i.color,
               border: `1.5px solid ${i.color}`,
