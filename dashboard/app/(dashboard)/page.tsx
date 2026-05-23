@@ -1,76 +1,104 @@
 import { getServerSession } from "@/lib/auth";
-import { fetchStatsSafe } from "@/components/stats/server-fetch";
+import { fetchStatsSafe, EMPTY_STATS } from "@/components/stats/server-fetch";
 import { HomeStats } from "@/components/stats/HomeStats";
-import { TodayTimeline } from "@/components/TodayTimeline";
-import { formatTrLongDate } from "@/lib/date";
+import { formatTrLongDate, TR_DAYS } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
+
+function firstName(full?: string | null): string {
+  if (!full) return "";
+  const trimmed = full.trim();
+  if (!trimmed) return "";
+  return trimmed.split(/\s+/)[0];
+}
 
 export default async function DashboardHome() {
   const session = await getServerSession();
   const staffId = session?.user?.id || session?.user?.email || "staff";
   const initial = await fetchStatsSafe(session?.backendToken);
-  const today = formatTrLongDate(new Date());
+  const stats = initial.ok ? initial.stats : EMPTY_STATS;
+
+  const now = new Date();
+  const dateLong = formatTrLongDate(now);
+  const dayName = TR_DAYS[now.getDay()];
+  const name = firstName(session?.user?.name);
 
   return (
-    <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
-      {/* Topbar: tek satır flex */}
+    <div style={{ maxWidth: "640px", margin: "0 auto", textAlign: "center" }}>
+      {/* Tarih chip */}
       <div
         className="fade-up"
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "20px",
-          flexWrap: "wrap",
-          marginBottom: "24px",
+          fontSize: "10px",
+          color: "var(--gx-accent-light)",
+          letterSpacing: "0.20em",
+          textTransform: "uppercase",
+          fontWeight: 700,
+          marginTop: "12px",
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          <h1
-            className="gradient-text font-display"
-            style={{
-              fontSize: "28px",
-              fontWeight: 600,
-              letterSpacing: "-0.5px",
-              lineHeight: 1.1,
-              margin: 0,
-            }}
-          >
-            Genel Bakış
-          </h1>
-          <p
-            style={{
-              fontSize: "13px",
-              color: "var(--gx-text-muted)",
-              margin: "4px 0 0",
-            }}
-          >
-            Bugün ve bu hafta özeti, bekleyen onaylar.
-          </p>
-        </div>
-
-        <span
-          style={{
-            background: "var(--gx-surface)",
-            border: "1px solid var(--gx-border-accent)",
-            padding: "7px 16px",
-            borderRadius: "99px",
-            fontSize: "12px",
-            color: "var(--gx-accent-light)",
-            fontWeight: 600,
-            letterSpacing: "0.02em",
-            whiteSpace: "nowrap",
-            flexShrink: 0,
-          }}
-        >
-          {today}
-        </span>
+        {dateLong} · {dayName}
       </div>
 
-      <HomeStats initial={initial} staffId={staffId}>
-        <TodayTimeline />
-      </HomeStats>
+      {/* Buyuk karsilama — isim serif italik mor */}
+      <h1
+        className="fade-up fade-up-1 font-display"
+        style={{
+          fontSize: "44px",
+          fontWeight: 400,
+          color: "var(--gx-text)",
+          letterSpacing: "-0.02em",
+          lineHeight: 1.1,
+          margin: "16px 0 14px",
+        }}
+      >
+        Hoş geldin
+        {name && (
+          <>
+            ,{" "}
+            <span
+              className="font-serif font-italic"
+              style={{
+                fontWeight: 400,
+                color: "var(--gx-accent-light)",
+                letterSpacing: "0",
+              }}
+            >
+              {name}
+            </span>
+          </>
+        )}
+      </h1>
+
+      {/* Alt cumle — sayilar vurgu */}
+      <p
+        className="fade-up fade-up-2"
+        style={{
+          fontSize: "14px",
+          color: "var(--gx-text-muted)",
+          margin: "0 auto 32px",
+          lineHeight: 1.6,
+          maxWidth: "440px",
+        }}
+      >
+        Bugün{" "}
+        <span style={{ color: "var(--gx-text)", fontWeight: 600 }}>
+          {stats.today}
+        </span>{" "}
+        <span className="font-serif font-italic" style={{ color: "var(--gx-text-muted)" }}>
+          ziyaret
+        </span>{" "}
+        planlı,{" "}
+        <span style={{ color: "var(--gx-accent-light)", fontWeight: 600 }}>
+          {stats.pending}
+        </span>{" "}
+        <span className="font-serif font-italic" style={{ color: "var(--gx-accent-light)" }}>
+          onay
+        </span>{" "}
+        seni bekliyor.
+      </p>
+
+      <HomeStats initial={initial} staffId={staffId} />
     </div>
   );
 }
