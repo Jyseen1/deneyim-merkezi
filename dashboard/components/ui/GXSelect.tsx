@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 
 export type GXSelectOption<T extends string | number = string> = {
@@ -17,6 +18,8 @@ type Props<T extends string | number = string> = {
   ariaLabel?: string;
 };
 
+type Rect = { left: number; top: number; width: number; height: number };
+
 export function GXSelect<T extends string | number = string>({
   options,
   value,
@@ -26,16 +29,39 @@ export function GXSelect<T extends string | number = string>({
   ariaLabel,
 }: Props<T>) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLDivElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [rect, setRect] = useState<Rect | null>(null);
 
-  // Disariya tiklayinca kapat — mousedown'da; click event'inden once tetiklenir
-  // (option onClick guvenle calismaya devam etsin diye option div'leri root icinde).
+  // Trigger pozisyonunu fixed dropdown için ölç. Açılırken + scroll/resize
+  // sırasında güncel tut. useLayoutEffect ile ilk açılışta paint öncesi ölç,
+  // dropdown "yer değiştirme" flash'ı yaşamasın.
+  useLayoutEffect(() => {
+    if (!open) return;
+    function measure() {
+      const el = triggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setRect({ left: r.left, top: r.top, width: r.width, height: r.height });
+    }
+    measure();
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
+  }, [open]);
+
+  // Dışarı tık + Escape ile kapat. Portal'da olduğu için rootRef.contains()
+  // ile değil; trigger ve dropdown ref'lerini ayrı ayrı kontrol et.
   useEffect(() => {
     if (!open) return;
     function onPointerDown(e: MouseEvent) {
       const t = e.target as Node | null;
       if (!t) return;
-      if (rootRef.current && rootRef.current.contains(t)) return;
+      if (triggerRef.current && triggerRef.current.contains(t)) return;
+      if (dropdownRef.current && dropdownRef.current.contains(t)) return;
       setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
@@ -52,8 +78,9 @@ export function GXSelect<T extends string | number = string>({
   const selected = options.find((o) => o.value === value);
 
   return (
-    <div ref={rootRef} style={{ position: "relative" }}>
+    <div style={{ position: "relative" }}>
       <div
+        ref={triggerRef}
         role="button"
         tabIndex={disabled ? -1 : 0}
         aria-haspopup="listbox"
@@ -111,65 +138,68 @@ export function GXSelect<T extends string | number = string>({
         />
       </div>
 
-      {open && (
-        <div
-          role="listbox"
-          style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            left: 0,
-            right: 0,
-            background: "#111118",
-            border: "1px solid rgba(255,255,255,0.10)",
-            borderRadius: "12px",
-            overflow: "hidden",
-            zIndex: 9999,
-            boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            maxHeight: "280px",
-            overflowY: "auto",
-          }}
-        >
-          {options.map((opt) => {
-            const active = opt.value === value;
-            return (
-              <div
-                key={String(opt.value)}
-                role="option"
-                aria-selected={active}
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                style={{
-                  padding: "10px 14px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontFamily: "var(--font-inter), system-ui",
-                  color: active ? "#A78BFA" : "#D4D4D8",
-                  background: active
-                    ? "rgba(124,58,237,0.12)"
-                    : "transparent",
-                  transition: "background 0.12s ease",
-                  userSelect: "none",
-                }}
-                onMouseEnter={(e) => {
-                  if (active) return;
-                  e.currentTarget.style.background =
-                    "rgba(255,255,255,0.05)";
-                }}
-                onMouseLeave={(e) => {
-                  if (active) return;
-                  e.currentTarget.style.background = "transparent";
-                }}
-              >
-                {opt.label}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {open && rect && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            role="listbox"
+            style={{
+              position: "fixed",
+              top: rect.top + rect.height + 6,
+              left: rect.left,
+              width: rect.width,
+              background: "#111118",
+              border: "1px solid rgba(255,255,255,0.10)",
+              borderRadius: "12px",
+              overflow: "hidden",
+              zIndex: 9999,
+              boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              maxHeight: "280px",
+              overflowY: "auto",
+            }}
+          >
+            {options.map((opt) => {
+              const active = opt.value === value;
+              return (
+                <div
+                  key={String(opt.value)}
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                  style={{
+                    padding: "10px 14px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontFamily: "var(--font-inter), system-ui",
+                    color: active ? "#A78BFA" : "#D4D4D8",
+                    background: active
+                      ? "rgba(124,58,237,0.12)"
+                      : "transparent",
+                    transition: "background 0.12s ease",
+                    userSelect: "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (active) return;
+                    e.currentTarget.style.background =
+                      "rgba(255,255,255,0.05)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (active) return;
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  {opt.label}
+                </div>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

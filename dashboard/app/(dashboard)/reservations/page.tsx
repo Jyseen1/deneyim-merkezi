@@ -28,14 +28,22 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "NO_SHOW", label: "Gelmedi" },
 ];
 
-const STATUS_CLASS: Record<ReservationStatus, string> = {
-  PENDING_APPROVAL: "status-pending",
-  APPROVED: "status-approved",
-  REJECTED: "status-rejected",
-  CANCELLED: "status-cancelled",
-  COMPLETED: "status-completed",
-  NO_SHOW: "status-noshow",
-};
+function pillClass(s: ReservationStatus): string {
+  switch (s) {
+    case "APPROVED":
+      return "pill ok";
+    case "PENDING_APPROVAL":
+      return "pill wait";
+    case "REJECTED":
+      return "pill rej";
+    case "CANCELLED":
+      return "pill cancel";
+    case "NO_SHOW":
+      return "pill noshow";
+    default:
+      return "pill";
+  }
+}
 
 const PAGE_SIZE = 20;
 const HIDE_PAST_KEY = "dm.hidePastReservations";
@@ -70,41 +78,6 @@ export default function ReservationsPage() {
   const { show } = useToast();
   const [exporting, setExporting] = useState(false);
 
-  async function exportCSV() {
-    if (!token) return;
-    setExporting(true);
-    try {
-      const sp = new URLSearchParams();
-      if (status !== "ALL") sp.set("status", status);
-      if (dateFrom) sp.set("date_from", dateFrom);
-      if (dateTo) sp.set("date_to", dateTo);
-      const url = `${backendBase()}/api/v1/reservations/export?${sp.toString()}`;
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const blob = await res.blob();
-      const dlUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = dlUrl;
-      // Sunucudaki Content-Disposition'dan filename'i cek
-      const cd = res.headers.get("Content-Disposition") ?? "";
-      const m = /filename="?([^";]+)"?/.exec(cd);
-      a.download = m?.[1] ?? `reservations_${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(dlUrl), 1000);
-      show("CSV indirildi", "success");
-    } catch (e) {
-      show(`CSV indirilemedi: ${(e as Error).message}`, "error");
-    } finally {
-      setExporting(false);
-    }
-  }
-
   const [status, setStatus] = useState<StatusFilter>("ALL");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -124,6 +97,41 @@ export default function ReservationsPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  async function exportCSV() {
+    if (!token) return;
+    setExporting(true);
+    try {
+      const sp = new URLSearchParams();
+      if (status !== "ALL") sp.set("status", status);
+      if (dateFrom) sp.set("date_from", dateFrom);
+      if (dateTo) sp.set("date_to", dateTo);
+      const url = `${backendBase()}/api/v1/reservations/export?${sp.toString()}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = dlUrl;
+      const cd = res.headers.get("Content-Disposition") ?? "";
+      const m = /filename="?([^";]+)"?/.exec(cd);
+      a.download =
+        m?.[1] ?? `reservations_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 1000);
+      show("CSV indirildi", "success");
+    } catch (e) {
+      show(`CSV indirilemedi: ${(e as Error).message}`, "error");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const query = useMemo(() => {
     const sp = new URLSearchParams();
@@ -148,7 +156,9 @@ export default function ReservationsPage() {
       setData(res);
     } catch (e) {
       setErr(
-        e instanceof ApiError ? `${e.status}: ${e.message}` : (e as Error).message,
+        e instanceof ApiError
+          ? `${e.status}: ${e.message}`
+          : (e as Error).message,
       );
     } finally {
       setLoading(false);
@@ -163,16 +173,17 @@ export default function ReservationsPage() {
     setPage(1);
   }, [status, dateFrom, dateTo, hidePast]);
 
-  // SSE: yeni rezervasyon veya guncelleme gelince listeyi tazele
   useRealtime({
     onNewReservation: () => load(),
     onReservationUpdated: () => load(),
   });
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
+  const hasActiveFilter =
+    status !== "ALL" || dateFrom !== "" || dateTo !== "" || !hidePast;
 
   return (
-    <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
+    <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
       {/* Header */}
       <div className="fade-up">
         <h1
@@ -207,88 +218,64 @@ export default function ReservationsPage() {
         </p>
       </div>
 
-      {/* Filters */}
+      {/* Filters — kompakt grup */}
       <div
-        className="glass fade-up fade-up-1"
+        className="card fade-up fade-up-1"
         style={{
-          marginTop: "24px",
-          padding: "16px 18px",
+          marginTop: "20px",
+          padding: "14px 16px",
           display: "flex",
           flexWrap: "wrap",
           alignItems: "flex-end",
-          gap: "14px",
+          gap: "20px",
+          overflow: "visible",
         }}
       >
-        <div style={{ minWidth: "180px" }}>
-          <label
-            style={{
-              display: "block",
-              fontSize: "10px",
-              fontWeight: 700,
-              color: "var(--gx-text-hint)",
-              letterSpacing: "0.10em",
-              textTransform: "uppercase",
-              marginBottom: "6px",
-            }}
-          >
-            Durum
-          </label>
-          <GXSelect<StatusFilter>
-            options={STATUS_OPTIONS}
-            value={status}
-            onChange={setStatus}
-            ariaLabel="Durum filtresi"
-          />
-        </div>
-        <div style={{ minWidth: "180px" }}>
-          <label
-            style={{
-              display: "block",
-              fontSize: "10px",
-              fontWeight: 700,
-              color: "var(--gx-text-hint)",
-              letterSpacing: "0.10em",
-              textTransform: "uppercase",
-              marginBottom: "6px",
-            }}
-          >
-            Başlangıç
-          </label>
-          <DatePicker
-            value={dateFrom}
-            onChange={setDateFrom}
-            placeholder="Tarih seç"
-            ariaLabel="Başlangıç tarihi"
-          />
-        </div>
-        <div style={{ minWidth: "180px" }}>
-          <label
-            style={{
-              display: "block",
-              fontSize: "10px",
-              fontWeight: 700,
-              color: "var(--gx-text-hint)",
-              letterSpacing: "0.10em",
-              textTransform: "uppercase",
-              marginBottom: "6px",
-            }}
-          >
-            Bitiş
-          </label>
-          <DatePicker
-            value={dateTo}
-            onChange={setDateTo}
-            placeholder="Tarih seç"
-            min={dateFrom || undefined}
-            ariaLabel="Bitiş tarihi"
-          />
-        </div>
+        {/* Sol grup: filtreler */}
         <div
           style={{
-            marginLeft: "auto",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "flex-end",
+            gap: "10px",
+            flex: "1 1 auto",
+            minWidth: 0,
+          }}
+        >
+          <FilterField label="Durum" width={150}>
+            <GXSelect<StatusFilter>
+              options={STATUS_OPTIONS}
+              value={status}
+              onChange={setStatus}
+              ariaLabel="Durum filtresi"
+            />
+          </FilterField>
+          <FilterField label="Başlangıç" width={160}>
+            <DatePicker
+              value={dateFrom}
+              onChange={setDateFrom}
+              placeholder="—"
+              ariaLabel="Başlangıç tarihi"
+            />
+          </FilterField>
+          <FilterField label="Bitiş" width={160}>
+            <DatePicker
+              value={dateTo}
+              onChange={setDateTo}
+              placeholder="—"
+              min={dateFrom || undefined}
+              ariaLabel="Bitiş tarihi"
+            />
+          </FilterField>
+        </div>
+
+        {/* Sağ grup: aksiyonlar */}
+        <div
+          style={{
             display: "flex",
             alignItems: "center",
-            gap: "10px",
+            gap: "8px",
+            flexWrap: "wrap",
           }}
         >
           <button
@@ -301,31 +288,33 @@ export default function ReservationsPage() {
                 : "Tüm rezervasyonlar görünür"
             }
             style={{
-              padding: "9px 16px",
-              borderRadius: "12px",
+              padding: "9px 14px",
+              borderRadius: "10px",
               fontSize: "12px",
               fontWeight: 600,
               border: hidePast
-                ? "1px solid var(--gx-accent)"
-                : "1px solid var(--gx-border)",
-              background: hidePast ? "var(--gx-gradient)" : "var(--gx-surface)",
-              color: hidePast ? "#ffffff" : "var(--gx-text-muted)",
+                ? "1px solid rgba(124,58,237,0.5)"
+                : "1px solid var(--line)",
+              background: hidePast
+                ? "rgba(124,58,237,0.18)"
+                : "rgba(255,255,255,0.04)",
+              color: hidePast ? "var(--accent3)" : "var(--muted)",
               cursor: "pointer",
               transition: "all 0.15s ease",
               display: "inline-flex",
               alignItems: "center",
               gap: "8px",
               whiteSpace: "nowrap",
-              boxShadow: hidePast ? "0 4px 14px rgba(124,58,237,0.30)" : "none",
+              fontFamily: "var(--inter)",
             }}
           >
             <span
               aria-hidden="true"
               style={{
-                width: "8px",
-                height: "8px",
+                width: "6px",
+                height: "6px",
                 borderRadius: "50%",
-                background: hidePast ? "#ffffff" : "var(--gx-text-hint)",
+                background: hidePast ? "var(--accent2)" : "var(--muted2)",
               }}
             />
             {hidePast ? "Geçmişi gizle" : "Geçmişi göster"}
@@ -336,25 +325,26 @@ export default function ReservationsPage() {
             disabled={exporting}
             title="Mevcut filtrelere göre CSV indir"
             style={{
-              padding: "10px 18px",
-              fontSize: "13px",
+              padding: "9px 14px",
+              fontSize: "12px",
               fontWeight: 600,
-              borderRadius: "12px",
-              background: "rgba(124,58,237,0.10)",
-              border: "1px solid rgba(124,58,237,0.30)",
-              color: "var(--gx-accent-light)",
+              borderRadius: "10px",
+              background: "rgba(124,58,237,0.08)",
+              border: "1px solid rgba(124,58,237,0.25)",
+              color: "var(--accent3)",
               cursor: exporting ? "not-allowed" : "pointer",
               opacity: exporting ? 0.6 : 1,
               transition: "all 0.18s ease",
+              fontFamily: "var(--inter)",
             }}
             onMouseOver={(e) => {
               if (exporting) return;
-              e.currentTarget.style.background = "rgba(124,58,237,0.18)";
-              e.currentTarget.style.borderColor = "rgba(124,58,237,0.50)";
+              e.currentTarget.style.background = "rgba(124,58,237,0.16)";
+              e.currentTarget.style.borderColor = "rgba(124,58,237,0.45)";
             }}
             onMouseOut={(e) => {
-              e.currentTarget.style.background = "rgba(124,58,237,0.10)";
-              e.currentTarget.style.borderColor = "rgba(124,58,237,0.30)";
+              e.currentTarget.style.background = "rgba(124,58,237,0.08)";
+              e.currentTarget.style.borderColor = "rgba(124,58,237,0.25)";
             }}
           >
             {exporting ? "..." : "CSV İndir"}
@@ -363,6 +353,7 @@ export default function ReservationsPage() {
             onClick={load}
             disabled={loading}
             className="btn-primary"
+            style={{ padding: "9px 16px", fontSize: "12px" }}
           >
             {loading ? "Yükleniyor..." : "Yenile"}
           </button>
@@ -373,11 +364,11 @@ export default function ReservationsPage() {
         <div
           className="fade-up"
           style={{
-            marginTop: "14px",
+            marginTop: "12px",
             padding: "10px 14px",
             background: "rgba(239,68,68,0.10)",
             border: "1px solid rgba(239,68,68,0.30)",
-            color: "var(--gx-danger)",
+            color: "var(--red)",
             borderRadius: "12px",
             fontSize: "13px",
           }}
@@ -388,8 +379,12 @@ export default function ReservationsPage() {
 
       {/* Table */}
       <div
-        className="glass fade-up fade-up-2"
-        style={{ marginTop: "16px", overflow: "hidden" }}
+        className="card fade-up fade-up-2"
+        style={{
+          marginTop: "12px",
+          padding: 0,
+          overflow: "hidden",
+        }}
       >
         <div style={{ overflowX: "auto" }}>
           <table className="gx-table" style={{ minWidth: "600px" }}>
@@ -397,7 +392,7 @@ export default function ReservationsPage() {
               <tr>
                 <th>Ad</th>
                 <th className="hidden md:table-cell">Telefon</th>
-                <th>Tarih / Saat</th>
+                <th>Tarih · Saat</th>
                 <th className="hidden sm:table-cell">Kişi</th>
                 <th>Durum</th>
               </tr>
@@ -409,14 +404,14 @@ export default function ReservationsPage() {
                     <EmptyState
                       icon={<InboxIcon />}
                       title={
-                        status !== "ALL" || dateFrom || dateTo || hidePast
+                        hasActiveFilter
                           ? "Filtreyle eşleşen rezervasyon yok"
                           : "Henüz rezervasyon yok"
                       }
                       description={
-                        status !== "ALL" || dateFrom || dateTo
+                        hasActiveFilter
                           ? "Filtreleri temizleyerek veya 'Geçmişi göster' seçeneğini açarak diğer kayıtları görebilirsiniz."
-                          : "Müşterileriniz Telegram/WhatsApp veya web formundan rezervasyon yapınca burada görünür. /qr ile bot QR kodunuzu paylaşmayı unutmayın."
+                          : "Müşterileriniz Telegram/WhatsApp veya web formundan rezervasyon yapınca burada görünür."
                       }
                     />
                   </td>
@@ -426,21 +421,26 @@ export default function ReservationsPage() {
                 <tr
                   key={r.id}
                   onClick={() => setActiveId(r.id)}
+                  className={
+                    r.status === "PENDING_APPROVAL" ? "pending-row" : undefined
+                  }
                   style={{ cursor: "pointer" }}
                 >
                   <td style={{ fontWeight: 600 }}>
-                    {r.visitor?.name ?? "-"}
+                    {r.visitor?.name ?? "—"}
                   </td>
                   <td
                     className="hidden md:table-cell"
-                    style={{ color: "var(--gx-text-muted)" }}
+                    style={{ color: "var(--muted)" }}
                   >
-                    {r.visitor?.phone ?? "-"}
+                    {r.visitor?.phone ?? "—"}
                   </td>
-                  <td>{formatTrShortDate(r.visitDate)} · {r.startTime}</td>
+                  <td>
+                    {formatTrShortDate(r.visitDate)} · {r.startTime}
+                  </td>
                   <td className="hidden sm:table-cell">{r.groupSize}</td>
                   <td>
-                    <span className={`status-pill ${STATUS_CLASS[r.status]}`}>
+                    <span className={pillClass(r.status)}>
                       {STATUS_LABEL[r.status]}
                     </span>
                   </td>
@@ -455,28 +455,23 @@ export default function ReservationsPage() {
       <div
         className="fade-up fade-up-3"
         style={{
-          marginTop: "16px",
+          marginTop: "14px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           fontSize: "13px",
         }}
       >
-        <div style={{ color: "var(--gx-text-muted)", fontSize: "13px" }}>
+        <div style={{ color: "var(--muted)", fontSize: "13px" }}>
           {data ? (
             <>
               Toplam{" "}
-              <span
-                style={{
-                  color: "var(--gx-text)",
-                  fontWeight: 600,
-                }}
-              >
+              <span style={{ color: "var(--txt)", fontWeight: 600 }}>
                 {data.total}
               </span>{" "}
               <span
                 className="font-serif font-italic"
-                style={{ color: "var(--gx-text-muted)" }}
+                style={{ color: "var(--accent3)" }}
               >
                 kayıt
               </span>
@@ -491,17 +486,25 @@ export default function ReservationsPage() {
             disabled={page <= 1 || loading}
             style={pagerBtnStyle(page <= 1 || loading)}
           >
-            Önceki
+            ‹ Önceki
           </button>
-          <span style={{ fontSize: "11px", color: "var(--gx-text-muted)" }}>
-            Sayfa {page} / {totalPages}
+          <span
+            style={{
+              fontSize: "12px",
+              color: "var(--muted)",
+              fontFamily: "var(--grotesk)",
+              padding: "0 4px",
+            }}
+          >
+            <b style={{ color: "var(--accent3)", fontWeight: 600 }}>{page}</b>{" "}
+            <span style={{ color: "var(--muted2)" }}>/ {totalPages}</span>
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages || loading}
             style={pagerBtnStyle(page >= totalPages || loading)}
           >
-            Sonraki
+            Sonraki ›
           </button>
         </div>
       </div>
@@ -516,40 +519,47 @@ export default function ReservationsPage() {
   );
 }
 
-// th/td helpers artik kullanilmiyor — gx-table sinifi CSS'ten yapiyor.
-// Geriye doniik uyumluluk icin tutuldu.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function th(): React.CSSProperties {
-  return {
-    textAlign: "left",
-    padding: "12px 16px",
-    fontSize: "10px",
-    fontWeight: 700,
-    letterSpacing: "0.10em",
-    color: "var(--gx-text-hint)",
-    textTransform: "uppercase",
-  };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function td(color = "var(--gx-text)", weight: number = 400): React.CSSProperties {
-  return {
-    padding: "12px 16px",
-    color,
-    fontWeight: weight,
-  };
+function FilterField({
+  label,
+  width,
+  children,
+}: {
+  label: string;
+  width: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ width: `${width}px`, minWidth: `${width}px` }}>
+      <label
+        style={{
+          display: "block",
+          fontSize: "10px",
+          fontWeight: 700,
+          color: "var(--muted2)",
+          letterSpacing: "0.10em",
+          textTransform: "uppercase",
+          marginBottom: "6px",
+        }}
+      >
+        {label}
+      </label>
+      {children}
+    </div>
+  );
 }
 
 function pagerBtnStyle(disabled: boolean): React.CSSProperties {
   return {
     padding: "7px 14px",
     borderRadius: "10px",
-    background: "var(--gx-surface)",
-    border: "1px solid var(--gx-border)",
-    color: "var(--gx-text)",
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid var(--line)",
+    color: "var(--txt)",
     fontSize: "12px",
+    fontWeight: 500,
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.4 : 1,
     transition: "all 0.15s ease",
+    fontFamily: "var(--inter)",
   };
 }

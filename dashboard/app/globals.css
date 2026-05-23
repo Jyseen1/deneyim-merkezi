@@ -394,33 +394,44 @@ textarea.gx-input {
 }
 
 /* ─────────────────────────────────────────────────────────
- * Tablo — koyu zeminde okunur, satir hover hafif aydinlanma
+ * Tablo — koyu zeminde okunur, satir hover hafif mor aydinlanma
  * ───────────────────────────────────────────────────────── */
 .gx-table {
   width: 100%;
   border-collapse: collapse;
 }
 .gx-table thead tr {
-  background: rgba(255,255,255,0.03);
+  background: rgba(124, 58, 237, 0.04);
 }
 .gx-table th {
   text-align: left;
   padding: 12px 16px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--gx-text-muted);
-  border-bottom: 1px solid var(--gx-border);
+  color: var(--gx-text-hint);
+  border-bottom: 1px solid rgba(124, 58, 237, 0.15);
 }
 .gx-table td {
-  padding: 14px 16px;
+  padding: 16px;
   font-size: 13px;
   color: var(--gx-text);
-  border-bottom: 1px solid var(--gx-border);
+  border-bottom: 1px solid var(--line2);
+  transition: background 120ms ease;
 }
-.gx-table tbody tr:hover {
-  background: rgba(255,255,255,0.05);
+.gx-table tbody tr:hover td {
+  background: rgba(124, 58, 237, 0.05);
+}
+/* Aksiyon bekleyen satırı sol kenarda mor çubukla + hafif mor tint ile vurgula */
+.gx-table tbody tr.pending-row td {
+  background: rgba(124, 58, 237, 0.04);
+}
+.gx-table tbody tr.pending-row td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent2);
+}
+.gx-table tbody tr.pending-row:hover td {
+  background: rgba(124, 58, 237, 0.08);
 }
 
 /* Scrollbar — mor cam */
