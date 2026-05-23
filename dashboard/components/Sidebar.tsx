@@ -85,14 +85,19 @@ function NavLink({
   onClick: () => void;
 }) {
   const baseStyle: React.CSSProperties = {
-    color: active ? "#ffffff" : "rgba(255,255,255,0.5)",
-    fontWeight: active ? 600 : 400,
+    color: active ? "var(--gx-text)" : "var(--gx-text-muted)",
+    fontWeight: active ? 600 : 500,
     fontSize: "13px",
-    padding: "9px 12px",
-    paddingLeft: "12px",
+    padding: "10px 12px",
+    paddingLeft: active ? "16px" : "12px",
     borderRadius: "10px",
-    borderLeft: active ? "4px solid #fbbf24" : "4px solid transparent",
-    background: active ? "rgba(255,255,255,0.15)" : "transparent",
+    borderLeft: active
+      ? "3px solid var(--gx-accent-light)"
+      : "3px solid transparent",
+    // Aktif: sol mor cubuk + soft mor cam dolgu
+    background: active
+      ? "linear-gradient(90deg, rgba(124,58,237,0.20), rgba(124,58,237,0.04))"
+      : "transparent",
     transition: "all 0.15s ease",
     display: "flex",
     alignItems: "center",
@@ -108,16 +113,14 @@ function NavLink({
       style={baseStyle}
       onMouseEnter={(e) => {
         if (!active) {
-          e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-          e.currentTarget.style.color = "rgba(255,255,255,0.9)";
-          e.currentTarget.style.paddingLeft = "16px";
+          e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+          e.currentTarget.style.color = "var(--gx-text)";
         }
       }}
       onMouseLeave={(e) => {
         if (!active) {
           e.currentTarget.style.background = "transparent";
-          e.currentTarget.style.color = "rgba(255,255,255,0.5)";
-          e.currentTarget.style.paddingLeft = "12px";
+          e.currentTarget.style.color = "var(--gx-text-muted)";
         }
       }}
     >
@@ -125,14 +128,15 @@ function NavLink({
       {badge != null && badge > 0 && (
         <span
           style={{
-            background: "#fbbf24",
-            color: "#1c1917",
-            fontSize: "9px",
+            background: "var(--gx-gradient)",
+            color: "#ffffff",
+            fontSize: "10px",
             fontWeight: 700,
-            padding: "1px 6px",
+            padding: "2px 7px",
             borderRadius: "99px",
-            minWidth: "16px",
+            minWidth: "18px",
             textAlign: "center",
+            boxShadow: "0 2px 8px rgba(124,58,237,0.4)",
           }}
         >
           {badge}
@@ -141,7 +145,6 @@ function NavLink({
     </Link>
   );
 }
-
 
 export function Sidebar({
   userName,
@@ -154,7 +157,6 @@ export function Sidebar({
   const [open, setOpen] = useState(false);
 
   // "/reservations" item'i icin badge: yeni rezervasyon SSE event'lerinde artar.
-  // Kullanici Rezervasyonlar sayfasini ziyaret edince sifirlanir.
   const [newCount, setNewCount] = useState(0);
   const lastSeenPathRef = useRef(pathname);
   useEffect(() => {
@@ -166,15 +168,15 @@ export function Sidebar({
 
   useRealtime({
     onNewReservation: () => {
-      // Kullanici Rezervasyonlar sayfasindaysa badge gostermeye gerek yok
       if (window.location.pathname !== "/reservations") {
         setNewCount((c) => c + 1);
       }
     },
   });
 
+  // Koyu sidebar — sag kenarda ince mor cizgi
   const sidebarStyle: React.CSSProperties = {
-    background: "linear-gradient(180deg, #3730a3 0%, #2e1065 100%)",
+    background: "var(--gx-bg-deep)",
     width: "220px",
     height: "100vh",
     position: "fixed",
@@ -183,7 +185,9 @@ export function Sidebar({
     zIndex: 40,
     display: "flex",
     flexDirection: "column",
-    color: "rgba(255,255,255,0.85)",
+    color: "var(--gx-text)",
+    borderRight: "1px solid var(--gx-border)",
+    boxShadow: "1px 0 0 rgba(124,58,237,0.15)",
   };
 
   return (
@@ -192,27 +196,33 @@ export function Sidebar({
       <div
         className="md:hidden flex items-center justify-between px-4 h-14"
         style={{
-          background: "linear-gradient(180deg, #3730a3 0%, #2e1065 100%)",
-          color: "#e0e7ff",
+          background: "var(--gx-bg-deep)",
+          color: "var(--gx-text)",
           position: "sticky",
           top: 0,
           zIndex: 30,
+          borderBottom: "1px solid var(--gx-border)",
         }}
       >
         <button
           onClick={() => setOpen((v) => !v)}
           aria-label="Menüyü aç"
           className="p-2 -ml-2"
-          style={{ color: "rgba(255,255,255,0.9)" }}
+          style={{ color: "var(--gx-text)" }}
         >
           <MenuIcon />
         </button>
-        <span className="text-sm font-semibold">Deneyim Merkezi</span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/gigax-logo.png"
+          alt="GigaX"
+          style={{ height: "22px", width: "auto" }}
+        />
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           aria-label="Çıkış"
           className="p-2 -mr-2"
-          style={{ color: "rgba(255,255,255,0.6)" }}
+          style={{ color: "var(--gx-text-muted)" }}
         >
           <LogoutIcon />
         </button>
@@ -222,7 +232,7 @@ export function Sidebar({
       {open && (
         <div
           className="md:hidden fixed inset-0 z-30"
-          style={{ backgroundColor: "rgba(30,27,75,0.5)" }}
+          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
           onClick={() => setOpen(false)}
         />
       )}
@@ -239,52 +249,32 @@ export function Sidebar({
         {/* Logo */}
         <div
           style={{
-            padding: "20px 16px",
+            padding: "20px 18px",
             display: "flex",
             alignItems: "center",
-            gap: "12px",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            gap: "10px",
+            borderBottom: "1px solid var(--gx-border)",
           }}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/gigax-logo.png"
+            alt="GigaX"
+            style={{ height: "30px", width: "auto", flexShrink: 0 }}
+          />
           <div
             style={{
-              width: "38px",
-              height: "38px",
-              borderRadius: "12px",
-              background: "#e0e7ff",
-              color: "#3730a3",
-              fontWeight: 700,
-              fontSize: "14px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              color: "var(--gx-text-muted)",
+              fontSize: "10px",
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              fontWeight: 500,
+              lineHeight: 1.2,
             }}
           >
-            DM
-          </div>
-          <div style={{ lineHeight: 1.2, minWidth: 0 }}>
-            <div
-              style={{
-                color: "#e0e7ff",
-                fontSize: "14px",
-                fontWeight: 600,
-              }}
-            >
-              Deneyim Merkezi
-            </div>
-            <div
-              style={{
-                color: "rgba(255,255,255,0.4)",
-                fontSize: "10px",
-                letterSpacing: "0.1em",
-                marginTop: "2px",
-                textTransform: "uppercase",
-              }}
-            >
-              Yönetim Paneli
-            </div>
+            Yönetim
+            <br />
+            Paneli
           </div>
         </div>
 
@@ -293,7 +283,7 @@ export function Sidebar({
           style={{
             flex: 1,
             overflowY: "auto",
-            padding: "8px 12px",
+            padding: "10px 12px",
           }}
         >
           {NAV.map((group) => (
@@ -301,11 +291,10 @@ export function Sidebar({
               <div
                 style={{
                   fontSize: "10px",
-                  color: "#ffffff",
-                  opacity: 0.5,
-                  letterSpacing: "0.15em",
+                  color: "var(--gx-text-hint)",
+                  letterSpacing: "0.18em",
                   fontWeight: 600,
-                  padding: "20px 4px 6px",
+                  padding: "20px 4px 8px",
                   textTransform: "uppercase",
                 }}
               >
@@ -335,7 +324,8 @@ export function Sidebar({
         <div style={{ padding: "12px" }}>
           <div
             style={{
-              background: "rgba(255,255,255,0.08)",
+              background: "var(--gx-surface)",
+              border: "1px solid var(--gx-border)",
               borderRadius: "12px",
               padding: "10px 12px",
               display: "flex",
@@ -348,14 +338,15 @@ export function Sidebar({
                 width: "30px",
                 height: "30px",
                 borderRadius: "50%",
-                background: "#e0e7ff",
-                color: "#3730a3",
+                background: "var(--gx-gradient)",
+                color: "#ffffff",
                 fontWeight: 700,
-                fontSize: "10px",
+                fontSize: "11px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
+                boxShadow: "0 4px 12px rgba(124,58,237,0.35)",
               }}
             >
               {(userName || "U").slice(0, 1).toUpperCase()}
@@ -363,9 +354,9 @@ export function Sidebar({
             <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
               <div
                 style={{
-                  color: "#e0e7ff",
+                  color: "var(--gx-text)",
                   fontSize: "12px",
-                  fontWeight: 500,
+                  fontWeight: 600,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -375,7 +366,7 @@ export function Sidebar({
               </div>
               <div
                 style={{
-                  color: "rgba(255,255,255,0.4)",
+                  color: "var(--gx-text-hint)",
                   fontSize: "10px",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
@@ -389,7 +380,7 @@ export function Sidebar({
               onClick={() => signOut({ callbackUrl: "/login" })}
               aria-label="Çıkış"
               style={{
-                color: "rgba(255,255,255,0.3)",
+                color: "var(--gx-text-hint)",
                 background: "transparent",
                 border: "none",
                 cursor: "pointer",
@@ -398,10 +389,10 @@ export function Sidebar({
                 flexShrink: 0,
               }}
               onMouseOver={(e) =>
-                (e.currentTarget.style.color = "rgba(255,255,255,0.8)")
+                (e.currentTarget.style.color = "var(--gx-danger)")
               }
               onMouseOut={(e) =>
-                (e.currentTarget.style.color = "rgba(255,255,255,0.3)")
+                (e.currentTarget.style.color = "var(--gx-text-hint)")
               }
             >
               <LogoutIcon />
