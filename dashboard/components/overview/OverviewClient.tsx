@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
 import { useBackendToken } from "@/hooks/useBackendToken";
@@ -15,7 +15,22 @@ import {
 import { EMPTY_STATS, type StatsResult } from "@/components/stats/server-fetch";
 import { OverviewCalendar } from "@/components/overview/OverviewCalendar";
 import { ReservationDrawer } from "@/components/ReservationDrawer";
-import { formatTrShortDate } from "@/lib/date";
+import { formatTrShortDate, TR_DAYS, toLocalIso } from "@/lib/date";
+
+const MONTHS = [
+  "Ocak",
+  "Şubat",
+  "Mart",
+  "Nisan",
+  "Mayıs",
+  "Haziran",
+  "Temmuz",
+  "Ağustos",
+  "Eylül",
+  "Ekim",
+  "Kasım",
+  "Aralık",
+];
 
 const POLL_MS_WHEN_OK = 30_000;
 const POLL_MS_WHEN_DOWN = 4_000;
@@ -179,6 +194,29 @@ export function OverviewClient({
 
   const pendingFirst = stats.pendingPreview[0] ?? null;
   const pendingCountWord = stats.pending === 1 ? "bir talep" : `${stats.pending} talep`;
+
+  // Son rezervasyonları tarihe göre grupla — Rezervasyonlar sayfasındaki ile
+  // aynı mantık, fakat dar sağ panel için kompakt render (telefon/kişi yok).
+  // Backend sıralaması korunur; map ile karşılaşma sırasına göre grup oluşur.
+  const recentGroups = useMemo(() => {
+    const m = new Map<string, Reservation[]>();
+    const order: string[] = [];
+    for (const r of recent) {
+      const iso = toLocalIso(new Date(r.visitDate));
+      if (!m.has(iso)) {
+        m.set(iso, []);
+        order.push(iso);
+      }
+      m.get(iso)!.push(r);
+    }
+    return order.map((iso) => ({
+      iso,
+      date: new Date(iso),
+      items: (m.get(iso) ?? []).sort((a, b) =>
+        a.startTime.localeCompare(b.startTime),
+      ),
+    }));
+  }, [recent]);
 
   return (
     <>
@@ -446,27 +484,54 @@ export function OverviewClient({
                   Henüz rezervasyon yok.
                 </div>
               ) : (
-                <table className="rtable">
-                  <tbody>
-                    {recent.map((r) => (
-                      <tr
-                        key={r.id}
-                        className="clk"
-                        onClick={() => setActiveId(r.id)}
-                      >
-                        <td className="nm">{r.visitor?.name ?? "—"}</td>
-                        <td style={{ color: "var(--muted)" }}>
-                          {formatTrShortDate(r.visitDate)} · {r.startTime}
-                        </td>
-                        <td>
-                          <span className={pillClass(r.status)}>
+                recentGroups.map((g, gi) => (
+                  <div
+                    key={g.iso}
+                    className="daygroup"
+                    style={{
+                      marginBottom: gi === recentGroups.length - 1 ? 0 : "14px",
+                    }}
+                  >
+                    <div className="dh" style={{ marginBottom: "6px" }}>
+                      <span className="big" style={{ fontSize: "13px" }}>
+                        {g.date.getDate()} <em>{MONTHS[g.date.getMonth()]}</em>
+                      </span>
+                      <span className="cnt">· {TR_DAYS[g.date.getDay()]}</span>
+                    </div>
+                    {g.items.map((r) => {
+                      const isPending = r.status === "PENDING_APPROVAL";
+                      return (
+                        <div
+                          key={r.id}
+                          className={`rmini${isPending ? " pend" : ""}`}
+                          onClick={() => setActiveId(r.id)}
+                          role="button"
+                          style={{
+                            padding: "9px 12px",
+                            gap: "10px",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          <div
+                            className="tm"
+                            style={{ width: "44px", fontSize: "13px" }}
+                          >
+                            {r.startTime}
+                          </div>
+                          <div className="nm" style={{ fontSize: "13px" }}>
+                            {r.visitor?.name ?? "—"}
+                          </div>
+                          <span
+                            className={pillClass(r.status)}
+                            style={{ flexShrink: 0 }}
+                          >
                             {STATUS_LABEL[r.status]}
                           </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))
               )}
             </div>
           </div>
