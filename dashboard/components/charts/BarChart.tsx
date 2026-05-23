@@ -50,10 +50,10 @@ export function BarChart({
     if (W <= 0 || H <= 0) return;
     const max = Math.max(...data, 1);
 
-    // Grid çizgileri
-    ctx.strokeStyle = "rgba(165,180,252,0.25)";
+    // Grid çizgileri (white/5)
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
     ctx.lineWidth = 1;
-    ctx.fillStyle = "#a5b4fc";
+    ctx.fillStyle = "#71717A";
     ctx.font = "10px var(--font-inter), system-ui";
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
@@ -67,14 +67,18 @@ export function BarChart({
       ctx.fillText(String(value), PL - 6, y);
     }
 
-    // Barlar
+    // Barlar — mor gradient (#7C3AED → #A78BFA)
     const gap = W / data.length;
     const barW = gap * 0.6;
     data.forEach((v, i) => {
       const x = PL + gap * i + (gap - barW) / 2;
       const h = max === 0 ? 0 : (v / max) * H;
       const y = PT + H - h;
-      ctx.fillStyle = hover?.idx === i ? "#6366f1" : "#4338ca";
+      const isHover = hover?.idx === i;
+      const grad = ctx.createLinearGradient(x, y, x, y + h);
+      grad.addColorStop(0, isHover ? "#A78BFA" : "#8B5CF6");
+      grad.addColorStop(1, isHover ? "#8B5CF6" : "#7C3AED");
+      ctx.fillStyle = grad;
       const r = 6;
       ctx.beginPath();
       ctx.moveTo(x, y + r);
@@ -87,8 +91,8 @@ export function BarChart({
       ctx.fill();
     });
 
-    // X label
-    ctx.fillStyle = "#818cf8";
+    // X label — muted
+    ctx.fillStyle = "#A1A1AA";
     ctx.font = "11px var(--font-inter), system-ui";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
@@ -131,19 +135,23 @@ export function BarChart({
           style={{
             position: "absolute",
             left: Math.min(hover.x + 12, (canvasRef.current?.getBoundingClientRect().width ?? 0) - 120),
-            top: hover.y - 36,
-            background: "#1e1b4b",
-            color: "#ffffff",
+            top: hover.y - 38,
+            background:
+              "linear-gradient(135deg, rgba(124,58,237,0.20), rgba(255,255,255,0.04)), #16161D",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: "1px solid rgba(124,58,237,0.30)",
+            color: "#FFFFFF",
             fontSize: "11px",
-            padding: "6px 10px",
-            borderRadius: "8px",
+            padding: "7px 11px",
+            borderRadius: "10px",
             pointerEvents: "none",
             whiteSpace: "nowrap",
-            boxShadow: "0 4px 12px rgba(30,27,75,0.3)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
             fontWeight: 500,
           }}
         >
-          {labels[hover.idx]}: <b>{data[hover.idx]}</b>
+          {labels[hover.idx]}: <b style={{ color: "#8B5CF6" }}>{data[hover.idx]}</b>
         </div>
       )}
     </div>

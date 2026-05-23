@@ -28,7 +28,7 @@ export function Donut({
         cy={size / 2}
         r={r}
         fill="none"
-        stroke="#ede9fe"
+        stroke="rgba(255,255,255,0.08)"
         strokeWidth={thickness}
       />
       {segments.map((s, i) => {
@@ -52,25 +52,29 @@ export function Donut({
           />
         );
       })}
+      {/* Merkezde ince beyaz rakam (font-weight 300, Space Grotesk) */}
       <text
         x={size / 2}
-        y={size / 2 - 4}
+        y={size / 2 - 2}
         textAnchor="middle"
-        fontSize="22"
-        fontWeight="700"
-        fill="#1e1b4b"
+        fontSize="28"
+        fontWeight="300"
+        fill="#FFFFFF"
+        style={{ fontFamily: "var(--font-display), system-ui" }}
       >
         {segments.reduce((s, x) => s + x.value, 0)}
       </text>
+      {/* TOPLAM altinda — serif italik mor */}
       <text
         x={size / 2}
-        y={size / 2 + 16}
+        y={size / 2 + 18}
         textAnchor="middle"
-        fontSize="10"
-        fill="#818cf8"
-        letterSpacing="0.05em"
+        fontSize="11"
+        fill="#8B5CF6"
+        fontStyle="italic"
+        style={{ fontFamily: "var(--font-serif), Georgia, serif" }}
       >
-        TOPLAM
+        toplam
       </text>
     </svg>
   );
