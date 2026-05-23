@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import type { Prisma, ReservationStatus } from "@prisma/client";
+// ReservationStatus hem type hem runtime enum olarak gerekli — runtime enum
+// listQuerySchema/exportQuerySchema'da TÜM status değerlerini otomatik kapsasın
+// (yeni enum değeri eklenince array'i elle güncellemek unutulmasın). Prisma 4+
+// generated enum'lar JS object olarak da export edilir.
+import { type Prisma, ReservationStatus } from "@prisma/client";
 import { prisma } from "../db/client";
 import {
   approveReservation,
@@ -32,13 +36,14 @@ function staffNotificationStatusOf(r: WithNotifs): StaffNotifyStatus {
   return "failed";
 }
 
-const reservationStatuses = [
-  "PENDING_APPROVAL",
-  "APPROVED",
-  "REJECTED",
-  "CANCELLED",
-  "COMPLETED",
-] as const satisfies readonly ReservationStatus[];
+// Prisma'nın ReservationStatus enum'unu tek doğruluk kaynağı olarak kullan.
+// schema.prisma'ya yeni status değeri eklenirse burası otomatik kapsar — elle
+// liste güncellenmesi gerekmez (NO_SHOW eklenip burada unutulduğu için
+// status=NO_SHOW filtresi 400 validation_failed döndürüyordu).
+const reservationStatuses = Object.values(ReservationStatus) as [
+  ReservationStatus,
+  ...ReservationStatus[],
+];
 
 const isoDate = z
   .string()
