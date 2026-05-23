@@ -329,19 +329,41 @@ export default function CalendarPage() {
       >
         <div style={{ minWidth: 0 }}>
           <h1
-            className="gradient-text font-display"
+            className="font-display"
             style={{
-              fontSize: "26px",
-              fontWeight: 700,
-              letterSpacing: "-0.5px",
+              fontSize: "32px",
+              fontWeight: 400,
+              letterSpacing: "-0.02em",
+              color: "var(--gx-text)",
               lineHeight: 1.1,
               margin: 0,
             }}
           >
             Takvim
           </h1>
-          <p style={{ fontSize: "13px", color: "var(--gx-text-muted)", margin: "4px 0 0" }}>
-            Rezervasyonlar, kapatmalar ve kurallar tek yerde.
+          <p
+            style={{
+              fontSize: "13px",
+              color: "var(--gx-text-muted)",
+              margin: "8px 0 0",
+              lineHeight: 1.5,
+            }}
+          >
+            Rezervasyonlar,{" "}
+            <span
+              className="font-serif font-italic"
+              style={{ color: "var(--gx-accent-light)" }}
+            >
+              kapatmalar
+            </span>{" "}
+            ve{" "}
+            <span
+              className="font-serif font-italic"
+              style={{ color: "var(--gx-accent-light)" }}
+            >
+              kurallar
+            </span>{" "}
+            tek yerde.
           </p>
         </div>
 
@@ -459,17 +481,25 @@ export default function CalendarPage() {
         >
           <span
             style={{
-              fontSize: "11px",
+              fontSize: "12px",
               color: "var(--gx-text-muted)",
               background: "rgba(124,58,237,0.10)",
-              border: "1px solid var(--gx-border)",
-              padding: "4px 10px",
+              border: "1px solid rgba(124,58,237,0.25)",
+              padding: "5px 12px",
               borderRadius: "99px",
               whiteSpace: "nowrap",
             }}
             title="Bu periyotta yüklenen rezervasyon sayısı"
           >
-            {items.length} rezervasyon
+            <span style={{ color: "var(--gx-text)", fontWeight: 600 }}>
+              {items.length}
+            </span>{" "}
+            <span
+              className="font-serif font-italic"
+              style={{ color: "var(--gx-accent-light)" }}
+            >
+              rezervasyon
+            </span>
           </span>
           <ViewSwitcher view={view} onChange={setView} />
         </div>
