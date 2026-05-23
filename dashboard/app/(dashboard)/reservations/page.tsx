@@ -185,12 +185,14 @@ export default function ReservationsPage() {
       {/* Header */}
       <div className="fade-up">
         <h1
-          className="gradient-text font-display"
+          className="font-display"
           style={{
-            fontSize: "28px",
-            fontWeight: 700,
-            letterSpacing: "-0.5px",
+            fontSize: "32px",
+            fontWeight: 400,
+            letterSpacing: "-0.02em",
+            color: "var(--gx-text)",
             margin: 0,
+            lineHeight: 1.1,
           }}
         >
           Rezervasyonlar
@@ -199,10 +201,18 @@ export default function ReservationsPage() {
           style={{
             fontSize: "13px",
             color: "var(--gx-text-muted)",
-            margin: "4px 0 0",
+            margin: "8px 0 0",
+            lineHeight: 1.5,
           }}
         >
-          Tüm rezervasyonları filtreleyin ve detaylarını açın.
+          Tüm{" "}
+          <span
+            className="font-serif font-italic"
+            style={{ color: "var(--gx-accent-light)" }}
+          >
+            kayıtlar
+          </span>{" "}
+          tek yerde — filtrele, dışa aktar, detay aç.
         </p>
       </div>
 
@@ -445,8 +455,28 @@ export default function ReservationsPage() {
           fontSize: "13px",
         }}
       >
-        <div style={{ color: "var(--gx-text-muted)" }}>
-          {data ? `Toplam ${data.total} kayıt` : ""}
+        <div style={{ color: "var(--gx-text-muted)", fontSize: "13px" }}>
+          {data ? (
+            <>
+              Toplam{" "}
+              <span
+                style={{
+                  color: "var(--gx-text)",
+                  fontWeight: 600,
+                }}
+              >
+                {data.total}
+              </span>{" "}
+              <span
+                className="font-serif font-italic"
+                style={{ color: "var(--gx-text-muted)" }}
+              >
+                kayıt
+              </span>
+            </>
+          ) : (
+            ""
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <button
