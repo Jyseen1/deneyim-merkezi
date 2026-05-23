@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   Bar,
   BarChart as RBarChart,
@@ -28,17 +29,26 @@ import {
   type ReservationStatus,
 } from "@/lib/types";
 import { EmptyState, InboxIcon } from "@/components/EmptyState";
+import { ReservationDrawer } from "@/components/ReservationDrawer";
 import { formatTrShortDate } from "@/lib/date";
 import { useBackendToken } from "@/hooks/useBackendToken";
 
-const STATUS_CLASS: Record<ReservationStatus, string> = {
-  PENDING_APPROVAL: "status-pending",
-  APPROVED: "status-approved",
-  REJECTED: "status-rejected",
-  CANCELLED: "status-cancelled",
-  COMPLETED: "status-completed",
-  NO_SHOW: "status-noshow",
-};
+function pillClass(s: ReservationStatus): string {
+  switch (s) {
+    case "APPROVED":
+      return "pill ok";
+    case "PENDING_APPROVAL":
+      return "pill wait";
+    case "REJECTED":
+      return "pill rej";
+    case "CANCELLED":
+      return "pill cancel";
+    case "NO_SHOW":
+      return "pill noshow";
+    default:
+      return "pill";
+  }
+}
 
 type Period = "week" | "month" | "3m";
 
@@ -70,6 +80,8 @@ type PeriodStats = {
 };
 
 export default function StatsPage() {
+  const { data: session } = useSession();
+  const staffId = session?.user?.id || session?.user?.email || "staff";
   const token = useBackendToken();
   const [period, setPeriod] = useState<Period>("month");
   const [stats, setStats] = useState<PeriodStats | null>(null);
@@ -77,6 +89,15 @@ export default function StatsPage() {
 
   const [recent, setRecent] = useState<Reservation[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
+
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  function refreshRecent() {
+    if (!token) return;
+    apiFetch<ReservationList>("/reservations?limit=10&page=1", {}, token)
+      .then((r) => setRecent(r.items))
+      .catch(() => {});
+  }
 
   // Donem istatistigi
   useEffect(() => {
@@ -697,7 +718,12 @@ export default function StatsPage() {
                   </tr>
                 )}
                 {recent.map((r) => (
-                  <tr key={r.id}>
+                  <tr
+                    key={r.id}
+                    className="clk"
+                    onClick={() => setActiveId(r.id)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td style={{ fontWeight: 600 }}>
                       {r.visitor?.name ?? "-"}
                     </td>
@@ -705,9 +731,7 @@ export default function StatsPage() {
                     <td>{r.startTime}</td>
                     <td>{r.groupSize}</td>
                     <td>
-                      <span
-                        className={`status-pill ${STATUS_CLASS[r.status]}`}
-                      >
+                      <span className={pillClass(r.status)}>
                         {STATUS_LABEL[r.status]}
                       </span>
                     </td>
@@ -718,6 +742,13 @@ export default function StatsPage() {
           </div>
         </PanelCard>
       </div>
+
+      <ReservationDrawer
+        reservationId={activeId}
+        staffId={staffId}
+        onClose={() => setActiveId(null)}
+        onMutated={refreshRecent}
+      />
     </div>
   );
 }
