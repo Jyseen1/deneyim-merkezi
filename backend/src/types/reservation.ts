@@ -40,3 +40,18 @@ export class ReservationAlreadyProcessedError extends Error {
     this.currentStatus = currentStatus;
   }
 }
+
+// Spam kontrolu: ayni telefondan cok fazla bekleyen rezervasyon varsa atilir.
+// Route bunu 429 ile kullaniciya doner. Limit Settings'ten degisebilir.
+export class TooManyPendingReservationsError extends Error {
+  readonly pendingCount: number;
+  readonly limit: number;
+  constructor(pendingCount: number, limit: number) {
+    super(
+      `Çok fazla bekleyen talebiniz var (${pendingCount}/${limit}). Lütfen mevcut taleplerinizin onaylanmasını bekleyin.`,
+    );
+    this.name = "TooManyPendingReservationsError";
+    this.pendingCount = pendingCount;
+    this.limit = limit;
+  }
+}

@@ -26,6 +26,7 @@ import { logNotification } from "./notification.service";
 import {
   ReservationAlreadyProcessedError,
   SlotUnavailableError,
+  TooManyPendingReservationsError,
   type CreateReservationInput,
   type ReservationWithVisitor,
 } from "../types/reservation";
@@ -35,6 +36,12 @@ const ENV_DEFAULT_DURATION = Number(process.env.DEFAULT_DURATION_MINUTES) || 120
 const ENV_APPROVAL_TIMEOUT = Number(process.env.APPROVAL_TIMEOUT_HOURS) || 2;
 const ENV_REMINDER_HOURS = Number(process.env.REMINDER_HOURS_BEFORE) || 24;
 const MAX_ALTERNATIVES = 3;
+// Spam koruma: ayni telefondan ayni anda bu kadar PENDING_APPROVAL olabilir.
+// MAX_PENDING_PER_PHONE env'den override edilebilir.
+const MAX_PENDING_PER_PHONE = Math.max(
+  1,
+  Number(process.env.MAX_PENDING_PER_PHONE) || 3,
+);
 
 function timeoutJobId(id: string) {
   return `timeout_${id}`;
@@ -209,6 +216,21 @@ export async function createReservation(input: CreateReservationInput) {
   const approvalTimeoutHours = settings.approvalTimeout ?? ENV_APPROVAL_TIMEOUT;
   const groupSize = input.groupSize ?? 1;
   const visitDate = new Date(`${input.visitDate}T00:00:00.000Z`);
+
+  // Spam kontrolu: ayni telefondan acik (PENDING_APPROVAL) talep sayisi
+  // limitin altinda olmali. Web/Telegram/WhatsApp her kanal icin gecerli.
+  const pendingCount = await prisma.reservation.count({
+    where: {
+      status: "PENDING_APPROVAL",
+      visitor: { phone: input.phone },
+    },
+  });
+  if (pendingCount >= MAX_PENDING_PER_PHONE) {
+    throw new TooManyPendingReservationsError(
+      pendingCount,
+      MAX_PENDING_PER_PHONE,
+    );
+  }
 
   const result = await prisma.$transaction(async (tx) => {
     const available = await isSlotAvailable(

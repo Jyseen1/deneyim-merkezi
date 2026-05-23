@@ -17,6 +17,7 @@ import {
 import {
   ReservationAlreadyProcessedError,
   SlotUnavailableError,
+  TooManyPendingReservationsError,
   type CreateReservationInput,
 } from "../types/reservation";
 
@@ -179,7 +180,16 @@ async function handleUpdate(
         ].join("\n"),
       );
     } catch (err) {
-      if (err instanceof SlotUnavailableError) {
+      if (err instanceof TooManyPendingReservationsError) {
+        await sendMessage(
+          chatId,
+          [
+            "⚠️ *Çok fazla bekleyen talebiniz var.*",
+            "",
+            err.message,
+          ].join("\n"),
+        );
+      } else if (err instanceof SlotUnavailableError) {
         const alts =
           err.alternatives.length > 0
             ? err.alternatives

@@ -313,6 +313,13 @@ function ReservationForm() {
         setSubmitErr(
           "Bu saat artık müsait değil. Aşağıdaki saatlerden birini deneyebilirsiniz.",
         );
+      } else if (e instanceof ApiError && e.status === 429) {
+        // Spam koruma: ayni numaradan cok bekleyen talep.
+        const errBody = e.body as { message?: string } | null;
+        setSubmitErr(
+          errBody?.message ??
+            "Çok fazla bekleyen talebiniz var, lütfen mevcut taleplerinizin onaylanmasını bekleyin.",
+        );
       } else if (e instanceof ApiError) {
         // Backend dogrulama/HTTP hatasi — message + status
         setSubmitErr(`Hata: ${e.message} (HTTP ${e.status})`);

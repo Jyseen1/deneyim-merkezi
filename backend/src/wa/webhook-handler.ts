@@ -9,6 +9,7 @@ import { sendFlowMessage } from "../services/whatsapp.service";
 import { updateNotificationStatus } from "../services/notification.service";
 import {
   SlotUnavailableError,
+  TooManyPendingReservationsError,
   type CreateReservationInput,
 } from "../types/reservation";
 
@@ -160,6 +161,12 @@ async function routeMessage(msg: WAMessage, log: FastifyBaseLogger) {
             "Flow form: slot doluydu",
           );
           // TODO: ziyaretciye 'slot dolu, alternatif sun' WA mesaji
+        } else if (err instanceof TooManyPendingReservationsError) {
+          log.info(
+            { ...base, pendingCount: err.pendingCount, limit: err.limit },
+            "Flow form: cok fazla bekleyen talep",
+          );
+          // TODO: ziyaretciye 'cok talep var' WA mesaji
         } else {
           log.error({ ...base, err }, "createReservation webhook hata");
         }

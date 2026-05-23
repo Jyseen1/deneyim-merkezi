@@ -14,6 +14,7 @@ import {
 import {
   ReservationAlreadyProcessedError,
   SlotUnavailableError,
+  TooManyPendingReservationsError,
 } from "../types/reservation";
 import { verifyJWT } from "../middleware/auth";
 import { requireAdmin } from "../middleware/requireAdmin";
@@ -123,6 +124,14 @@ const reservationRoutes: FastifyPluginAsync = async (app) => {
           error: "slot_unavailable",
           message: err.message,
           available_slots: err.alternatives,
+        });
+      }
+      if (err instanceof TooManyPendingReservationsError) {
+        return reply.code(429).send({
+          error: "too_many_pending",
+          message: err.message,
+          pending_count: err.pendingCount,
+          limit: err.limit,
         });
       }
       req.log.error({ err }, "createReservation hata");
