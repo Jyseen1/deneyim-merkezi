@@ -158,6 +158,17 @@ body {
 }
 .btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Mobil dokunma hedefleri: butonlar min 40px yukseklik (touch-friendly).
+   Desktop'ta degismez (zaten yeterli padding var). */
+@media (max-width: 768px) {
+  .btn-primary,
+  .btn-ghost {
+    min-height: 40px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+}
+
 /* Status pill'leri */
 .status-pill {
   display: inline-block;

@@ -1067,12 +1067,19 @@ function DayWeekGrid(props: {
         overflow: "hidden",
       }}
     >
-      <div style={{ overflowX: "auto" }}>
+      <div
+        style={{
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: `64px repeat(${days.length}, minmax(${compact ? "110px" : "200px"}, 1fr))`,
-            minWidth: compact ? `${64 + days.length * 110}px` : "auto",
+            // Mobilde hafta cell genisligi 88px → 64 + 7*88 = 680px (scrollable);
+            // desktop'ta 110px ile rahat. Day view 200px sabit.
+            gridTemplateColumns: `52px repeat(${days.length}, minmax(${compact ? "88px" : "200px"}, 1fr))`,
+            minWidth: compact ? `${52 + days.length * 88}px` : "auto",
           }}
         >
           {/* Header row */}

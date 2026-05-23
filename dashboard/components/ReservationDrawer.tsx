@@ -287,15 +287,15 @@ export function ReservationDrawer({
         }}
       />
 
-      {/* Panel */}
+      {/* Panel — mobil: tam ekran sag panel; desktop: 420px sag panel */}
       <aside
         style={{
           position: "fixed",
           top: 0,
           right: 0,
           height: "100vh",
-          width: "420px",
-          maxWidth: "100%",
+          // min(420, 100vw) ile mobilde tam genislik, hicbir clipping yok
+          width: "min(420px, 100vw)",
           background: "#ffffff",
           borderLeft: "1px solid #ede9fe",
           zIndex: 50,
