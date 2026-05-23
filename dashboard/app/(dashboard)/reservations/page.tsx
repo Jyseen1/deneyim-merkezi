@@ -118,6 +118,9 @@ export default function ReservationsPage() {
 
   const [data, setData] = useState<ReservationList | null>(null);
   const [loading, setLoading] = useState(false);
+  // "Yenile" butonu için ayrı state — yalnızca manuel tıklama sırasında true.
+  // Filtre değişimi gibi otomatik fetch'lerde buton "Yenile" yazısında kalır.
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -323,11 +326,18 @@ export default function ReservationsPage() {
           </button>
           <button
             type="button"
-            onClick={load}
-            disabled={loading}
+            onClick={async () => {
+              setIsManualRefreshing(true);
+              try {
+                await load();
+              } finally {
+                setIsManualRefreshing(false);
+              }
+            }}
+            disabled={isManualRefreshing}
             className="btn btn-primary"
           >
-            {loading ? "Yükleniyor..." : "Yenile"}
+            {isManualRefreshing ? "Yükleniyor..." : "Yenile"}
           </button>
         </div>
       </div>
