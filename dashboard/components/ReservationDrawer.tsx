@@ -63,14 +63,14 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
         alignItems: "flex-start",
         justifyContent: "space-between",
         padding: "8px 0",
-        borderBottom: "1px solid rgba(237,233,254,0.7)",
+        borderBottom: "1px solid var(--gx-border)",
       }}
     >
-      <div style={{ fontSize: "11px", color: "#818cf8" }}>{label}</div>
+      <div style={{ fontSize: "11px", color: "var(--gx-text-muted)" }}>{label}</div>
       <div
         style={{
           fontSize: "13px",
-          color: "#1e1b4b",
+          color: "var(--gx-text)",
           textAlign: "right",
           maxWidth: "60%",
           wordBreak: "break-word",
@@ -97,7 +97,7 @@ function Block({
           fontWeight: 600,
           letterSpacing: "0.08em",
           textTransform: "uppercase",
-          color: "#818cf8",
+          color: "var(--gx-text-muted)",
           margin: 0,
         }}
       >
@@ -106,8 +106,8 @@ function Block({
       <div
         style={{
           marginTop: "8px",
-          background: "#faf5ff",
-          border: "1px solid #ede9fe",
+          background: "var(--gx-surface)",
+          border: "1px solid var(--gx-border)",
           borderRadius: "12px",
           padding: "8px 14px",
         }}
@@ -277,7 +277,7 @@ export function ReservationDrawer({
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(30,27,75,0.4)",
+          background: "rgba(0,0,0,0.6)",
           zIndex: 40,
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
@@ -294,12 +294,11 @@ export function ReservationDrawer({
           top: 0,
           right: 0,
           height: "100vh",
-          // min(420, 100vw) ile mobilde tam genislik, hicbir clipping yok
           width: "min(420px, 100vw)",
-          background: "#ffffff",
-          borderLeft: "1px solid #ede9fe",
+          background: "var(--gx-bg)",
+          borderLeft: "1px solid var(--gx-border-accent)",
           zIndex: 50,
-          boxShadow: "-24px 0 48px rgba(30,27,75,0.12)",
+          boxShadow: "-24px 0 64px rgba(0,0,0,0.5)",
           display: "flex",
           flexDirection: "column",
           transform: open ? "translateX(0)" : "translateX(100%)",
@@ -313,7 +312,7 @@ export function ReservationDrawer({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
-            borderBottom: "1px solid #ede9fe",
+            borderBottom: "1px solid var(--gx-border)",
           }}
         >
           <div>
@@ -332,7 +331,7 @@ export function ReservationDrawer({
               <div
                 style={{
                   fontSize: "11px",
-                  color: "#a5b4fc",
+                  color: "var(--gx-text-hint)",
                   marginTop: "4px",
                   fontFamily:
                     "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
@@ -351,7 +350,7 @@ export function ReservationDrawer({
               borderRadius: "10px",
               background: "transparent",
               border: "none",
-              color: "#a5b4fc",
+              color: "var(--gx-text-hint)",
               fontSize: "22px",
               lineHeight: 1,
               cursor: "pointer",
@@ -359,7 +358,7 @@ export function ReservationDrawer({
             }}
             onMouseOver={(e) => {
               e.currentTarget.style.background = "#faf5ff";
-              e.currentTarget.style.color = "#4338ca";
+              e.currentTarget.style.color = "var(--gx-text)";
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.background = "transparent";
@@ -379,16 +378,16 @@ export function ReservationDrawer({
           }}
         >
           {loading && (
-            <div style={{ fontSize: "13px", color: "#a5b4fc" }}>
+            <div style={{ fontSize: "13px", color: "var(--gx-text-hint)" }}>
               Yükleniyor...
             </div>
           )}
           {err && (
             <div
               style={{
-                background: "#fee2e2",
-                border: "1px solid #fca5a5",
-                color: "#991b1b",
+                background: "rgba(239,68,68,0.10)",
+                border: "1px solid rgba(239,68,68,0.30)",
+                color: "var(--gx-danger)",
                 padding: "10px 12px",
                 borderRadius: "10px",
                 fontSize: "13px",
@@ -410,7 +409,7 @@ export function ReservationDrawer({
                 <span className={`status-pill ${STATUS_CLASS[data.status]}`}>
                   {STATUS_LABEL[data.status]}
                 </span>
-                <span style={{ fontSize: "11px", color: "#a5b4fc" }}>
+                <span style={{ fontSize: "11px", color: "var(--gx-text-hint)" }}>
                   {data.groupSize} kişi · {data.durationMinutes} dk
                 </span>
                 {history && (
@@ -421,10 +420,14 @@ export function ReservationDrawer({
                       padding: "2px 8px",
                       borderRadius: "99px",
                       background:
-                        history.stats.total <= 1 ? "#ede9fe" : "#d1fae5",
+                        history.stats.total <= 1
+                          ? "rgba(124,58,237,0.18)"
+                          : "rgba(74,222,128,0.18)",
                       color:
-                        history.stats.total <= 1 ? "#4338ca" : "#065f46",
-                      border: `1px solid ${history.stats.total <= 1 ? "#c4b5fd" : "#a7f3d0"}`,
+                        history.stats.total <= 1
+                          ? "var(--gx-accent-light)"
+                          : "var(--gx-success)",
+                      border: `1px solid ${history.stats.total <= 1 ? "rgba(124,58,237,0.35)" : "rgba(74,222,128,0.35)"}`,
                     }}
                   >
                     {history.stats.total <= 1
@@ -439,8 +442,8 @@ export function ReservationDrawer({
                   style={{
                     marginTop: "16px",
                     padding: "12px 14px",
-                    background: "#fef3c7",
-                    border: "1px solid #fde68a",
+                    background: "rgba(251,191,36,0.12)",
+                    border: "1px solid rgba(251,191,36,0.35)",
                     borderRadius: "12px",
                     display: "flex",
                     flexDirection: "column",
@@ -451,7 +454,7 @@ export function ReservationDrawer({
                     style={{
                       fontSize: "12px",
                       fontWeight: 600,
-                      color: "#92400e",
+                      color: "var(--gx-warning)",
                       display: "flex",
                       alignItems: "center",
                       gap: "6px",
@@ -460,7 +463,7 @@ export function ReservationDrawer({
                     <span aria-hidden>⚠</span>
                     Yetkili bildirimi gönderilemedi
                   </div>
-                  <div style={{ fontSize: "11px", color: "#92400e", opacity: 0.85 }}>
+                  <div style={{ fontSize: "11px", color: "var(--gx-warning)", opacity: 0.85 }}>
                     Telegram/WhatsApp bildirimi başarısız oldu. Sistem 30sn,
                     2dk ve 5dk sonra otomatik tekrar deniyor. Manuel tetiklemek
                     için aşağıdaki butonu kullanın.
@@ -473,9 +476,9 @@ export function ReservationDrawer({
                       alignSelf: "flex-end",
                       padding: "7px 14px",
                       borderRadius: "99px",
-                      border: "1px solid #d97706",
-                      background: "#fbbf24",
-                      color: "#7c2d12",
+                      border: "1px solid var(--gx-warning)",
+                      background: "rgba(251,191,36,0.20)",
+                      color: "var(--gx-warning)",
                       fontWeight: 600,
                       fontSize: "12px",
                       cursor: resending ? "not-allowed" : "pointer",
@@ -557,7 +560,7 @@ export function ReservationDrawer({
                     <div
                       style={{
                         fontSize: "11px",
-                        color: "#a5b4fc",
+                        color: "var(--gx-text-hint)",
                         textAlign: "center",
                         padding: "8px 0 0",
                       }}
@@ -580,8 +583,8 @@ export function ReservationDrawer({
               gap: "8px",
               flexWrap: "wrap",
               justifyContent: "flex-end",
-              borderTop: "1px solid #ede9fe",
-              background: "#faf5ff",
+              borderTop: "1px solid var(--gx-border)",
+              background: "var(--gx-surface)",
             }}
           >
             {/* Reschedule sadece aktif rezervasyonlarda (pending/approved) */}
@@ -628,8 +631,8 @@ export function ReservationDrawer({
                       disabled={busy !== null}
                       className="btn-ghost"
                       style={{
-                        borderColor: "#fed7aa",
-                        color: "#9a3412",
+                        borderColor: "rgba(251,191,36,0.35)",
+                        color: "var(--gx-warning)",
                       }}
                     >
                       {busy === "no_show" ? "..." : "Gelmedi"}
@@ -786,12 +789,14 @@ function RescheduleModal({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(30,27,75,0.5)",
+        background: "rgba(0,0,0,0.65)",
         zIndex: 70,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         padding: "20px",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
       }}
     >
       <div
@@ -801,11 +806,12 @@ function RescheduleModal({
           maxWidth: "460px",
           maxHeight: "90vh",
           overflowY: "auto",
-          background: "#ffffff",
+          background: "var(--gx-surface-2)",
           borderRadius: "16px",
           padding: "22px",
-          boxShadow: "0 24px 48px rgba(30,27,75,0.25)",
-          border: "1px solid #ede9fe",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
+          border: "1px solid var(--gx-border-accent)",
+          color: "var(--gx-text)",
         }}
       >
         <h3
@@ -819,7 +825,7 @@ function RescheduleModal({
         >
           Tarih/Saat Değiştir
         </h3>
-        <p style={{ fontSize: "12px", color: "#818cf8", margin: "4px 0 16px" }}>
+        <p style={{ fontSize: "12px", color: "var(--gx-text-muted)", margin: "4px 0 16px" }}>
           Mevcut: {initialDate} · {reservation.startTime} (
           {reservation.durationMinutes} dk)
         </p>
@@ -828,7 +834,7 @@ function RescheduleModal({
           style={{
             display: "block",
             fontSize: "10px",
-            color: "#818cf8",
+            color: "var(--gx-text-muted)",
             fontWeight: 600,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
@@ -845,7 +851,7 @@ function RescheduleModal({
             width: "100%",
             padding: "9px 12px",
             borderRadius: "10px",
-            border: "1px solid #ede9fe",
+            border: "1px solid var(--gx-border)",
             fontSize: "13px",
             outline: "none",
             fontFamily: "inherit",
@@ -857,7 +863,7 @@ function RescheduleModal({
           style={{
             marginTop: "16px",
             fontSize: "10px",
-            color: "#818cf8",
+            color: "var(--gx-text-muted)",
             fontWeight: 600,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
@@ -888,9 +894,9 @@ function RescheduleModal({
               padding: "14px",
               textAlign: "center",
               fontSize: "12px",
-              color: "#a5b4fc",
-              background: "rgba(245,243,255,0.6)",
-              border: "1px dashed #c4b5fd",
+              color: "var(--gx-text-hint)",
+              background: "var(--gx-surface)",
+              border: "1px dashed var(--gx-border-accent)",
               borderRadius: "10px",
             }}
           >
@@ -921,13 +927,15 @@ function RescheduleModal({
                     fontSize: "12px",
                     fontWeight: 600,
                     cursor: "pointer",
-                    background: active ? "#4338ca" : "#ede9fe",
-                    color: active ? "#e0e7ff" : "#4338ca",
+                    background: active
+                      ? "var(--gx-gradient)"
+                      : "var(--gx-surface)",
+                    color: active ? "#ffffff" : "var(--gx-text-muted)",
                     border: active
-                      ? "1px solid #4338ca"
+                      ? "1px solid var(--gx-accent)"
                       : isCurrent
-                        ? "1px dashed #4338ca"
-                        : "1px solid transparent",
+                        ? "1px dashed var(--gx-accent-light)"
+                        : "1px solid var(--gx-border)",
                   }}
                   title={isCurrent ? "Mevcut saat" : undefined}
                 >

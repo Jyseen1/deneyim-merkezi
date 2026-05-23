@@ -58,11 +58,11 @@ function writeHidePast(v: boolean) {
 }
 
 const inputStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.6)",
-  border: "1px solid rgba(237,233,254,0.9)",
-  color: "#1e1b4b",
+  background: "var(--gx-surface)",
+  border: "1px solid var(--gx-border)",
+  color: "var(--gx-text)",
   borderRadius: "10px",
-  padding: "8px 12px",
+  padding: "9px 12px",
   fontSize: "13px",
   outline: "none",
   fontFamily: "inherit",
@@ -198,7 +198,7 @@ export default function ReservationsPage() {
         <p
           style={{
             fontSize: "13px",
-            color: "#818cf8",
+            color: "var(--gx-text-muted)",
             margin: "4px 0 0",
           }}
         >
@@ -223,9 +223,9 @@ export default function ReservationsPage() {
             style={{
               display: "block",
               fontSize: "10px",
-              fontWeight: 600,
-              color: "#818cf8",
-              letterSpacing: "0.08em",
+              fontWeight: 700,
+              color: "var(--gx-text-hint)",
+              letterSpacing: "0.10em",
               textTransform: "uppercase",
               marginBottom: "6px",
             }}
@@ -249,9 +249,9 @@ export default function ReservationsPage() {
             style={{
               display: "block",
               fontSize: "10px",
-              fontWeight: 600,
-              color: "#818cf8",
-              letterSpacing: "0.08em",
+              fontWeight: 700,
+              color: "var(--gx-text-hint)",
+              letterSpacing: "0.10em",
               textTransform: "uppercase",
               marginBottom: "6px",
             }}
@@ -270,9 +270,9 @@ export default function ReservationsPage() {
             style={{
               display: "block",
               fontSize: "10px",
-              fontWeight: 600,
-              color: "#818cf8",
-              letterSpacing: "0.08em",
+              fontWeight: 700,
+              color: "var(--gx-text-hint)",
+              letterSpacing: "0.10em",
               textTransform: "uppercase",
               marginBottom: "6px",
             }}
@@ -304,21 +304,22 @@ export default function ReservationsPage() {
                 : "Tüm rezervasyonlar görünür"
             }
             style={{
-              padding: "7px 14px",
-              borderRadius: "99px",
+              padding: "9px 16px",
+              borderRadius: "12px",
               fontSize: "12px",
               fontWeight: 600,
               border: hidePast
-                ? "1px solid #4338ca"
-                : "1px solid rgba(209,196,255,0.6)",
-              background: hidePast ? "#4338ca" : "rgba(255,255,255,0.7)",
-              color: hidePast ? "#e0e7ff" : "#4338ca",
+                ? "1px solid var(--gx-accent)"
+                : "1px solid var(--gx-border)",
+              background: hidePast ? "var(--gx-gradient)" : "var(--gx-surface)",
+              color: hidePast ? "#ffffff" : "var(--gx-text-muted)",
               cursor: "pointer",
               transition: "all 0.15s ease",
               display: "inline-flex",
               alignItems: "center",
               gap: "8px",
               whiteSpace: "nowrap",
+              boxShadow: hidePast ? "0 4px 14px rgba(124,58,237,0.30)" : "none",
             }}
           >
             <span
@@ -327,7 +328,7 @@ export default function ReservationsPage() {
                 width: "8px",
                 height: "8px",
                 borderRadius: "50%",
-                background: hidePast ? "#fbbf24" : "rgba(148,163,184,0.6)",
+                background: hidePast ? "#ffffff" : "var(--gx-text-hint)",
               }}
             />
             {hidePast ? "Geçmişi gizle" : "Geçmişi göster"}
@@ -357,9 +358,9 @@ export default function ReservationsPage() {
           style={{
             marginTop: "14px",
             padding: "10px 14px",
-            background: "#fee2e2",
-            border: "1px solid #fecaca",
-            color: "#991b1b",
+            background: "rgba(239,68,68,0.10)",
+            border: "1px solid rgba(239,68,68,0.30)",
+            color: "var(--gx-danger)",
             borderRadius: "12px",
             fontSize: "13px",
           }}
@@ -383,7 +384,7 @@ export default function ReservationsPage() {
             }}
           >
             <thead>
-              <tr style={{ background: "rgba(245,243,255,0.8)" }}>
+              <tr style={{ background: "var(--gx-surface)" }}>
                 <th style={th()}>Ad</th>
                 <th style={{ ...th(), display: "table-cell" }} className="hidden md:table-cell">
                   Telefon
@@ -420,31 +421,31 @@ export default function ReservationsPage() {
                   key={r.id}
                   onClick={() => setActiveId(r.id)}
                   style={{
-                    borderTop: "1px solid rgba(237,233,254,0.6)",
+                    borderTop: "1px solid var(--gx-border)",
                     cursor: "pointer",
                     transition: "background 0.15s ease",
                   }}
                   onMouseOver={(e) =>
-                    (e.currentTarget.style.background = "rgba(245,243,255,0.6)")
+                    (e.currentTarget.style.background = "rgba(124,58,237,0.06)")
                   }
                   onMouseOut={(e) =>
                     (e.currentTarget.style.background = "transparent")
                   }
                 >
-                  <td style={td("#1e1b4b", 500)}>
+                  <td style={td("var(--gx-text)", 600)}>
                     {r.visitor?.name ?? "-"}
                   </td>
                   <td
-                    style={td("#818cf8")}
+                    style={td("var(--gx-accent-light)")}
                     className="hidden md:table-cell"
                   >
                     {r.visitor?.phone ?? "-"}
                   </td>
-                  <td style={td("#1e1b4b")}>
+                  <td style={td("var(--gx-text)")}>
                     {formatTrShortDate(r.visitDate)} · {r.startTime}
                   </td>
                   <td
-                    style={td("#1e1b4b")}
+                    style={td("var(--gx-text)")}
                     className="hidden sm:table-cell"
                   >
                     {r.groupSize}
@@ -472,7 +473,7 @@ export default function ReservationsPage() {
           fontSize: "13px",
         }}
       >
-        <div style={{ color: "#818cf8" }}>
+        <div style={{ color: "var(--gx-text-muted)" }}>
           {data ? `Toplam ${data.total} kayıt` : ""}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -483,7 +484,7 @@ export default function ReservationsPage() {
           >
             Önceki
           </button>
-          <span style={{ fontSize: "11px", color: "#818cf8" }}>
+          <span style={{ fontSize: "11px", color: "var(--gx-text-muted)" }}>
             Sayfa {page} / {totalPages}
           </span>
           <button
@@ -511,14 +512,14 @@ function th(): React.CSSProperties {
     textAlign: "left",
     padding: "12px 16px",
     fontSize: "10px",
-    fontWeight: 600,
-    letterSpacing: "0.08em",
-    color: "#818cf8",
+    fontWeight: 700,
+    letterSpacing: "0.10em",
+    color: "var(--gx-text-hint)",
     textTransform: "uppercase",
   };
 }
 
-function td(color = "#1e1b4b", weight: number = 400): React.CSSProperties {
+function td(color = "var(--gx-text)", weight: number = 400): React.CSSProperties {
   return {
     padding: "12px 16px",
     color,
@@ -528,11 +529,11 @@ function td(color = "#1e1b4b", weight: number = 400): React.CSSProperties {
 
 function pagerBtnStyle(disabled: boolean): React.CSSProperties {
   return {
-    padding: "6px 14px",
-    borderRadius: "99px",
-    background: "rgba(255,255,255,0.7)",
-    border: "1px solid #ede9fe",
-    color: "#1e1b4b",
+    padding: "7px 14px",
+    borderRadius: "10px",
+    background: "var(--gx-surface)",
+    border: "1px solid var(--gx-border)",
+    color: "var(--gx-text)",
     fontSize: "12px",
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.4 : 1,
