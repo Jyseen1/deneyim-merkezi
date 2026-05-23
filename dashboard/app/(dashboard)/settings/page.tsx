@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { useToast } from "@/hooks/useToast";
-import { ToastViewport } from "@/components/ToastViewport";
 import { useBackendToken } from "@/hooks/useBackendToken";
 
 type Settings = {
@@ -21,7 +20,7 @@ type Settings = {
 type Health = { status?: string };
 
 export default function SettingsPage() {
-  const { toasts, show, dismiss } = useToast();
+  const { show } = useToast();
   const token = useBackendToken();
 
   const [loading, setLoading] = useState(true);
@@ -308,7 +307,6 @@ export default function SettingsPage() {
         />
       </Section>
 
-      <ToastViewport toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

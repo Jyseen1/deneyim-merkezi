@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { useBackendToken } from "@/hooks/useBackendToken";
+import { useToast } from "@/hooks/useToast";
 import {
   STATUS_LABEL,
   type Reservation,
@@ -11,7 +12,13 @@ import {
 import { formatTrDateTime, formatTrShortDate } from "@/lib/date";
 
 type Action = "approve" | "reject" | "cancel" | "no_show";
-type ResendState = "idle" | "sending" | "ok" | "err";
+
+const ACTION_SUCCESS: Record<Action, { msg: string; type: "success" | "info" }> = {
+  approve: { msg: "Rezervasyon onaylandı", type: "success" },
+  reject: { msg: "Rezervasyon reddedildi", type: "info" },
+  cancel: { msg: "Rezervasyon iptal edildi", type: "info" },
+  no_show: { msg: "Gelmedi olarak işaretlendi", type: "info" },
+};
 
 type VisitorHistory = {
   visitor: {
@@ -123,22 +130,21 @@ export function ReservationDrawer({
   onMutated: () => void;
 }) {
   const token = useBackendToken();
+  const { show } = useToast();
   const [data, setData] = useState<Reservation | null>(null);
   const [history, setHistory] = useState<VisitorHistory | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<Action | null>(null);
-  const [resend, setResend] = useState<ResendState>("idle");
-  const [resendMsg, setResendMsg] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
 
   async function resendNotification() {
     if (!data) return;
-    setResend("sending");
-    setResendMsg(null);
+    setResending(true);
     try {
       // Fastify Content-Type:application/json + bos body kombinasyonu
-      // FST_ERR_CTP_EMPTY_JSON_BODY ile 400 atar. Bos JSON object gondererek
-      // parser'i memnun ediyoruz.
+      // FST_ERR_CTP_EMPTY_JSON_BODY ile 400 atar. Bos JSON gondererek parser'i
+      // memnun ediyoruz.
       const res = await apiFetch<{
         ok: boolean;
         staffNotificationStatus: "sent" | "failed";
@@ -147,13 +153,14 @@ export function ReservationDrawer({
         { method: "POST", body: "{}" },
         token,
       );
-      setResend(res.ok ? "ok" : "err");
-      setResendMsg(
-        res.ok
-          ? "Bildirim gönderildi."
-          : "Bildirim hâlâ başarısız — arka planda otomatik tekrar denenecek.",
-      );
-      // Re-fetch to refresh staffNotificationStatus + general state
+      if (res.ok) {
+        show("Bildirim gönderildi", "success");
+      } else {
+        show(
+          "Bildirim hâlâ başarısız — arka planda otomatik tekrar denenecek",
+          "info",
+        );
+      }
       const fresh = await apiFetch<Reservation>(
         `/reservations/${data.id}`,
         {},
@@ -162,26 +169,25 @@ export function ReservationDrawer({
       setData(fresh);
       onMutated();
     } catch (e) {
-      setResend("err");
+      let msg = "İşlem başarısız";
       if (e instanceof ApiError) {
-        // Backend yapilandirilmis hata mesajlari: not_pending, internal_error vs.
         const body = e.body as { error?: string; message?: string } | null;
         if (e.status === 400 && body?.error === "not_pending") {
-          setResendMsg(
-            body.message ?? "Bu rezervasyon zaten işlenmiş, bildirim gönderilmez.",
-          );
+          msg =
+            body.message ?? "Bu rezervasyon zaten işlenmiş, bildirim gönderilmez.";
         } else if (e.status === 403) {
-          setResendMsg("Bu işlem için yönetici yetkisi gerekli.");
+          msg = "Bu işlem için yönetici yetkisi gerekli";
         } else if (e.status === 404) {
-          setResendMsg("Rezervasyon bulunamadı.");
+          msg = "Rezervasyon bulunamadı";
         } else {
-          setResendMsg(
-            body?.message ?? body?.error ?? `Hata: HTTP ${e.status}`,
-          );
+          msg = body?.message ?? body?.error ?? `Hata: HTTP ${e.status}`;
         }
       } else {
-        setResendMsg(`Beklenmeyen hata: ${(e as Error).message}`);
+        msg = `Beklenmeyen hata: ${(e as Error).message}`;
       }
+      show(`Bildirim gönderilemedi: ${msg}`, "error");
+    } finally {
+      setResending(false);
     }
   }
 
@@ -192,8 +198,7 @@ export function ReservationDrawer({
     setErr(null);
     setData(null);
     setHistory(null);
-    setResend("idle");
-    setResendMsg(null);
+    setResending(false);
     apiFetch<Reservation>(`/reservations/${reservationId}`, {}, token)
       .then((r) => {
         if (!cancelled) setData(r);
@@ -248,10 +253,13 @@ export function ReservationDrawer({
       );
       setData(fresh);
       onMutated();
+      const meta = ACTION_SUCCESS[action];
+      show(meta.msg, meta.type);
     } catch (e) {
-      setErr(
-        e instanceof ApiError ? `${e.status}: ${e.message}` : (e as Error).message,
-      );
+      const msg =
+        e instanceof ApiError ? `${e.status}: ${e.message}` : (e as Error).message;
+      setErr(msg);
+      show(`İşlem başarısız: ${msg}`, "error");
     } finally {
       setBusy(null);
     }
@@ -455,28 +463,10 @@ export function ReservationDrawer({
                     2dk ve 5dk sonra otomatik tekrar deniyor. Manuel tetiklemek
                     için aşağıdaki butonu kullanın.
                   </div>
-                  {resendMsg && (
-                    <div
-                      style={{
-                        fontSize: "11px",
-                        color: resend === "ok" ? "#065f46" : "#92400e",
-                        background:
-                          resend === "ok" ? "#d1fae5" : "rgba(255,255,255,0.5)",
-                        border:
-                          resend === "ok"
-                            ? "1px solid #a7f3d0"
-                            : "1px solid #fde68a",
-                        padding: "6px 10px",
-                        borderRadius: "8px",
-                      }}
-                    >
-                      {resendMsg}
-                    </div>
-                  )}
                   <button
                     type="button"
                     onClick={resendNotification}
-                    disabled={resend === "sending"}
+                    disabled={resending}
                     style={{
                       alignSelf: "flex-end",
                       padding: "7px 14px",
@@ -486,33 +476,14 @@ export function ReservationDrawer({
                       color: "#7c2d12",
                       fontWeight: 600,
                       fontSize: "12px",
-                      cursor: resend === "sending" ? "not-allowed" : "pointer",
-                      opacity: resend === "sending" ? 0.6 : 1,
+                      cursor: resending ? "not-allowed" : "pointer",
+                      opacity: resending ? 0.6 : 1,
                     }}
                   >
-                    {resend === "sending"
-                      ? "Gönderiliyor..."
-                      : "Bildirimi tekrar gönder"}
+                    {resending ? "Gönderiliyor..." : "Bildirimi tekrar gönder"}
                   </button>
                 </div>
               )}
-              {data.staffNotificationStatus === "sent" &&
-                resend === "ok" &&
-                resendMsg && (
-                  <div
-                    style={{
-                      marginTop: "16px",
-                      padding: "10px 14px",
-                      background: "#d1fae5",
-                      border: "1px solid #a7f3d0",
-                      borderRadius: "12px",
-                      fontSize: "12px",
-                      color: "#065f46",
-                    }}
-                  >
-                    {resendMsg}
-                  </div>
-                )}
 
               <Block title="Ziyaretçi">
                 <Row label="Ad" value={data.visitor?.name ?? "-"} />

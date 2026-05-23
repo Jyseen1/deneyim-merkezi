@@ -23,7 +23,6 @@ import {
 import { useBackendToken } from "@/hooks/useBackendToken";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/useToast";
-import { ToastViewport } from "@/components/ToastViewport";
 import { ReservationDrawer } from "@/components/ReservationDrawer";
 
 // ─────────────────────────────────────────────────────────
@@ -175,7 +174,7 @@ export default function CalendarPage() {
   const { data: session } = useSession();
   const staffId = session?.user?.id || session?.user?.email || "staff";
   const token = useBackendToken();
-  const { toasts, show, dismiss } = useToast();
+  const { show } = useToast();
 
   const [view, setViewState] = useState<CalendarView>("week");
   useEffect(() => {
@@ -593,7 +592,7 @@ export default function CalendarPage() {
           token={token}
           onClose={() => setBlockDetail(null)}
           onRemoved={(msg) => {
-            show(msg, "success");
+            show(msg, "info");
             setBlockDetail(null);
             load();
           }}
@@ -606,7 +605,7 @@ export default function CalendarPage() {
           onClose={() => setManageOpen(false)}
           onChanged={() => load()}
           onError={(msg) => show(msg, "error")}
-          onSuccess={(msg) => show(msg, "success")}
+          onSuccess={(msg) => show(msg, "info")}
         />
       )}
 
@@ -617,7 +616,6 @@ export default function CalendarPage() {
         onMutated={load}
       />
 
-      <ToastViewport toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

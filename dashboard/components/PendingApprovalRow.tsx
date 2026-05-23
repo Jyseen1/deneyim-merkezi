@@ -6,6 +6,7 @@ import { apiFetch, ApiError } from "@/lib/api";
 import type { Reservation } from "@/lib/types";
 import { formatTrShortDate } from "@/lib/date";
 import { useBackendToken } from "@/hooks/useBackendToken";
+import { useToast } from "@/hooks/useToast";
 
 function initialsOf(name?: string | null): string {
   if (!name) return "?";
@@ -26,6 +27,7 @@ export function PendingApprovalRow({
 }) {
   const router = useRouter();
   const token = useBackendToken();
+  const { show } = useToast();
   const [busy, setBusy] = useState<"approve" | "reject" | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -48,10 +50,15 @@ export function PendingApprovalRow({
       );
       if (onMutated) onMutated();
       else startTransition(() => router.refresh());
+      show(
+        action === "approve" ? "Rezervasyon onaylandı" : "Rezervasyon reddedildi",
+        action === "approve" ? "success" : "info",
+      );
     } catch (e) {
       const msg =
         e instanceof ApiError ? `${e.status}: ${e.message}` : (e as Error).message;
       setErr(msg);
+      show(`İşlem başarısız: ${msg}`, "error");
     } finally {
       setBusy(null);
     }
