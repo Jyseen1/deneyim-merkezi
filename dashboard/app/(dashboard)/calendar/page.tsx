@@ -820,6 +820,7 @@ type GridCellProps = {
   block?: SlotBlock;
   recurringRule?: RecurringRule;
   inWorkHours: boolean;
+  isToday?: boolean;
   onReservationClick: (id: string) => void;
   onEmptyClick: (date: string, time: string) => void;
   onBlockClick: (b: SlotBlock) => void;
@@ -834,6 +835,7 @@ function HourCell(props: GridCellProps) {
     block,
     recurringRule,
     inWorkHours,
+    isToday,
     onReservationClick,
     onEmptyClick,
     onBlockClick,
@@ -844,22 +846,41 @@ function HourCell(props: GridCellProps) {
   const blocked = block ?? null;
   const recur = !block ? recurringRule ?? null : null;
 
+  // Koyu GigaX zemini — beyazımsı 0.55 yerine cok hafif beyaz overlay (0.02)
+  // veya tamamen koyu. Bugun sütununda hafif mor vurgu.
+  let cellBg: string;
+  if (!inWorkHours) {
+    cellBg =
+      "repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 6px, transparent 6px 12px)";
+  } else if (isClosed) {
+    cellBg = "rgba(239,68,68,0.12)";
+  } else if (isToday) {
+    cellBg = "rgba(124,58,237,0.08)";
+  } else {
+    cellBg = "rgba(255,255,255,0.02)";
+  }
+
   return (
     <div
       style={{
         position: "relative",
         minHeight: "56px",
-        background: !inWorkHours
-          ? "repeating-linear-gradient(45deg, rgba(148,163,184,0.07) 0 6px, transparent 6px 12px)"
-          : isClosed
-            ? "rgba(239,68,68,0.10)"
-            : "rgba(255,255,255,0.55)",
-        border: "1px solid var(--gx-border)",
-        borderTop: "none",
-        borderLeft: "none",
+        background: cellBg,
+        borderRight: "1px solid rgba(255,255,255,0.06)",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
         padding: reservations.length || isClosed ? "4px" : "0",
         cursor: inWorkHours && !isClosed ? "pointer" : "default",
         transition: "background 0.12s ease",
+      }}
+      onMouseEnter={(e) => {
+        if (inWorkHours && !isClosed && reservations.length === 0) {
+          e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (inWorkHours && !isClosed && reservations.length === 0) {
+          e.currentTarget.style.background = cellBg;
+        }
       }}
       onClick={() => {
         if (!inWorkHours) return;
@@ -943,11 +964,11 @@ function blockChipStyle(color: string): React.CSSProperties {
   return {
     display: "block",
     width: "100%",
-    background: "rgba(239,68,68,0.18)",
+    background: "rgba(239,68,68,0.15)",
     border: `1px dashed ${color}`,
-    color: "#991b1b",
+    color: "#FCA5A5",
     borderRadius: "6px",
-    padding: "4px 6px",
+    padding: "5px 7px",
     fontSize: "10px",
     fontWeight: 600,
     cursor: "pointer",
@@ -1116,13 +1137,14 @@ function DayWeekGrid(props: {
             style={{
               padding: "12px 8px",
               fontSize: "10px",
-              fontWeight: 600,
-              color: "var(--gx-text-muted)",
+              fontWeight: 700,
+              color: "var(--gx-text-hint)",
               textAlign: "center",
-              letterSpacing: "0.05em",
+              letterSpacing: "0.10em",
               textTransform: "uppercase",
-              borderBottom: "1px solid var(--gx-border)",
-              background: "rgba(245,243,255,0.6)",
+              borderBottom: "1px solid rgba(255,255,255,0.08)",
+              borderRight: "1px solid rgba(255,255,255,0.06)",
+              background: "rgba(255,255,255,0.02)",
             }}
           >
             Saat
@@ -1139,32 +1161,34 @@ function DayWeekGrid(props: {
               <div
                 key={i}
                 style={{
-                  padding: "10px 8px",
+                  padding: "12px 8px",
                   textAlign: "center",
-                  borderBottom: "1px solid var(--gx-border)",
+                  borderBottom: "1px solid rgba(255,255,255,0.08)",
+                  borderRight: "1px solid rgba(255,255,255,0.06)",
                   background: isToday
-                    ? "rgba(124,58,237,0.10)"
-                    : "rgba(245,243,255,0.6)",
-                  borderLeft: "1px solid var(--gx-border)",
+                    ? "rgba(124,58,237,0.14)"
+                    : "rgba(255,255,255,0.02)",
                 }}
               >
                 <div
                   style={{
                     fontSize: "10px",
-                    color: "var(--gx-text-muted)",
-                    letterSpacing: "0.05em",
-                    fontWeight: 600,
+                    color: "var(--gx-text-hint)",
+                    letterSpacing: "0.10em",
+                    fontWeight: 700,
                     textTransform: "uppercase",
                   }}
                 >
                   {TR_DAYS_SHORT_MON[mondayIndex(d)]}
                 </div>
                 <div
+                  className="font-display"
                   style={{
-                    fontSize: "15px",
-                    fontWeight: isToday ? 700 : 600,
+                    fontSize: "17px",
+                    fontWeight: 600,
                     color: isToday ? "var(--gx-accent-light)" : "var(--gx-text)",
-                    marginTop: "2px",
+                    marginTop: "4px",
+                    lineHeight: 1,
                   }}
                 >
                   {d.getDate()}
@@ -1173,10 +1197,10 @@ function DayWeekGrid(props: {
                   <div
                     style={{
                       fontSize: "9px",
-                      fontWeight: 600,
-                      color: "#991b1b",
-                      marginTop: "2px",
-                      letterSpacing: "0.05em",
+                      fontWeight: 700,
+                      color: "var(--gx-danger)",
+                      marginTop: "4px",
+                      letterSpacing: "0.08em",
                       textTransform: "uppercase",
                     }}
                   >
@@ -1193,6 +1217,7 @@ function DayWeekGrid(props: {
               key={start}
               hour={start}
               days={days}
+              today={today}
               workStart={workStart}
               workEnd={workEnd}
               resInCell={resInCell}
@@ -1215,6 +1240,7 @@ function DayWeekGrid(props: {
 function FragRow(props: {
   hour: number;
   days: Date[];
+  today: Date;
   workStart: number;
   workEnd: number;
   hourStart: number;
@@ -1234,6 +1260,7 @@ function FragRow(props: {
   const {
     hour,
     days,
+    today,
     workStart,
     workEnd,
     hourStart,
@@ -1252,14 +1279,16 @@ function FragRow(props: {
     <>
       <div
         style={{
-          padding: "6px 6px",
+          padding: "6px 8px",
           fontSize: "10px",
           fontWeight: 600,
-          color: inWork ? "var(--gx-text-muted)" : "var(--gx-text-hint)",
+          color: inWork ? "var(--gx-text-hint)" : "rgba(113,113,122,0.5)",
           textAlign: "right",
-          borderTop: "1px solid var(--gx-border)",
-          background: "rgba(250,250,255,0.6)",
+          borderRight: "1px solid rgba(255,255,255,0.06)",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          background: "transparent",
           minHeight: "56px",
+          letterSpacing: "0.05em",
         }}
       >
         {fmtMin(hour)}
@@ -1274,6 +1303,7 @@ function FragRow(props: {
           block={blockInCell(d, hourStart, hourEnd)}
           recurringRule={recurringInCell(d, hourStart, hourEnd)}
           inWorkHours={inWork}
+          isToday={isSameLocalDay(d, today)}
           onReservationClick={onReservationClick}
           onEmptyClick={onEmptyCellClick}
           onBlockClick={onBlockClick}
