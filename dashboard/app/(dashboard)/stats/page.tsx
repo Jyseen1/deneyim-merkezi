@@ -109,11 +109,11 @@ export default function StatsPage() {
 
   const statusSegments = stats
     ? [
-        { label: "Onaylı", value: stats.statusDistribution.approved, color: "#4338ca" },
-        { label: "Bekleyen", value: stats.statusDistribution.pending, color: "#fbbf24" },
-        { label: "Reddedilen", value: stats.statusDistribution.rejected, color: "#ef4444" },
-        { label: "İptal", value: stats.statusDistribution.cancelled, color: "#94a3b8" },
-        { label: "Gelmedi", value: stats.statusDistribution.noShow, color: "#9a3412" },
+        { label: "Onaylı", value: stats.statusDistribution.approved, color: "#4ADE80" },
+        { label: "Bekleyen", value: stats.statusDistribution.pending, color: "#8B5CF6" },
+        { label: "Reddedilen", value: stats.statusDistribution.rejected, color: "#EF4444" },
+        { label: "İptal", value: stats.statusDistribution.cancelled, color: "#A1A1AA" },
+        { label: "Gelmedi", value: stats.statusDistribution.noShow, color: "#FBBF24" },
       ]
     : [];
 
@@ -143,7 +143,7 @@ export default function StatsPage() {
           >
             İstatistik
           </h1>
-          <p style={{ fontSize: "13px", color: "#818cf8", margin: "4px 0 0" }}>
+          <p style={{ fontSize: "13px", color: "var(--gx-text-muted)", margin: "4px 0 0" }}>
             Rezervasyon eğilimleri ve performans göstergeleri.
           </p>
         </div>
@@ -165,8 +165,9 @@ export default function StatsPage() {
                 key={p}
                 onClick={() => setPeriod(p)}
                 style={{
-                  background: active ? "#4338ca" : "transparent",
-                  color: active ? "#e0e7ff" : "#4338ca",
+                  background: active ? "var(--gx-gradient)" : "transparent",
+                  color: active ? "#ffffff" : "var(--gx-text-muted)",
+                  boxShadow: active ? "0 2px 10px rgba(124,58,237,0.35)" : "none",
                   border: "none",
                   borderRadius: "99px",
                   padding: "6px 14px",
@@ -242,7 +243,7 @@ export default function StatsPage() {
               style={{
                 fontSize: "14px",
                 fontWeight: 600,
-                color: "#1e1b4b",
+                color: "var(--gx-text)",
                 margin: 0,
                 letterSpacing: "-0.01em",
               }}
@@ -253,7 +254,7 @@ export default function StatsPage() {
                 ? "Aylık Hafta Dağılımı"
                 : "Aylara Göre Dağılım"}
             </h2>
-            <span style={{ fontSize: "11px", color: "#a5b4fc" }}>
+            <span style={{ fontSize: "11px", color: "var(--gx-text-hint)" }}>
               {PERIOD_LABEL[period]}
             </span>
           </div>
@@ -271,7 +272,7 @@ export default function StatsPage() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#a5b4fc",
+                color: "var(--gx-text-hint)",
                 fontSize: "13px",
               }}
             >
@@ -286,7 +287,7 @@ export default function StatsPage() {
               style={{
                 fontSize: "14px",
                 fontWeight: 600,
-                color: "#1e1b4b",
+                color: "var(--gx-text)",
                 margin: 0,
                 marginBottom: "16px",
                 letterSpacing: "-0.01em",
@@ -312,7 +313,7 @@ export default function StatsPage() {
                         width: "44px",
                         fontSize: "12px",
                         fontWeight: 600,
-                        color: "#1e1b4b",
+                        color: "var(--gx-text)",
                         flexShrink: 0,
                       }}
                     >
@@ -322,16 +323,17 @@ export default function StatsPage() {
                       style={{
                         flex: 1,
                         height: "8px",
-                        background: "#ede9fe",
+                        background: "var(--gx-surface)",
                         borderRadius: "99px",
                         overflow: "hidden",
+                        border: "1px solid var(--gx-border)",
                       }}
                     >
                       <div
                         style={{
                           height: "100%",
                           width: `${(h.count / maxHour) * 100}%`,
-                          background: "#4338ca",
+                          background: "var(--gx-gradient)",
                           borderRadius: "99px",
                           transition: "width 0.3s ease",
                         }}
@@ -343,7 +345,7 @@ export default function StatsPage() {
                         textAlign: "right",
                         fontSize: "12px",
                         fontWeight: 600,
-                        color: "#4338ca",
+                        color: "var(--gx-accent-light)",
                         flexShrink: 0,
                       }}
                     >
@@ -360,7 +362,7 @@ export default function StatsPage() {
               style={{
                 fontSize: "14px",
                 fontWeight: 600,
-                color: "#1e1b4b",
+                color: "var(--gx-text)",
                 margin: 0,
                 marginBottom: "12px",
                 letterSpacing: "-0.01em",
@@ -410,19 +412,19 @@ export default function StatsPage() {
                           style={{
                             flex: 1,
                             fontSize: "12px",
-                            color: "#1e1b4b",
+                            color: "var(--gx-text)",
                             fontWeight: 500,
                           }}
                         >
                           {s.label}
                         </span>
-                        <span style={{ fontSize: "11px", color: "#818cf8", minWidth: "24px", textAlign: "right" }}>
+                        <span style={{ fontSize: "11px", color: "var(--gx-text-muted)", minWidth: "24px", textAlign: "right" }}>
                           {pct}%
                         </span>
                         <span
                           style={{
                             fontSize: "12px",
-                            color: "#1e1b4b",
+                            color: "var(--gx-text)",
                             fontWeight: 600,
                             minWidth: "28px",
                             textAlign: "right",
@@ -455,10 +457,10 @@ export default function StatsPage() {
             alignItems: "center",
           }}
         >
-          <h2 style={{ fontSize: "14px", fontWeight: 600, color: "#1e1b4b", margin: 0 }}>
+          <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--gx-text)", margin: 0 }}>
             Son Rezervasyonlar
           </h2>
-          <span style={{ fontSize: "11px", color: "#a5b4fc" }}>en son 10 kayıt</span>
+          <span style={{ fontSize: "11px", color: "var(--gx-text-hint)" }}>en son 10 kayıt</span>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table
@@ -554,12 +556,12 @@ function KpiCard({
 }) {
   const numberColor =
     tone === "success"
-      ? "#059669"
+      ? "var(--gx-success)"
       : tone === "danger"
-      ? "#ef4444"
+      ? "var(--gx-danger)"
       : tone === "warning"
-      ? "#9a3412"
-      : "#1e1b4b";
+      ? "var(--gx-warning)"
+      : "var(--gx-text)";
   return (
     <div
       className={`glass glass-hover fade-up ${fade}`}
@@ -575,7 +577,7 @@ function KpiCard({
       <div
         style={{
           fontSize: "11px",
-          color: "#818cf8",
+          color: "var(--gx-text-muted)",
           letterSpacing: "0.05em",
           textTransform: "uppercase",
           fontWeight: 500,
@@ -605,7 +607,7 @@ function KpiCard({
                 fontSize: "16px",
                 fontWeight: 500,
                 marginLeft: "3px",
-                color: "#818cf8",
+                color: "var(--gx-text-muted)",
                 letterSpacing: 0,
               }}
             >
@@ -625,7 +627,7 @@ function th(): React.CSSProperties {
     fontSize: "10px",
     fontWeight: 600,
     letterSpacing: "0.08em",
-    color: "#818cf8",
+    color: "var(--gx-text-muted)",
     textTransform: "uppercase",
   };
 }

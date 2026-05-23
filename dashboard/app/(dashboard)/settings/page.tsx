@@ -149,7 +149,7 @@ export default function SettingsPage() {
         >
           Ayarlar
         </h1>
-        <p style={{ fontSize: "13px", color: "#818cf8", margin: "4px 0 0" }}>
+        <p style={{ fontSize: "13px", color: "var(--gx-text-muted)", margin: "4px 0 0" }}>
           Sistem davranışını yapılandırın.
         </p>
       </div>
@@ -281,7 +281,7 @@ export default function SettingsPage() {
       {/* C) Bildirim testi */}
       <Section title="Bildirim Testi" fadeClass="fade-up-3">
         <p
-          style={{ fontSize: "13px", color: "#1e1b4b", margin: "0 0 12px" }}
+          style={{ fontSize: "13px", color: "var(--gx-text)", margin: "0 0 12px" }}
         >
           Yapılandırılan WhatsApp ayarlarını test etmek için yetkili numaraya bir test mesajı gönderir.
         </p>
@@ -339,7 +339,7 @@ function Section({
           style={{
             fontSize: "14px",
             fontWeight: 600,
-            color: "#1e1b4b",
+            color: "var(--gx-text)",
             letterSpacing: "-0.01em",
             margin: 0,
             paddingLeft: "10px",
@@ -353,7 +353,7 @@ function Section({
           <span
             style={{
               fontSize: "10px",
-              color: "#818cf8",
+              color: "var(--gx-text-muted)",
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               fontWeight: 600,
@@ -383,7 +383,7 @@ function Field({
         style={{
           display: "block",
           fontSize: "10px",
-          color: "#818cf8",
+          color: "var(--gx-text-muted)",
           fontWeight: 600,
           letterSpacing: "0.06em",
           textTransform: "uppercase",
@@ -408,14 +408,15 @@ function Row2({ children }: { children: React.ReactNode }) {
 function inputStyle(): React.CSSProperties {
   return {
     width: "100%",
-    padding: "9px 12px",
+    padding: "10px 12px",
     borderRadius: "10px",
-    border: "1px solid #ede9fe",
-    background: "rgba(255,255,255,0.7)",
-    color: "#1e1b4b",
+    border: "1px solid var(--gx-border)",
+    background: "var(--gx-surface)",
+    color: "var(--gx-text)",
     fontSize: "13px",
     outline: "none",
     fontFamily: "inherit",
+    boxSizing: "border-box",
   };
 }
 
@@ -440,11 +441,11 @@ function Toggle({
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "13px", color: "#1e1b4b", fontWeight: 500 }}>
+        <div style={{ fontSize: "13px", color: "var(--gx-text)", fontWeight: 500 }}>
           {label}
         </div>
         {desc && (
-          <div style={{ fontSize: "11px", color: "#818cf8", marginTop: "2px" }}>
+          <div style={{ fontSize: "11px", color: "var(--gx-text-muted)", marginTop: "2px" }}>
             {desc}
           </div>
         )}
@@ -514,12 +515,12 @@ function Note({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        background: "rgba(67,56,202,0.05)",
-        border: "1px dashed #c4b5fd",
+        background: "rgba(124,58,237,0.10)",
+        border: "1px dashed var(--gx-border-accent)",
         borderRadius: "10px",
         padding: "10px 12px",
         fontSize: "11px",
-        color: "#4338ca",
+        color: "var(--gx-accent-light)",
         lineHeight: 1.5,
       }}
     >
@@ -555,7 +556,7 @@ function InfoRow({
         borderBottom: "1px solid rgba(237,233,254,0.7)",
       }}
     >
-      <span style={{ fontSize: "12px", color: "#818cf8" }}>{label}</span>
+      <span style={{ fontSize: "12px", color: "var(--gx-text-muted)" }}>{label}</span>
       <span style={{ fontSize: "13px", color, fontWeight: 500 }}>{value}</span>
     </div>
   );
