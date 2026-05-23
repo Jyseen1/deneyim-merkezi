@@ -10,6 +10,7 @@ import {
 } from "@/lib/types";
 import { BarChart } from "@/components/charts/BarChart";
 import { Donut } from "@/components/charts/Donut";
+import { EmptyState, ChartIcon, InboxIcon } from "@/components/EmptyState";
 import { formatTrShortDate } from "@/lib/date";
 import { useBackendToken } from "@/hooks/useBackendToken";
 
@@ -500,15 +501,13 @@ export default function StatsPage() {
                 ))}
               {!loadingRecent && recent.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={5}
-                    style={{
-                      textAlign: "center",
-                      padding: "32px 16px",
-                      color: "#a5b4fc",
-                    }}
-                  >
-                    Henüz rezervasyon yok.
+                  <td colSpan={5} style={{ padding: 0 }}>
+                    <EmptyState
+                      compact
+                      icon={<InboxIcon size={28} />}
+                      title="Henüz rezervasyon yok"
+                      description="İlk rezervasyon geldiğinde burada özet olarak listelenir."
+                    />
                   </td>
                 </tr>
               )}

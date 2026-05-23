@@ -7,6 +7,7 @@ import { PendingApprovalRow } from "@/components/PendingApprovalRow";
 import { EMPTY_STATS, type StatsResult } from "./server-fetch";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useBackendToken } from "@/hooks/useBackendToken";
+import { EmptyState, CheckCircleIcon } from "@/components/EmptyState";
 
 const POLL_MS_WHEN_OK = 30_000;
 const POLL_MS_WHEN_DOWN = 4_000;
@@ -218,56 +219,12 @@ function StatCard({
 
 function EmptyPendingState() {
   return (
-    <div
-      style={{
-        padding: "48px 20px",
-        textAlign: "center",
-      }}
-    >
-      <div
-        style={{
-          width: "100px",
-          height: "100px",
-          borderRadius: "50%",
-          background: "#ede9fe",
-          color: "#4338ca",
-          margin: "0 auto 16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <svg
-          width="60"
-          height="60"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="3" y="4" width="18" height="18" rx="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-          <circle cx="12" cy="15" r="1" />
-        </svg>
-      </div>
-      <div style={{ fontSize: "14px", color: "#818cf8", fontWeight: 500 }}>
-        Henüz bekleyen onay yok
-      </div>
-      <div
-        style={{
-          fontSize: "12px",
-          color: "#a5b4fc",
-          marginTop: "4px",
-        }}
-      >
-        Rezervasyonlar buraya gelecek
-      </div>
-    </div>
+    <EmptyState
+      icon={<CheckCircleIcon />}
+      tone="positive"
+      title="Tüm onaylar tamam"
+      description="Yeni rezervasyon geldiğinde burada görünür. Hemen aksiyon almak gerekirse haber vereceğiz."
+    />
   );
 }
 

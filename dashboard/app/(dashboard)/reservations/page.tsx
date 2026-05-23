@@ -9,6 +9,7 @@ import {
   type ReservationStatus,
 } from "@/lib/types";
 import { ReservationDrawer } from "@/components/ReservationDrawer";
+import { EmptyState, InboxIcon } from "@/components/EmptyState";
 import { formatTrShortDate } from "@/lib/date";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useBackendToken } from "@/hooks/useBackendToken";
@@ -346,15 +347,20 @@ export default function ReservationsPage() {
             <tbody>
               {data?.items.length === 0 && !loading && (
                 <tr>
-                  <td
-                    colSpan={5}
-                    style={{
-                      textAlign: "center",
-                      padding: "40px 16px",
-                      color: "#a5b4fc",
-                    }}
-                  >
-                    Sonuç yok.
+                  <td colSpan={5} style={{ padding: 0 }}>
+                    <EmptyState
+                      icon={<InboxIcon />}
+                      title={
+                        status !== "ALL" || dateFrom || dateTo || hidePast
+                          ? "Filtreyle eşleşen rezervasyon yok"
+                          : "Henüz rezervasyon yok"
+                      }
+                      description={
+                        status !== "ALL" || dateFrom || dateTo
+                          ? "Filtreleri temizleyerek veya 'Geçmişi göster' seçeneğini açarak diğer kayıtları görebilirsiniz."
+                          : "Müşterileriniz Telegram/WhatsApp veya web formundan rezervasyon yapınca burada görünür. /qr ile bot QR kodunuzu paylaşmayı unutmayın."
+                      }
+                    />
                   </td>
                 </tr>
               )}
