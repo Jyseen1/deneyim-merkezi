@@ -317,7 +317,7 @@ export function ReservationDrawer({
         >
           <div>
             <h2
-              className="gradient-text"
+              className="gradient-text font-display"
               style={{
                 fontSize: "18px",
                 fontWeight: 700,
@@ -815,7 +815,7 @@ function RescheduleModal({
         }}
       >
         <h3
-          className="gradient-text"
+          className="gradient-text font-display"
           style={{
             fontSize: "18px",
             fontWeight: 700,

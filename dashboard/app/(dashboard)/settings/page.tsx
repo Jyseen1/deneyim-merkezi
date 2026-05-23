@@ -139,7 +139,7 @@ export default function SettingsPage() {
     <div style={{ maxWidth: "900px", margin: "0 auto" }}>
       <div className="fade-up" style={{ marginBottom: "20px" }}>
         <h1
-          className="gradient-text"
+          className="gradient-text font-display"
           style={{
             fontSize: "26px",
             fontWeight: 700,

@@ -185,7 +185,7 @@ export default function ReservationsPage() {
       {/* Header */}
       <div className="fade-up">
         <h1
-          className="gradient-text"
+          className="gradient-text font-display"
           style={{
             fontSize: "28px",
             fontWeight: 700,

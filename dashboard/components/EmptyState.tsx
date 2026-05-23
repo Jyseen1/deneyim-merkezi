@@ -85,11 +85,13 @@ export function EmptyState({
         {icon ?? <DefaultIcon size={compact ? 28 : 40} />}
       </div>
       <div
+        className="font-display"
         style={{
-          fontSize: compact ? "13px" : "14px",
+          fontSize: compact ? "15px" : "18px",
           color: t.titleColor,
           fontWeight: 600,
-          lineHeight: 1.3,
+          lineHeight: 1.2,
+          letterSpacing: "-0.01em",
         }}
       >
         {title}
@@ -97,11 +99,11 @@ export function EmptyState({
       {description && (
         <div
           style={{
-            fontSize: compact ? "11px" : "12px",
+            fontSize: compact ? "12px" : "13px",
             color: t.descColor,
-            marginTop: "6px",
-            maxWidth: "360px",
-            lineHeight: 1.5,
+            marginTop: "8px",
+            maxWidth: "380px",
+            lineHeight: 1.55,
           }}
         >
           {description}

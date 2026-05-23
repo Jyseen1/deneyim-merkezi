@@ -176,9 +176,10 @@ function StatCard({
           />
         ) : (
           <div
+            className="font-display"
             style={{
-              fontSize: "32px",
-              fontWeight: 700,
+              fontSize: "34px",
+              fontWeight: 600,
               letterSpacing: "-1.5px",
               color: numberColor,
               lineHeight: 1,

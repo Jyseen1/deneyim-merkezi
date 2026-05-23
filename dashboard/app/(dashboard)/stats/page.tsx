@@ -133,7 +133,7 @@ export default function StatsPage() {
       >
         <div>
           <h1
-            className="gradient-text"
+            className="gradient-text font-display"
             style={{
               fontSize: "26px",
               fontWeight: 700,
@@ -151,8 +151,8 @@ export default function StatsPage() {
         <div
           style={{
             display: "inline-flex",
-            background: "rgba(255,255,255,0.7)",
-            border: "1px solid rgba(209,196,255,0.6)",
+            background: "var(--gx-surface)",
+            border: "1px solid var(--gx-border)",
             borderRadius: "99px",
             padding: "4px",
             gap: "2px",

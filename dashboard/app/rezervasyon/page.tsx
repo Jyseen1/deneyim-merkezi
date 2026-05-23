@@ -1088,7 +1088,7 @@ function SuccessCard({
         ✓
       </div>
       <h2
-        className="gradient-text"
+        className="gradient-text font-display"
         style={{
           fontSize: "20px",
           fontWeight: 700,

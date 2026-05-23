@@ -329,7 +329,7 @@ export default function CalendarPage() {
       >
         <div style={{ minWidth: 0 }}>
           <h1
-            className="gradient-text"
+            className="gradient-text font-display"
             style={{
               fontSize: "26px",
               fontWeight: 700,
@@ -1544,7 +1544,7 @@ function ModalShell({
         }}
       >
         <h3
-          className="gradient-text"
+          className="gradient-text font-display"
           style={{
             fontSize: "18px",
             fontWeight: 700,

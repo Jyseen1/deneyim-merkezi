@@ -28,10 +28,10 @@ export default async function DashboardHome() {
       >
         <div style={{ minWidth: 0 }}>
           <h1
-            className="gradient-text"
+            className="gradient-text font-display"
             style={{
-              fontSize: "26px",
-              fontWeight: 700,
+              fontSize: "28px",
+              fontWeight: 600,
               letterSpacing: "-0.5px",
               lineHeight: 1.1,
               margin: 0,
