@@ -343,7 +343,7 @@ function Section({
             letterSpacing: "-0.01em",
             margin: 0,
             paddingLeft: "10px",
-            borderLeft: "4px solid #4338ca",
+            borderLeft: "3px solid var(--gx-accent-light)",
             lineHeight: 1.1,
           }}
         >
@@ -540,24 +540,35 @@ function InfoRow({
 }) {
   const color =
     tone === "success"
-      ? "#059669"
+      ? "var(--gx-success)"
       : tone === "danger"
-      ? "#ef4444"
+      ? "var(--gx-danger)"
       : tone === "muted"
-      ? "#a5b4fc"
-      : "#1e1b4b";
+      ? "var(--gx-text-hint)"
+      : "var(--gx-text)";
   return (
     <div
       style={{
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "8px 0",
-        borderBottom: "1px solid rgba(237,233,254,0.7)",
+        gap: "12px",
+        padding: "10px 0",
+        borderBottom: "1px solid var(--gx-border)",
       }}
     >
       <span style={{ fontSize: "12px", color: "var(--gx-text-muted)" }}>{label}</span>
-      <span style={{ fontSize: "13px", color, fontWeight: 500 }}>{value}</span>
+      <span
+        style={{
+          fontSize: "13px",
+          color,
+          fontWeight: 600,
+          textAlign: "right",
+          wordBreak: "break-word",
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }

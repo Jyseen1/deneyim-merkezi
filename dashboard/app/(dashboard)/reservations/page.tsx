@@ -375,25 +375,14 @@ export default function ReservationsPage() {
         style={{ marginTop: "16px", overflow: "hidden" }}
       >
         <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              fontSize: "13px",
-              borderCollapse: "collapse",
-              minWidth: "600px",
-            }}
-          >
+          <table className="gx-table" style={{ minWidth: "600px" }}>
             <thead>
-              <tr style={{ background: "var(--gx-surface)" }}>
-                <th style={th()}>Ad</th>
-                <th style={{ ...th(), display: "table-cell" }} className="hidden md:table-cell">
-                  Telefon
-                </th>
-                <th style={th()}>Tarih / Saat</th>
-                <th style={th()} className="hidden sm:table-cell">
-                  Kişi
-                </th>
-                <th style={th()}>Durum</th>
+              <tr>
+                <th>Ad</th>
+                <th className="hidden md:table-cell">Telefon</th>
+                <th>Tarih / Saat</th>
+                <th className="hidden sm:table-cell">Kişi</th>
+                <th>Durum</th>
               </tr>
             </thead>
             <tbody>
@@ -420,37 +409,20 @@ export default function ReservationsPage() {
                 <tr
                   key={r.id}
                   onClick={() => setActiveId(r.id)}
-                  style={{
-                    borderTop: "1px solid var(--gx-border)",
-                    cursor: "pointer",
-                    transition: "background 0.15s ease",
-                  }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.background = "rgba(124,58,237,0.06)")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
+                  style={{ cursor: "pointer" }}
                 >
-                  <td style={td("var(--gx-text)", 600)}>
+                  <td style={{ fontWeight: 600 }}>
                     {r.visitor?.name ?? "-"}
                   </td>
                   <td
-                    style={td("var(--gx-accent-light)")}
                     className="hidden md:table-cell"
+                    style={{ color: "var(--gx-text-muted)" }}
                   >
                     {r.visitor?.phone ?? "-"}
                   </td>
-                  <td style={td("var(--gx-text)")}>
-                    {formatTrShortDate(r.visitDate)} · {r.startTime}
-                  </td>
-                  <td
-                    style={td("var(--gx-text)")}
-                    className="hidden sm:table-cell"
-                  >
-                    {r.groupSize}
-                  </td>
-                  <td style={td()}>
+                  <td>{formatTrShortDate(r.visitDate)} · {r.startTime}</td>
+                  <td className="hidden sm:table-cell">{r.groupSize}</td>
+                  <td>
                     <span className={`status-pill ${STATUS_CLASS[r.status]}`}>
                       {STATUS_LABEL[r.status]}
                     </span>
@@ -507,6 +479,9 @@ export default function ReservationsPage() {
   );
 }
 
+// th/td helpers artik kullanilmiyor — gx-table sinifi CSS'ten yapiyor.
+// Geriye doniik uyumluluk icin tutuldu.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function th(): React.CSSProperties {
   return {
     textAlign: "left",
@@ -519,6 +494,7 @@ function th(): React.CSSProperties {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function td(color = "var(--gx-text)", weight: number = 400): React.CSSProperties {
   return {
     padding: "12px 16px",

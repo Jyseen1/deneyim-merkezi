@@ -450,8 +450,8 @@ export default function StatsPage() {
         <div
           style={{
             padding: "14px 20px",
-            borderBottom: "1px solid rgba(209,196,255,0.5)",
-            borderLeft: "4px solid #4338ca",
+            borderBottom: "1px solid var(--gx-border)",
+            borderLeft: "3px solid var(--gx-accent-light)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -463,32 +463,22 @@ export default function StatsPage() {
           <span style={{ fontSize: "11px", color: "var(--gx-text-hint)" }}>en son 10 kayıt</span>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              fontSize: "13px",
-              borderCollapse: "collapse",
-              minWidth: "600px",
-            }}
-          >
+          <table className="gx-table" style={{ minWidth: "600px" }}>
             <thead>
-              <tr style={{ background: "rgba(245,243,255,0.8)" }}>
-                <th style={th()}>Ziyaretçi</th>
-                <th style={th()}>Tarih</th>
-                <th style={th()}>Saat</th>
-                <th style={th()}>Kişi</th>
-                <th style={th()}>Durum</th>
+              <tr>
+                <th>Ziyaretçi</th>
+                <th>Tarih</th>
+                <th>Saat</th>
+                <th>Kişi</th>
+                <th>Durum</th>
               </tr>
             </thead>
             <tbody>
               {loadingRecent &&
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr
-                    key={`sk-${i}`}
-                    style={{ borderTop: "1px solid rgba(237,233,254,0.6)" }}
-                  >
+                  <tr key={`sk-${i}`}>
                     {Array.from({ length: 5 }).map((_, c) => (
-                      <td key={c} style={{ padding: "12px 16px" }}>
+                      <td key={c}>
                         <div
                           className="shimmer"
                           style={{
@@ -514,17 +504,12 @@ export default function StatsPage() {
                 </tr>
               )}
               {recent.map((r) => (
-                <tr
-                  key={r.id}
-                  style={{
-                    borderTop: "1px solid rgba(237,233,254,0.6)",
-                  }}
-                >
-                  <td style={td("#1e1b4b", 500)}>{r.visitor?.name ?? "-"}</td>
-                  <td style={td("#1e1b4b")}>{formatTrShortDate(r.visitDate)}</td>
-                  <td style={td("#1e1b4b")}>{r.startTime}</td>
-                  <td style={td("#1e1b4b")}>{r.groupSize}</td>
-                  <td style={td()}>
+                <tr key={r.id}>
+                  <td style={{ fontWeight: 600 }}>{r.visitor?.name ?? "-"}</td>
+                  <td>{formatTrShortDate(r.visitDate)}</td>
+                  <td>{r.startTime}</td>
+                  <td>{r.groupSize}</td>
+                  <td>
                     <span className={`status-pill ${STATUS_CLASS[r.status]}`}>
                       {STATUS_LABEL[r.status]}
                     </span>
@@ -620,6 +605,9 @@ function KpiCard({
   );
 }
 
+// th/td helpers artik kullanilmiyor — gx-table sinifi tum tablo stillerini
+// CSS'ten sagliyor. Geriye doniik uyumluluk icin tutuldu, ama dis cagri yok.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function th(): React.CSSProperties {
   return {
     textAlign: "left",
@@ -632,7 +620,8 @@ function th(): React.CSSProperties {
   };
 }
 
-function td(color = "#1e1b4b", weight: number = 400): React.CSSProperties {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function td(color = "var(--gx-text)", weight: number = 400): React.CSSProperties {
   return {
     padding: "12px 16px",
     color,
