@@ -136,12 +136,15 @@ export function ReservationDrawer({
     setResend("sending");
     setResendMsg(null);
     try {
+      // Fastify Content-Type:application/json + bos body kombinasyonu
+      // FST_ERR_CTP_EMPTY_JSON_BODY ile 400 atar. Bos JSON object gondererek
+      // parser'i memnun ediyoruz.
       const res = await apiFetch<{
         ok: boolean;
         staffNotificationStatus: "sent" | "failed";
       }>(
         `/reservations/${data.id}/resend-notification`,
-        { method: "POST" },
+        { method: "POST", body: "{}" },
         token,
       );
       setResend(res.ok ? "ok" : "err");
@@ -160,9 +163,25 @@ export function ReservationDrawer({
       onMutated();
     } catch (e) {
       setResend("err");
-      setResendMsg(
-        e instanceof ApiError ? `${e.status}: ${e.message}` : (e as Error).message,
-      );
+      if (e instanceof ApiError) {
+        // Backend yapilandirilmis hata mesajlari: not_pending, internal_error vs.
+        const body = e.body as { error?: string; message?: string } | null;
+        if (e.status === 400 && body?.error === "not_pending") {
+          setResendMsg(
+            body.message ?? "Bu rezervasyon zaten işlenmiş, bildirim gönderilmez.",
+          );
+        } else if (e.status === 403) {
+          setResendMsg("Bu işlem için yönetici yetkisi gerekli.");
+        } else if (e.status === 404) {
+          setResendMsg("Rezervasyon bulunamadı.");
+        } else {
+          setResendMsg(
+            body?.message ?? body?.error ?? `Hata: HTTP ${e.status}`,
+          );
+        }
+      } else {
+        setResendMsg(`Beklenmeyen hata: ${(e as Error).message}`);
+      }
     }
   }
 

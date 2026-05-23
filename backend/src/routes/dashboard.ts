@@ -183,7 +183,20 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
         }),
         prisma.reservation.findMany({
           where: { status: "PENDING_APPROVAL" },
-          include: { visitor: true },
+          include: {
+            visitor: true,
+            // Yetkili (outbound + staff_approval) son notification durumu:
+            // failed ise dashboard'da "⚠ Bildirim gönderilemedi" rozeti gosterilir.
+            notifications: {
+              where: {
+                direction: "outbound",
+                templateName: "staff_approval",
+              },
+              orderBy: { sentAt: "desc" },
+              take: 1,
+              select: { status: true, sentAt: true },
+            },
+          },
           orderBy: { createdAt: "asc" },
           take: 5,
         }),
@@ -199,12 +212,26 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
       Math.round((bookedMinutes / weekCapacityMin) * 100),
     );
 
+    // pendingPreview'a staffNotificationStatus ekle, notifications array'ini
+    // payload'dan cikar (routes/reservations.ts ile ayni format).
+    const pendingPreviewEnriched = pendingPreview.map(
+      ({ notifications, ...rest }) => {
+        const last = notifications[0];
+        const staffNotificationStatus: "sent" | "failed" | "pending" = !last
+          ? "pending"
+          : last.status === "sent"
+            ? "sent"
+            : "failed";
+        return { ...rest, staffNotificationStatus };
+      },
+    );
+
     return {
       today: todayCount,
       pending: pendingCount,
       thisWeek: weekRows.length,
       utilizationPct,
-      pendingPreview,
+      pendingPreview: pendingPreviewEnriched,
     };
   });
 
