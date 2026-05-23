@@ -49,35 +49,153 @@ function LoginCard() {
     try {
       await signIn("google", { callbackUrl: "/" });
     } finally {
-      // signIn redirect ediyor ama yine de sigorta
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-100 via-white to-slate-100">
-      <div className="w-full max-w-sm">
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--gx-bg)",
+        position: "relative",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px 16px",
+      }}
+    >
+      {/* Dekoratif arka plan mor isiltisi */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: "-180px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "640px",
+          height: "640px",
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(124,58,237,0.28) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          bottom: "-160px",
+          right: "-100px",
+          width: "440px",
+          height: "440px",
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Dekoratif serif kelime — kose */}
+      <div
+        aria-hidden
+        className="font-serif font-italic"
+        style={{
+          position: "absolute",
+          bottom: "32px",
+          left: "32px",
+          fontSize: "84px",
+          fontWeight: 400,
+          color: "var(--gx-accent-light)",
+          opacity: 0.12,
+          letterSpacing: "-0.03em",
+          lineHeight: 1,
+          pointerEvents: "none",
+        }}
+      >
+        Giriş.
+      </div>
+
+      <div
+        className="fade-up"
+        style={{ width: "100%", maxWidth: "400px", position: "relative", zIndex: 1 }}
+      >
         {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-slate-800 text-white flex items-center justify-center text-xl font-semibold shadow-md">
-            DM
-          </div>
-          <div className="mt-3 text-sm text-slate-500">Deneyim Merkezi</div>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            marginBottom: "28px",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/gigax-logo.png"
+            alt="GigaX"
+            style={{ height: "36px", width: "auto" }}
+          />
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
-          <h1 className="text-2xl font-semibold text-slate-900 text-center">
+        <div
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(124,58,237,0.12), rgba(255,255,255,0.02))",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            borderRadius: "20px",
+            padding: "32px 28px",
+          }}
+        >
+          <h1
+            className="font-display"
+            style={{
+              fontSize: "26px",
+              fontWeight: 500,
+              color: "var(--gx-text)",
+              textAlign: "center",
+              letterSpacing: "-0.02em",
+              margin: 0,
+              lineHeight: 1.15,
+            }}
+          >
             Yönetim Paneli
           </h1>
-          <p className="text-sm text-slate-500 text-center mt-2">
-            Devam etmek için Google hesabınızla giriş yapın.
+          <p
+            style={{
+              fontSize: "13px",
+              color: "var(--gx-text-muted)",
+              textAlign: "center",
+              margin: "10px 0 0",
+              lineHeight: 1.5,
+            }}
+          >
+            Devam etmek için Google{" "}
+            <span
+              className="font-serif font-italic"
+              style={{ color: "var(--gx-accent-light)" }}
+            >
+              hesabınızla
+            </span>{" "}
+            giriş yapın.
           </p>
 
           {errorMessage && (
             <div
               role="alert"
-              className="mt-5 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-sm text-red-700"
+              style={{
+                marginTop: "18px",
+                background: "rgba(239,68,68,0.10)",
+                border: "1px solid rgba(239,68,68,0.30)",
+                color: "var(--gx-danger)",
+                fontSize: "13px",
+                padding: "10px 12px",
+                borderRadius: "10px",
+                lineHeight: 1.5,
+              }}
             >
               {errorMessage}
             </div>
@@ -87,28 +205,86 @@ function LoginCard() {
             type="button"
             onClick={handleSignIn}
             disabled={loading}
-            className="mt-6 w-full inline-flex items-center justify-center gap-3 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-800 text-sm font-medium px-4 py-2.5 rounded-lg border border-slate-300 shadow-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{
+              marginTop: "22px",
+              width: "100%",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "10px",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: "12px",
+              padding: "12px 18px",
+              color: "var(--gx-text)",
+              fontSize: "14px",
+              fontWeight: 600,
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.6 : 1,
+              transition: "all 0.18s ease",
+            }}
+            onMouseOver={(e) => {
+              if (loading) return;
+              e.currentTarget.style.borderColor = "rgba(124,58,237,0.45)";
+              e.currentTarget.style.boxShadow =
+                "0 0 0 4px rgba(124,58,237,0.10)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+              e.currentTarget.style.boxShadow = "none";
+            }}
           >
             <GoogleIcon />
             <span>{loading ? "Yönlendiriliyor..." : "Google ile devam et"}</span>
           </button>
 
-          <div className="mt-6 flex items-center gap-3">
-            <div className="flex-1 h-px bg-slate-200" />
-            <div className="text-[11px] uppercase tracking-wide text-slate-400">
+          <div
+            style={{
+              marginTop: "24px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.08)" }} />
+            <div
+              style={{
+                fontSize: "10px",
+                textTransform: "uppercase",
+                letterSpacing: "0.15em",
+                fontWeight: 700,
+                color: "var(--gx-accent-light)",
+              }}
+            >
               Yetkilendirme
             </div>
-            <div className="flex-1 h-px bg-slate-200" />
+            <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.08)" }} />
           </div>
 
-          <p className="mt-3 text-xs text-slate-500 text-center leading-relaxed">
+          <p
+            style={{
+              marginTop: "14px",
+              fontSize: "11px",
+              color: "var(--gx-text-hint)",
+              textAlign: "center",
+              lineHeight: 1.6,
+            }}
+          >
             Yalnızca yönetici tarafından listeye eklenen e-postalar giriş
             yapabilir.
           </p>
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-400">
-          © {new Date().getFullYear()} Deneyim Merkezi
+        <p
+          style={{
+            marginTop: "20px",
+            textAlign: "center",
+            fontSize: "11px",
+            color: "var(--gx-text-hint)",
+            letterSpacing: "0.05em",
+          }}
+        >
+          © {new Date().getFullYear()} GigaX
         </p>
       </div>
     </div>
@@ -119,7 +295,17 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">
+        <div
+          style={{
+            minHeight: "100vh",
+            background: "var(--gx-bg)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "13px",
+            color: "var(--gx-text-hint)",
+          }}
+        >
           Yükleniyor...
         </div>
       }
