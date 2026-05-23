@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { useToast } from "@/hooks/useToast";
 import { useBackendToken } from "@/hooks/useBackendToken";
+import { GXSelect } from "@/components/ui/GXSelect";
 
 type Settings = {
   id: string;
@@ -214,76 +215,62 @@ export default function SettingsPage() {
           <>
             <Row2>
               <Field label="Varsayılan süre">
-                <select
+                <GXSelect<number>
                   value={s.defaultDuration}
-                  onChange={(e) =>
-                    update("defaultDuration", Number(e.target.value))
-                  }
-                  style={inputStyle()}
-                >
-                  {[60, 90, 120, 150, 180].map((d) => (
-                    <option key={d} value={d}>
-                      {d} dk
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => update("defaultDuration", v)}
+                  options={[60, 90, 120, 150, 180].map((d) => ({
+                    value: d,
+                    label: `${d} dk`,
+                  }))}
+                  ariaLabel="Varsayılan süre"
+                />
               </Field>
               <Field label="Onay timeout süresi">
-                <select
+                <GXSelect<number>
                   value={s.approvalTimeout}
-                  onChange={(e) =>
-                    update("approvalTimeout", Number(e.target.value))
-                  }
-                  style={inputStyle()}
-                >
-                  {[1, 2, 4, 8].map((h) => (
-                    <option key={h} value={h}>
-                      {h} saat
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => update("approvalTimeout", v)}
+                  options={[1, 2, 4, 8].map((h) => ({
+                    value: h,
+                    label: `${h} saat`,
+                  }))}
+                  ariaLabel="Onay timeout süresi"
+                />
               </Field>
             </Row2>
             <Row2>
               <Field label="Çalışma saatleri (başlangıç)">
-                <select
+                <GXSelect
                   value={s.workStart}
-                  onChange={(e) => update("workStart", e.target.value)}
-                  style={inputStyle()}
-                >
-                  {["08:00", "09:00", "10:00"].map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => update("workStart", v)}
+                  options={["08:00", "09:00", "10:00"].map((t) => ({
+                    value: t,
+                    label: t,
+                  }))}
+                  ariaLabel="Çalışma başlangıç saati"
+                />
               </Field>
               <Field label="Çalışma saatleri (bitiş)">
-                <select
+                <GXSelect
                   value={s.workEnd}
-                  onChange={(e) => update("workEnd", e.target.value)}
-                  style={inputStyle()}
-                >
-                  {["17:00", "18:00", "19:00", "20:00"].map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => update("workEnd", v)}
+                  options={["17:00", "18:00", "19:00", "20:00"].map((t) => ({
+                    value: t,
+                    label: t,
+                  }))}
+                  ariaLabel="Çalışma bitiş saati"
+                />
               </Field>
             </Row2>
             <Field label="Hatırlatma (kaç saat önce)">
-              <select
+              <GXSelect<number>
                 value={s.reminderHours}
-                onChange={(e) => update("reminderHours", Number(e.target.value))}
-                style={inputStyle()}
-              >
-                {[12, 24, 48].map((h) => (
-                  <option key={h} value={h}>
-                    {h} saat
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => update("reminderHours", v)}
+                options={[12, 24, 48].map((h) => ({
+                  value: h,
+                  label: `${h} saat`,
+                }))}
+                ariaLabel="Hatırlatma süresi"
+              />
             </Field>
             <Action
               onClick={saveReservation}

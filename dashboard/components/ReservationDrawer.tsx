@@ -855,7 +855,7 @@ function RescheduleModal({
         >
           Yeni Tarih
         </label>
-        <DatePicker value={date} onChange={setDate} ariaLabel="Yeni tarih" zIndex={80} />
+        <DatePicker value={date} onChange={setDate} ariaLabel="Yeni tarih" />
 
         <div
           style={{

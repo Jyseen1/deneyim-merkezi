@@ -25,6 +25,8 @@ import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/useToast";
 import { ReservationDrawer } from "@/components/ReservationDrawer";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { GXSelect } from "@/components/ui/GXSelect";
+import { GXTimePicker } from "@/components/ui/GXTimePicker";
 
 // ─────────────────────────────────────────────────────────
 // Types + sabitler
@@ -1750,7 +1752,7 @@ function BlockDayModal({
     >
       <div>
         <label style={modalLabel()}>Tarih</label>
-        <DatePicker value={date} onChange={setDate} ariaLabel="Kapatılacak tarih" zIndex={80} />
+        <DatePicker value={date} onChange={setDate} ariaLabel="Kapatılacak tarih" />
       </div>
       <div>
         <label style={modalLabel()}>Neden (opsiyonel)</label>
@@ -1834,7 +1836,7 @@ function BlockRangeModal({
       >
         <div>
           <label style={modalLabel()}>Başlangıç</label>
-          <DatePicker value={startDate} onChange={setStartDate} ariaLabel="Başlangıç tarihi" zIndex={80} />
+          <DatePicker value={startDate} onChange={setStartDate} ariaLabel="Başlangıç tarihi" />
         </div>
         <div>
           <label style={modalLabel()}>Bitiş</label>
@@ -1843,7 +1845,6 @@ function BlockRangeModal({
             onChange={setEndDate}
             min={startDate || undefined}
             ariaLabel="Bitiş tarihi"
-            zIndex={80}
           />
         </div>
       </div>
@@ -1922,17 +1923,12 @@ function RecurringRuleModal({
     >
       <div>
         <label style={modalLabel()}>Gün</label>
-        <select
+        <GXSelect<number>
           value={dayOfWeek}
-          onChange={(e) => setDayOfWeek(Number(e.target.value))}
-          style={modalInput()}
-        >
-          {DAYS_FULL.map((name, idx) => (
-            <option key={idx} value={idx}>
-              {name}
-            </option>
-          ))}
-        </select>
+          onChange={setDayOfWeek}
+          options={DAYS_FULL.map((name, idx) => ({ value: idx, label: name }))}
+          ariaLabel="Tekrarlayan kural günü"
+        />
       </div>
       <div
         style={{
@@ -1943,20 +1939,18 @@ function RecurringRuleModal({
       >
         <div>
           <label style={modalLabel()}>Başlangıç</label>
-          <input
-            type="time"
+          <GXTimePicker
             value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            style={modalInput()}
+            onChange={setStartTime}
+            ariaLabel="Başlangıç saati"
           />
         </div>
         <div>
           <label style={modalLabel()}>Bitiş</label>
-          <input
-            type="time"
+          <GXTimePicker
             value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            style={modalInput()}
+            onChange={setEndTime}
+            ariaLabel="Bitiş saati"
           />
         </div>
       </div>

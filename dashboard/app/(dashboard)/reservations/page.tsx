@@ -11,6 +11,7 @@ import {
 import { ReservationDrawer } from "@/components/ReservationDrawer";
 import { EmptyState, InboxIcon } from "@/components/EmptyState";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { GXSelect } from "@/components/ui/GXSelect";
 import { formatTrShortDate } from "@/lib/date";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useBackendToken } from "@/hooks/useBackendToken";
@@ -56,27 +57,6 @@ function writeHidePast(v: boolean) {
   } catch {
     /* sessiz */
   }
-}
-
-// Filtre input/select stili — onFocus/onBlur ile mor focus ring inline.
-const inputStyle: React.CSSProperties = {
-  background: "var(--gx-surface)",
-  border: "1px solid var(--gx-border)",
-  color: "var(--gx-text)",
-  borderRadius: "10px",
-  padding: "10px 12px",
-  fontSize: "13px",
-  outline: "none",
-  fontFamily: "inherit",
-  transition: "border-color 0.15s ease, box-shadow 0.15s ease",
-};
-function applyFocusRing(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
-  e.currentTarget.style.borderColor = "var(--gx-accent)";
-  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,58,237,0.20)";
-}
-function removeFocusRing(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
-  e.currentTarget.style.borderColor = "var(--gx-border)";
-  e.currentTarget.style.boxShadow = "none";
 }
 
 function backendBase(): string {
@@ -239,7 +219,7 @@ export default function ReservationsPage() {
           gap: "14px",
         }}
       >
-        <div>
+        <div style={{ minWidth: "180px" }}>
           <label
             style={{
               display: "block",
@@ -253,19 +233,12 @@ export default function ReservationsPage() {
           >
             Durum
           </label>
-          <select
+          <GXSelect<StatusFilter>
+            options={STATUS_OPTIONS}
             value={status}
-            onChange={(e) => setStatus(e.target.value as StatusFilter)}
-            onFocus={applyFocusRing}
-            onBlur={removeFocusRing}
-            style={inputStyle}
-          >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            onChange={setStatus}
+            ariaLabel="Durum filtresi"
+          />
         </div>
         <div style={{ minWidth: "180px" }}>
           <label

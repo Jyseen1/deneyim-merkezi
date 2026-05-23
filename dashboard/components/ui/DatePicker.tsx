@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   TR_DAYS_SHORT_MON,
   TR_MONTHS,
@@ -17,7 +18,8 @@ type Props = {
   placeholder?: string;
   disabled?: boolean;
   ariaLabel?: string;
-  // Sayfanin tepe seviyesi overlay tetiklendiginde stack icin
+  // Sayfanin tepe seviyesi overlay tetiklendiginde stack icin.
+  // Default 9999 — modaller (60-70) ve drawer (50) uzerinde kalir.
   zIndex?: number;
 };
 
@@ -42,7 +44,7 @@ export function DatePicker({
   placeholder = "Tarih seç",
   disabled,
   ariaLabel,
-  zIndex = 80,
+  zIndex = 9999,
 }: Props) {
   const [open, setOpen] = useState(false);
   const initial = parseISO(value) ?? new Date();
@@ -153,7 +155,7 @@ export function DatePicker({
         </svg>
       </button>
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <div
           onClick={() => setOpen(false)}
           style={{
@@ -369,7 +371,8 @@ export function DatePicker({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

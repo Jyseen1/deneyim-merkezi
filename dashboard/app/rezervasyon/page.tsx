@@ -679,7 +679,6 @@ function Step1(props: {
           onChange={props.setDateISO}
           min={todayISO()}
           ariaLabel="Ziyaret tarihi"
-          zIndex={90}
         />
       </Field>
 
