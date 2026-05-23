@@ -294,23 +294,88 @@ export default function ReservationsPage() {
               ariaLabel="Durum filtresi"
             />
           </FilterField>
-          <FilterField label="Başlangıç" width={160}>
-            <DatePicker
-              value={dateFrom}
-              onChange={setDateFrom}
-              placeholder="—"
-              ariaLabel="Başlangıç tarihi"
-            />
+          <FilterField label="Tarih aralığı" width={340}>
+            {/* İki DatePicker tek alana görsel olarak birleştirildi.
+                Veri kontratı korunur: backend yine date_from + date_to alır. */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <DatePicker
+                  value={dateFrom}
+                  onChange={setDateFrom}
+                  placeholder="Başlangıç"
+                  ariaLabel="Başlangıç tarihi"
+                />
+              </div>
+              <span
+                aria-hidden
+                style={{
+                  color: "var(--muted2)",
+                  fontSize: "14px",
+                  flexShrink: 0,
+                  userSelect: "none",
+                }}
+              >
+                –
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <DatePicker
+                  value={dateTo}
+                  onChange={setDateTo}
+                  placeholder="Bitiş"
+                  min={dateFrom || undefined}
+                  ariaLabel="Bitiş tarihi"
+                />
+              </div>
+            </div>
           </FilterField>
-          <FilterField label="Bitiş" width={160}>
-            <DatePicker
-              value={dateTo}
-              onChange={setDateTo}
-              placeholder="—"
-              min={dateFrom || undefined}
-              ariaLabel="Bitiş tarihi"
-            />
-          </FilterField>
+          {hasActiveFilter && (
+            <button
+              type="button"
+              onClick={() => {
+                setStatus("ALL");
+                setDateFrom("");
+                setDateTo("");
+                setHidePast(true);
+              }}
+              title="Tüm filtreleri varsayılana döndür"
+              style={{
+                alignSelf: "flex-end",
+                padding: "9px 12px",
+                fontSize: "12px",
+                fontWeight: 500,
+                fontFamily: "var(--inter)",
+                color: "var(--muted)",
+                background: "transparent",
+                border: "1px solid var(--line)",
+                borderRadius: "10px",
+                cursor: "pointer",
+                transition: "all 150ms ease",
+                whiteSpace: "nowrap",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "rgba(124,58,237,0.35)";
+                e.currentTarget.style.color = "var(--accent3)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--line)";
+                e.currentTarget.style.color = "var(--muted)";
+              }}
+            >
+              <span aria-hidden style={{ fontSize: "14px", lineHeight: 1 }}>
+                ×
+              </span>
+              Filtreleri sıfırla
+            </button>
+          )}
         </div>
 
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>

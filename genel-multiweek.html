@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GigaX — Genel Bakış Çoklu Hafta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0F;--bg2:#0F0F18;--bg3:#141420;
+    --accent:#7C3AED;--accent2:#8B5CF6;--accent3:#A78BFA;
+    --green:#4ADE80;--red:#EF4444;--amber:#F59E0B;
+    --line:rgba(255,255,255,0.08);--line2:rgba(255,255,255,0.05);
+    --txt:#E4E4E7;--muted:#71717A;--muted2:#52525B;--muted3:#3F3F46;
+    --grotesk:'Space Grotesk',sans-serif;--inter:'Inter',sans-serif;--serif:'Instrument Serif',serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--txt);font-family:var(--inter);-webkit-font-smoothing:antialiased;padding:32px 40px;position:relative;overflow-x:hidden}
+  .glow{position:absolute;border-radius:50%;pointer-events:none;filter:blur(80px);top:-100px;right:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(124,58,237,0.15),transparent 70%)}
+  .card{background:linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015));border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(20px)}
+  .welcome{text-align:center;padding:8px 0 24px}
+  .welcome .date{font-size:12px;letter-spacing:0.15em;color:var(--accent2);text-transform:uppercase;font-weight:600;margin-bottom:10px}
+  .welcome h1{font-family:var(--grotesk);font-size:42px;font-weight:600;letter-spacing:-1px}
+  .welcome h1 em{font-family:var(--serif);font-style:italic;color:var(--accent3);font-weight:400}
+  .welcome .sub{font-size:15px;color:var(--muted);margin-top:10px}
+  .welcome .sub b{color:var(--accent2);font-weight:600}
+  .welcome .sub em{font-family:var(--serif);font-style:italic;color:var(--accent3)}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;max-width:1240px;margin-left:auto;margin-right:auto}
+  .stat{padding:18px;text-align:center;position:relative}
+  .stat.hl{border-color:rgba(124,58,237,0.35);background:linear-gradient(135deg,rgba(124,58,237,0.10),rgba(124,58,237,0.02))}
+  .stat .l{font-size:10px;letter-spacing:0.12em;color:var(--muted2);text-transform:uppercase;margin-bottom:8px}
+  .stat .v{font-family:var(--grotesk);font-size:30px;font-weight:300;line-height:1}
+  .stat .v small{font-size:14px;color:var(--muted2)}
+  .grid2{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;max-width:1240px;margin:0 auto}
+
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding:18px 18px 0}
+  /* SABİT NAV: rng sabit genişlik */
+  .navg{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:5px 6px}
+  .navg .arr{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);flex-shrink:0;background:rgba(255,255,255,0.04)}
+  .navg .rng{font-family:var(--grotesk);font-weight:600;font-size:13px;width:120px;text-align:center;flex-shrink:0}
+  .right-ctrl{display:flex;align-items:center;gap:10px}
+  .seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+  .seg b{font-size:12px;padding:5px 14px;border-radius:6px;cursor:pointer;color:var(--muted);font-weight:500}
+  .seg b.on{background:var(--accent);color:#fff}
+  .golink{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:7px}
+  .golink:hover{color:var(--accent3)}
+
+  /* çoklu hafta */
+  .multiweek{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px}
+  .wk-label{font-size:10px;color:var(--muted3);text-transform:uppercase;letter-spacing:0.08em;padding:6px 2px 2px}
+  .heat{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .ht-day{background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:8px 6px;text-align:center;cursor:pointer;transition:all 150ms;min-height:78px;display:flex;flex-direction:column}
+  .ht-day:hover{border-color:rgba(124,58,237,0.4)}
+  .ht-day.today{border-color:rgba(124,58,237,0.5);background:rgba(124,58,237,0.06)}
+  .ht-day.dim{opacity:0.35}
+  .ht-day .dn{font-family:var(--grotesk);font-size:16px;font-weight:300}
+  .ht-day.today .dn{color:#fff;font-weight:600}
+  .ht-bars{display:flex;gap:2px;justify-content:center;margin:6px 0 4px;align-items:flex-end;height:22px;flex:1}
+  .ht-bar{width:6px;border-radius:1px;background:rgba(124,58,237,0.6)}
+  .ht-cnt{font-size:9px;color:var(--accent3)}
+  .ht-cnt.zero{color:var(--muted3)}
+
+  /* dow header */
+  .dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:0 14px 6px}
+  .dow-row span{text-align:center;font-size:9px;color:var(--muted3);text-transform:uppercase}
+
+  /* right panel */
+  .qa{display:flex;gap:10px;padding:18px}
+  .qa-btn{flex:1;padding:13px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid var(--line);cursor:pointer;text-align:center;font-size:14px;font-weight:600}
+  .recent{padding:18px}
+  .recent-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .recent-h .t{font-family:var(--grotesk);font-size:15px;font-weight:600}
+  .recent-h .t em{font-family:var(--serif);font-style:italic;color:var(--accent3);font-weight:400}
+  .daygroup{margin-bottom:14px}
+  .daygroup .dh{font-size:13px;font-family:var(--grotesk);font-weight:600;margin-bottom:8px;padding:0 2px}
+  .daygroup .dh em{font-family:var(--serif);font-style:italic;color:var(--accent3)}
+  .daygroup .dh .c{font-size:11px;color:var(--muted3);font-weight:400;font-family:var(--inter)}
+  .rmini{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.025);border:1px solid var(--line);margin-bottom:5px;cursor:pointer}
+  .rmini:hover{border-color:rgba(124,58,237,0.4)}
+  .rmini.pend{border-left:2px solid var(--accent2)}
+  .rmini .tm{font-family:var(--grotesk);font-weight:500;font-size:14px;width:46px;color:var(--accent3)}
+  .rmini .nm{font-weight:600;font-size:14px;flex:1}
+  .pill{font-size:11px;padding:4px 11px;border-radius:999px}
+  .pill.ok{background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.2)}
+  .pill.cancel{background:rgba(113,113,122,0.15);color:var(--muted);border:1px solid var(--line)}
+  .pill.noshow{background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.25)}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+
+<div class="welcome">
+  <div class="date">23 Mayıs 2026 · Cumartesi</div>
+  <h1>Hoş geldin, <em>Poyraz</em></h1>
+  <div class="sub">Bugün <b>4</b> <em>ziyaret</em> planlı, <b>0</b> <em>onay</em> seni bekliyor.</div>
+</div>
+
+<div class="stats">
+  <div class="card stat"><div class="l">Doluluk</div><div class="v">14<small>%</small></div></div>
+  <div class="card stat hl"><div class="l">Bekleyen</div><div class="v">0</div></div>
+  <div class="card stat"><div class="l">Bu Hafta</div><div class="v">5</div></div>
+</div>
+
+<div class="grid2">
+  <!-- SOL: çoklu hafta -->
+  <div class="card" style="padding-bottom:0">
+    <div class="cal-head">
+      <div class="navg"><span class="arr">‹</span><span class="rng">Mayıs 2026</span><span class="arr">›</span></div>
+      <div class="right-ctrl"><div class="seg"><b>Gün</b><b class="on">Hafta</b><b>Ay</b></div><span class="golink">Takvim →</span></div>
+    </div>
+    <div class="dow-row"><span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span></div>
+    <div class="multiweek">
+      <!-- hafta 1: 18-24 (bugün burada) -->
+      <div class="heat">
+        <div class="ht-day"><div class="dn">18</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day"><div class="dn">19</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day"><div class="dn">20</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day"><div class="dn">21</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day"><div class="dn">22</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day today"><div class="dn">23</div><div class="ht-bars"><div class="ht-bar" style="height:10px"></div><div class="ht-bar" style="height:18px"></div><div class="ht-bar" style="height:8px"></div><div class="ht-bar" style="height:8px"></div></div><div class="ht-cnt">4</div></div>
+        <div class="ht-day"><div class="dn">24</div><div class="ht-bars"><div class="ht-bar" style="height:8px"></div></div><div class="ht-cnt">1</div></div>
+      </div>
+      <!-- hafta 2: 25-31 -->
+      <div class="heat">
+        <div class="ht-day"><div class="dn">25</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day"><div class="dn">26</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day"><div class="dn">27</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day"><div class="dn">28</div><div class="ht-bars"><div class="ht-bar" style="height:8px"></div></div><div class="ht-cnt">1</div></div>
+        <div class="ht-day"><div class="dn">29</div><div class="ht-bars"><div class="ht-bar" style="height:8px"></div></div><div class="ht-cnt">1</div></div>
+        <div class="ht-day"><div class="dn">30</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day"><div class="dn">31</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+      </div>
+      <!-- hafta 3: 1-7 Haziran -->
+      <div class="heat">
+        <div class="ht-day dim"><div class="dn">1</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day dim"><div class="dn">2</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day dim"><div class="dn">3</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day dim"><div class="dn">4</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day dim"><div class="dn">5</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day dim"><div class="dn">6</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+        <div class="ht-day dim"><div class="dn">7</div><div class="ht-bars"></div><div class="ht-cnt zero">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAĞ -->
+  <div style="display:flex;flex-direction:column;gap:18px">
+    <div class="card"><div class="qa"><div class="qa-btn">+ Rezervasyon</div><div class="qa-btn">⊘ Gün kapat</div></div></div>
+    <div class="card recent">
+      <div class="recent-h"><div class="t">Son <em>rezervasyonlar</em></div><span class="golink">Tümü →</span></div>
+      <div class="daygroup">
+        <div class="dh">29 <em>Mayıs</em> <span class="c">· Cuma</span></div>
+        <div class="rmini"><div class="tm">11:00</div><div class="nm">hhhh</div><span class="pill ok">Onaylı</span></div>
+      </div>
+      <div class="daygroup">
+        <div class="dh">23 <em>Mayıs</em> <span class="c">· Cumartesi</span></div>
+        <div class="rmini"><div class="tm">13:00</div><div class="nm">poyrwz</div><span class="pill cancel">İptal</span></div>
+        <div class="rmini"><div class="tm">13:30</div><div class="nm">poyraz</div><span class="pill ok">Onaylı</span></div>
+        <div class="rmini"><div class="tm">17:00</div><div class="nm">poyraz</div><span class="pill ok">Onaylı</span></div>
+        <div class="rmini"><div class="tm">17:00</div><div class="nm">poyraz</div><span class="pill noshow">Gelmedi</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

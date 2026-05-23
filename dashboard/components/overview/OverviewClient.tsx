@@ -353,7 +353,7 @@ export function OverviewClient({
               }}
             >
               <div className="card-h" style={{ margin: 0 }}>
-                Bekleyen <em>{pendingCountWord}</em>
+                Bekleyen{" "}<em>{pendingCountWord}</em>
               </div>
               <button
                 type="button"
@@ -468,7 +468,7 @@ export function OverviewClient({
                 }}
               >
                 <div className="card-h" style={{ margin: 0 }}>
-                  Son <em>rezervasyonlar</em>
+                  Son{" "}<em>rezervasyonlar</em>
                 </div>
                 <button
                   type="button"

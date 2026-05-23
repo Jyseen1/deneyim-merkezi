@@ -91,8 +91,10 @@ export function OverviewCalendar({
       return { start: s, end: addDays(s, 1) };
     }
     if (mode === "week") {
+      // Embed çoklu hafta: anchor haftasından başla, 4 hafta ileri (=28 gün).
+      // Alt boşluğu doldurur, ay geçişlerini dim ile gösterir.
       const s = startOfWeekMon(anchor);
-      return { start: s, end: addDays(s, 7) };
+      return { start: s, end: addDays(s, 28) };
     }
     const s = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
     const e = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1);
@@ -147,16 +149,12 @@ export function OverviewCalendar({
 
   const title = useMemo(() => {
     if (mode === "day") {
-      return `${anchor.getDate()} ${MONTHS[anchor.getMonth()]} · ${TR_DAYS[anchor.getDay()]}`;
+      return `${anchor.getDate()} ${MONTHS[anchor.getMonth()]}`;
     }
     if (mode === "week") {
+      // Multi-week pencere için ilk haftanın ayı (referans dili)
       const s = startOfWeekMon(anchor);
-      const e = addDays(s, 6);
-      const same = s.getMonth() === e.getMonth();
-      if (same) {
-        return `${s.getDate()}–${e.getDate()} ${MONTHS[s.getMonth()]}`;
-      }
-      return `${s.getDate()} ${MONTHS[s.getMonth()]} – ${e.getDate()} ${MONTHS[e.getMonth()]}`;
+      return `${MONTHS[s.getMonth()]} ${s.getFullYear()}`;
     }
     return `${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
   }, [mode, anchor]);
@@ -190,7 +188,17 @@ export function OverviewCalendar({
           >
             ‹
           </button>
-          <span className="rng" style={{ fontSize: "13px" }}>
+          <span
+            className="rng"
+            style={{
+              fontSize: "13px",
+              /* Sabit genişlik — tarih metni değişse de ‹ › okları yer değiştirmesin */
+              width: "120px",
+              textAlign: "center",
+              flexShrink: 0,
+              whiteSpace: "nowrap",
+            }}
+          >
             {title}
           </span>
           <button
@@ -243,8 +251,9 @@ export function OverviewCalendar({
         />
       )}
       {mode === "week" && (
-        <EmbedWeek
+        <EmbedMultiWeek
           weekStart={startOfWeekMon(anchor)}
+          weekCount={4}
           items={items}
           blocks={blocks}
           recurring={recurring}
@@ -356,24 +365,33 @@ function EmbedDay({
 }
 
 // ─────────────────────────────────────────────────────────
-// Embed Week — 7 gün özet kart (referans HEAT)
+// Embed Multi-Week — N ardışık hafta + tek dow header (referans multiweek)
 // ─────────────────────────────────────────────────────────
 
-function EmbedWeek({
+function EmbedMultiWeek({
   weekStart,
+  weekCount,
   items,
   blocks,
   recurring,
   onDayClick,
 }: {
   weekStart: Date;
+  weekCount: number;
   items: Reservation[];
   blocks: SlotBlock[];
   recurring: RecurringRule[];
   onDayClick: (d: Date) => void;
 }) {
   const today = useMemo(() => new Date(), []);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  // İlk haftanın ayı; sonraki aya taşan günler dim
+  const anchorMonth = weekStart.getMonth();
+
+  const weeks = useMemo(() => {
+    return Array.from({ length: weekCount }, (_, wi) =>
+      Array.from({ length: 7 }, (_, di) => addDays(weekStart, wi * 7 + di)),
+    );
+  }, [weekStart, weekCount]);
 
   function dayResv(d: Date) {
     return items
@@ -396,78 +414,129 @@ function EmbedWeek({
     );
   }
 
+  // Global max — tüm haftalar üzerinden bar yüksekliği normalize edilsin
+  const allDays = weeks.flat();
   const maxGuests = Math.max(
     1,
-    ...days.flatMap((d) => dayResv(d).map((r) => r.groupSize)),
+    ...allDays.flatMap((d) => dayResv(d).map((r) => r.groupSize)),
   );
 
   return (
-    <div
-      className="heat"
-      style={{
-        gap: "8px",
-        padding: "12px",
-      }}
-    >
-      {days.map((d, i) => {
-        const isToday = isSameLocalDay(d, today);
-        const closed = dayFullClosed(d);
-        const resv = dayResv(d);
-        const dow = TR_DAYS_SHORT_MON[mondayIndex(d)];
-        return (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onDayClick(d)}
-            className={`ht-day${isToday ? " today" : ""}${closed ? " closed" : ""}`}
+    <div>
+      {/* dow header — tek sefer üstte */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7, 1fr)",
+          gap: "6px",
+          padding: "0 14px 6px",
+        }}
+      >
+        {TR_DAYS_SHORT_MON.map((d) => (
+          <span
+            key={d}
             style={{
-              border: "none",
-              fontFamily: "inherit",
-              width: "100%",
-              padding: "10px 6px",
+              textAlign: "center",
+              fontSize: "9px",
+              color: "var(--muted3)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
             }}
           >
-            <div className="dow">{dow}</div>
-            <div
-              className="dn"
-              style={{ fontSize: "18px", margin: "6px 0" }}
-            >
-              {d.getDate()}
-            </div>
-            <div
-              className="ht-bars"
-              style={{ height: "24px", gap: "2px" }}
-            >
-              {resv.slice(0, 5).map((r) => {
-                const h = Math.max(
-                  4,
-                  Math.round((r.groupSize / maxGuests) * 24),
-                );
-                return (
-                  <span
-                    key={r.id}
-                    className="ht-bar"
-                    style={{ width: "5px", height: `${h}px` }}
-                  />
-                );
-              })}
-            </div>
-            {closed ? (
-              <div className="ht-cnt closed" style={{ fontSize: "10px" }}>
-                Kapalı
-              </div>
-            ) : resv.length === 0 ? (
-              <div className="ht-cnt zero" style={{ fontSize: "10px" }}>
-                boş
-              </div>
-            ) : (
-              <div className="ht-cnt" style={{ fontSize: "10px" }}>
-                {resv.length} ziyaret
-              </div>
-            )}
-          </button>
-        );
-      })}
+            {d}
+          </span>
+        ))}
+      </div>
+
+      <div
+        style={{
+          padding: "0 14px 14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+        }}
+      >
+        {weeks.map((week, wi) => (
+          <div
+            key={wi}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, 1fr)",
+              gap: "6px",
+            }}
+          >
+            {week.map((d, di) => {
+              const isToday = isSameLocalDay(d, today);
+              const closed = dayFullClosed(d);
+              const resv = dayResv(d);
+              const dim = d.getMonth() !== anchorMonth;
+              const cls = [
+                "ht-day",
+                isToday && "today",
+                closed && "closed",
+                dim && "dim",
+              ]
+                .filter(Boolean)
+                .join(" ");
+              return (
+                <button
+                  key={di}
+                  type="button"
+                  onClick={() => onDayClick(d)}
+                  className={cls}
+                  style={{
+                    border: "none",
+                    fontFamily: "inherit",
+                    width: "100%",
+                    padding: "8px 6px",
+                    minHeight: "78px",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <div
+                    className="dn"
+                    style={{ fontSize: "16px", margin: "0 0 4px" }}
+                  >
+                    {d.getDate()}
+                  </div>
+                  <div
+                    className="ht-bars"
+                    style={{ height: "22px", gap: "2px", margin: "6px 0 4px", flex: 1 }}
+                  >
+                    {resv.slice(0, 5).map((r) => {
+                      const h = Math.max(
+                        3,
+                        Math.round((r.groupSize / maxGuests) * 22),
+                      );
+                      return (
+                        <span
+                          key={r.id}
+                          className="ht-bar"
+                          style={{ width: "6px", height: `${h}px` }}
+                        />
+                      );
+                    })}
+                  </div>
+                  {closed ? (
+                    <div className="ht-cnt closed" style={{ fontSize: "9px" }}>
+                      Kapalı
+                    </div>
+                  ) : resv.length === 0 ? (
+                    <div className="ht-cnt zero" style={{ fontSize: "9px" }}>
+                      —
+                    </div>
+                  ) : (
+                    <div className="ht-cnt" style={{ fontSize: "9px" }}>
+                      {resv.length}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
