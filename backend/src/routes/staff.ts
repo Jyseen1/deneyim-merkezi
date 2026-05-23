@@ -7,18 +7,21 @@ import { requireAdmin } from "../middleware/requireAdmin";
 
 const BCRYPT_COST = 10;
 
+// Google-only kullanıcılar password/waPhone vermez — ikisi de optional.
+// passwordHash null kalırsa şifreyle direkt login (POST /auth/login) yapılamaz,
+// sadece /auth/google-login üzerinden Google ile giriş mümkün olur.
 const createSchema = z.object({
   name: z.string().min(1).max(120),
   email: z.string().email(),
-  waPhone: z.string().min(5).max(32),
-  password: z.string().min(6).max(128),
+  waPhone: z.string().min(5).max(32).optional().nullable(),
+  password: z.string().min(6).max(128).optional(),
   role: z.enum(["admin", "staff"]).default("staff"),
 });
 
 const updateSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   email: z.string().email().optional(),
-  waPhone: z.string().min(5).max(32).optional(),
+  waPhone: z.string().min(5).max(32).optional().nullable(),
   password: z.string().min(6).max(128).optional(),
   role: z.enum(["admin", "staff"]).optional(),
   isActive: z.boolean().optional(),
@@ -28,7 +31,7 @@ function publicView(s: {
   id: string;
   name: string;
   email: string;
-  waPhone: string;
+  waPhone: string | null;
   role: string;
   isActive: boolean;
 }) {
@@ -67,10 +70,20 @@ const staffRoutes: FastifyPluginAsync = async (app) => {
           .send({ error: "validation_failed", details: parsed.error.flatten() });
       }
       const { name, email, waPhone, password, role } = parsed.data;
-      const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
+      // password verilmediyse passwordHash null — Google-only kullanıcı
+      const passwordHash = password
+        ? await bcrypt.hash(password, BCRYPT_COST)
+        : null;
       try {
         const created = await prisma.staff.create({
-          data: { name, email, waPhone, role, passwordHash, isActive: true },
+          data: {
+            name,
+            email,
+            waPhone: waPhone ?? null,
+            role,
+            passwordHash,
+            isActive: true,
+          },
           select: {
             id: true,
             name: true,
@@ -136,11 +149,16 @@ const staffRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  // Soft delete: isActive=false
+  // Soft delete: isActive=false. Kullanıcı kendini silemez (sistem dışı kalmasın).
   app.delete<{ Params: { id: string } }>(
     "/:id",
     { preHandler: [verifyJWT, requireAdmin] },
     async (req, reply) => {
+      if (req.user?.id === req.params.id) {
+        return reply
+          .code(403)
+          .send({ error: "Kendi hesabınızı pasif yapamazsınız" });
+      }
       try {
         await prisma.staff.update({
           where: { id: req.params.id },

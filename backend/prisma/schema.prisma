@@ -86,10 +86,14 @@ model RecurringBlock {
 model Staff {
   id           String  @id @default(uuid())
   name         String
-  waPhone      String  @unique
+  // waPhone artık opsiyonel — Google-only kullanıcılar telefon vermeyebilir.
+  // PostgreSQL'de NULL'lar unique kontrolünden muaftır (çoklu NULL serbest).
+  waPhone      String? @unique
   email        String  @unique
   role         String  @default("staff")
   isActive     Boolean @default(true)
+  // Google-only kullanıcılar için passwordHash null — şifreyle login yapamazlar,
+  // sadece NextAuth google-login endpoint'inden geçerler.
   passwordHash String?
 
   @@map("staff")

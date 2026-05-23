@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { useToast } from "@/hooks/useToast";
 import { useBackendToken } from "@/hooks/useBackendToken";
@@ -292,7 +293,12 @@ export default function SettingsPage() {
       </Section>
 
       {/* D) Sistem Bilgisi */}
-      <Section title="Sistem Bilgisi" fadeClass="fade-up-4" readonly>
+      {/* D) Ekip */}
+      <Section title="Ekip" fadeClass="fade-up-4">
+        <TeamSection />
+      </Section>
+
+      <Section title="Sistem Bilgisi" fadeClass="fade-up-5" readonly>
         <InfoRow label="Backend versiyon" value="1.0.0" />
         <InfoRow label="Node.js" value="v20.x" />
         <InfoRow label="Database" value="Neon PostgreSQL (Frankfurt)" />
@@ -596,6 +602,460 @@ function ShimmerForm({ rows }: { rows: number }) {
           />
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Ekip — Staff listesi + ekleme/pasifleştirme (admin yetkisi)
+// Veri kontratı: GET/POST/DELETE /api/v1/staff
+// ─────────────────────────────────────────────────────────
+
+type StaffItem = {
+  id: string;
+  name: string;
+  email: string;
+  waPhone: string | null;
+  role: string;
+  isActive: boolean;
+};
+
+function TeamSection() {
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
+  const token = useBackendToken();
+  const { show } = useToast();
+
+  const [items, setItems] = useState<StaffItem[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [addOpen, setAddOpen] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const res = await apiFetch<{ items: StaffItem[] }>(
+        "/staff",
+        {},
+        token,
+      );
+      setItems(res.items);
+    } catch (e) {
+      show(
+        `Ekip listelenemedi: ${e instanceof ApiError ? e.message : (e as Error).message}`,
+        "error",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [token, show]);
+
+  useEffect(() => {
+    if (token) load();
+  }, [token, load]);
+
+  async function softDelete(id: string) {
+    if (!window.confirm("Bu iş arkadaşını pasif yapmak istediğinize emin misiniz?"))
+      return;
+    setBusyId(id);
+    try {
+      await apiFetch(`/staff/${id}`, { method: "DELETE" }, token);
+      show("Pasif yapıldı", "info");
+      await load();
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? (e.body as { error?: string } | null)?.error ?? e.message
+          : (e as Error).message;
+      show(`İşlem başarısız: ${msg}`, "error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <>
+      <p
+        style={{
+          fontSize: "13px",
+          color: "var(--gx-text)",
+          margin: "0 0 14px",
+        }}
+      >
+        Google ile giriş yapabilecek kişileri yönet.{" "}
+        <span
+          className="font-serif font-italic"
+          style={{ color: "var(--gx-accent-light)" }}
+        >
+          Eklediğin
+        </span>{" "}
+        kişi de admin yetkisine sahip olur.
+      </p>
+
+      {loading || items === null ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div
+              key={i}
+              className="shimmer"
+              style={{ height: "54px", borderRadius: "12px" }}
+            />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <Note>
+          Henüz eklenmiş iş arkadaşı yok. Aşağıdaki butondan ekleyebilirsin.
+        </Note>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          {items.map((s) => {
+            const isSelf = currentUserId === s.id;
+            return (
+              <div
+                key={s.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "12px 14px",
+                  borderRadius: "11px",
+                  background: s.isActive
+                    ? "rgba(255,255,255,0.025)"
+                    : "rgba(255,255,255,0.015)",
+                  border: "1px solid var(--gx-border)",
+                  opacity: s.isActive ? 1 : 0.55,
+                }}
+              >
+                <div
+                  style={{
+                    width: "34px",
+                    height: "34px",
+                    borderRadius: "50%",
+                    background:
+                      "linear-gradient(135deg, var(--gx-accent), var(--gx-accent-light))",
+                    color: "#fff",
+                    fontWeight: 600,
+                    fontSize: "13px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                  aria-hidden
+                >
+                  {(s.name || s.email).slice(0, 1).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: "var(--gx-text)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {s.name}
+                    {isSelf && (
+                      <span
+                        style={{
+                          marginLeft: "8px",
+                          fontSize: "10px",
+                          padding: "2px 7px",
+                          borderRadius: "99px",
+                          background: "rgba(124,58,237,0.15)",
+                          color: "var(--gx-accent-light)",
+                          letterSpacing: "0.04em",
+                          fontWeight: 500,
+                        }}
+                      >
+                        sen
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--gx-text-muted)",
+                      marginTop: "2px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {s.email}
+                    {s.waPhone ? ` · ${s.waPhone}` : ""}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 600,
+                    letterSpacing: "0.04em",
+                    padding: "3px 9px",
+                    borderRadius: "99px",
+                    background: s.isActive
+                      ? "rgba(74,222,128,0.12)"
+                      : "rgba(161,161,170,0.15)",
+                    color: s.isActive
+                      ? "var(--gx-success)"
+                      : "var(--gx-text-hint)",
+                    border: `1px solid ${
+                      s.isActive
+                        ? "rgba(74,222,128,0.25)"
+                        : "var(--gx-border)"
+                    }`,
+                    flexShrink: 0,
+                  }}
+                >
+                  {s.isActive ? "Aktif" : "Pasif"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => softDelete(s.id)}
+                  disabled={isSelf || busyId === s.id || !s.isActive}
+                  title={
+                    isSelf
+                      ? "Kendi hesabınızı pasif yapamazsınız"
+                      : !s.isActive
+                        ? "Zaten pasif"
+                        : "Pasif yap"
+                  }
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    borderRadius: "8px",
+                    border: "1px solid rgba(239,68,68,0.3)",
+                    background: "transparent",
+                    color: "#f87171",
+                    cursor:
+                      isSelf || busyId === s.id || !s.isActive
+                        ? "not-allowed"
+                        : "pointer",
+                    opacity:
+                      isSelf || busyId === s.id || !s.isActive ? 0.4 : 1,
+                    flexShrink: 0,
+                    fontFamily: "var(--font-inter), system-ui",
+                  }}
+                >
+                  {busyId === s.id ? "..." : "Sil"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginTop: "14px",
+        }}
+      >
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => setAddOpen(true)}
+        >
+          + İş Arkadaşı Ekle
+        </button>
+      </div>
+
+      {addOpen && (
+        <AddStaffModal
+          token={token}
+          onClose={() => setAddOpen(false)}
+          onSuccess={(name) => {
+            show(`${name} eklendi`, "success");
+            setAddOpen(false);
+            load();
+          }}
+          onError={(msg) => show(msg, "error")}
+        />
+      )}
+    </>
+  );
+}
+
+function AddStaffModal({
+  token,
+  onClose,
+  onSuccess,
+  onError,
+}: {
+  token: string | undefined;
+  onClose: () => void;
+  onSuccess: (name: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  function validate(): string | null {
+    if (name.trim().length < 2) return "İsim en az 2 karakter olmalı";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+      return "Geçerli bir e-posta girin";
+    return null;
+  }
+
+  async function submit() {
+    const err = validate();
+    if (err) {
+      onError(err);
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiFetch(
+        "/staff",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: name.trim(),
+            email: email.trim().toLowerCase(),
+            // role'ü "admin" sabit gönderiyoruz — eklenen herkes admin
+            role: "admin",
+            // waPhone opsiyonel: boşsa gönderme
+            ...(phone.trim() ? { waPhone: phone.trim() } : {}),
+            // password gönderilmiyor — Google-only kullanıcı (passwordHash null)
+          }),
+        },
+        token,
+      );
+      onSuccess(name.trim());
+    } catch (e) {
+      let msg = "İşlem başarısız";
+      if (e instanceof ApiError) {
+        if (e.status === 409) msg = "Bu e-posta veya telefon zaten kayıtlı";
+        else if (e.status === 403) msg = "Bu işlem için yönetici yetkisi gerekli";
+        else {
+          const body = e.body as { error?: string } | null;
+          msg = body?.error ?? `Hata: ${e.message}`;
+        }
+      } else {
+        msg = (e as Error).message;
+      }
+      onError(msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.65)",
+        zIndex: 60,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: "440px",
+          background:
+            "linear-gradient(135deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02)), #0F0F18",
+          borderRadius: "16px",
+          padding: "22px",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
+          border: "1px solid rgba(124,58,237,0.30)",
+          color: "var(--gx-text)",
+        }}
+      >
+        <h3
+          className="font-display"
+          style={{
+            fontSize: "18px",
+            fontWeight: 600,
+            margin: 0,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          İş Arkadaşı Ekle
+        </h3>
+        <p
+          style={{
+            fontSize: "12px",
+            color: "var(--gx-text-muted)",
+            margin: "4px 0 18px",
+          }}
+        >
+          Google ile bu e-postadan giriş yapabilen yeni bir yönetici.
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <Field label="İsim">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ad Soyad"
+              style={inputStyle()}
+              autoFocus
+            />
+          </Field>
+          <Field label="Telefon (opsiyonel)">
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+90 5XX XXX XX XX"
+              style={inputStyle()}
+            />
+          </Field>
+          <Field label="Gmail">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ornek@gmail.com"
+              style={inputStyle()}
+              autoComplete="off"
+            />
+          </Field>
+        </div>
+
+        <div
+          style={{
+            marginTop: "20px",
+            display: "flex",
+            gap: "8px",
+            justifyContent: "flex-end",
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="btn-ghost"
+          >
+            Vazgeç
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={busy}
+            className="btn-primary"
+          >
+            {busy ? "Ekleniyor..." : "Ekle"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
