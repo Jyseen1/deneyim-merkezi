@@ -129,6 +129,12 @@ export function OverviewClient({
   }
 
   useEffect(() => {
+    // Token (backendToken) gelmeden hiç başlama — useSession ilk render'da
+    // undefined döner, ardından session hidrate olunca tekrar tetiklenir.
+    // Önceki sürüm boş dependency ile mount'ta çalışıyordu; loadRecent token
+    // olmadan 401 alıp boş array bırakıyor, sonraki tick 30sn ileride kalıyordu.
+    if (!token) return;
+
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
@@ -138,15 +144,16 @@ export function OverviewClient({
       const delay = errorRef.current ? POLL_MS_WHEN_DOWN : POLL_MS_WHEN_OK;
       timer = setTimeout(tick, delay);
     };
-    timer = setTimeout(tick, errorRef.current ? POLL_MS_WHEN_DOWN : POLL_MS_WHEN_OK);
-    // İlk anlık çekim
-    loadRecent();
+    // İlk fetch'i hemen yap (artık token guaranteed) + polling'i başlat
+    void tick();
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
+    // loadStats/loadRecent intentionally listede yok — `tokenRef.current`
+    // kullanırlar, token değişince useEffect zaten yeniden çalışıyor.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [token]);
 
   useRealtime({
     onNewReservation: () => {
