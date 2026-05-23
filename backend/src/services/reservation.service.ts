@@ -7,12 +7,14 @@ import {
   sendApprovalRequest,
   sendConfirmation,
   sendRejection,
+  sendVisitorReschedule as sendWAReschedule,
 } from "./whatsapp.service";
 import {
   editStaffMessage as editTelegramStaffMessage,
   sendStaffApprovalRequest as sendTelegramStaffApproval,
   sendVisitorConfirmation as sendTelegramConfirmation,
   sendVisitorRejection as sendTelegramRejection,
+  sendVisitorReschedule as sendTelegramReschedule,
 } from "./telegram.service";
 import {
   reminderQueue,
@@ -538,6 +540,125 @@ export async function cancelReservation(
     reservationId,
     status: updated.status,
   });
+
+  return updated;
+}
+
+// Yetkili tarafindan rezervasyon tarih/saat degisikligi. Slot cakisma
+// kontrolu yapilir (kendi mevcut slotunu disar tutarak). Status korunur
+// (PENDING_APPROVAL -> PENDING_APPROVAL, APPROVED -> APPROVED). Eski reminder
+// job iptal edilir, gerekirse yeni job kurulur. Ziyaretciye kanaldan bildirim.
+export async function rescheduleReservation(
+  reservationId: string,
+  newDate: string,
+  newStartTime: string,
+  newDurationMinutes: number | undefined,
+): Promise<ReservationWithVisitor> {
+  const updated = await prisma.$transaction(async (tx) => {
+    const existing = await tx.reservation.findUnique({
+      where: { id: reservationId },
+      select: {
+        status: true,
+        durationMinutes: true,
+        visitDate: true,
+        startTime: true,
+      },
+    });
+    if (!existing) throw new Error("Rezervasyon bulunamadi");
+    // Sadece aktif rezervasyonlar reschedule edilebilir.
+    if (!["PENDING_APPROVAL", "APPROVED"].includes(existing.status)) {
+      throw new ReservationAlreadyProcessedError(existing.status);
+    }
+
+    const duration = newDurationMinutes ?? existing.durationMinutes;
+    const available = await isSlotAvailable(
+      newDate,
+      newStartTime,
+      duration,
+      tx,
+      reservationId, // kendi mevcut slotunu cakisma sayma
+    );
+    if (!available) {
+      const alternatives = await getAvailableSlots(newDate, duration, tx);
+      throw new SlotUnavailableError(
+        "Yeni slot artik musait degil",
+        alternatives.slice(0, MAX_ALTERNATIVES),
+      );
+    }
+
+    return tx.reservation.update({
+      where: { id: reservationId },
+      data: {
+        visitDate: new Date(`${newDate}T00:00:00.000Z`),
+        startTime: newStartTime,
+        durationMinutes: duration,
+      },
+      include: { visitor: true },
+    });
+  });
+
+  // Real-time event
+  emitAppEvent({
+    type: "reservation_updated",
+    reservationId: updated.id,
+    status: updated.status,
+    visitorName: updated.visitor.name,
+  });
+
+  // Telegram staff approval mesajini guncelle (tarih/saat icerigi degisti).
+  await syncStaffApprovalMessage(updated);
+
+  // Reminder/timeout job'larini sifirla, APPROVED ise yeniden planla.
+  await Promise.all([
+    removeJobSafe(reminderQueue, reminderJobId(reservationId)),
+  ]);
+  if (updated.status === "APPROVED") {
+    const settings = await getSettings();
+    const reminderHours = settings.reminderHours ?? ENV_REMINDER_HOURS;
+    const visitMs =
+      updated.visitDate.getTime() +
+      timeToMinutes(updated.startTime) * 60 * 1000;
+    const reminderMs = visitMs - reminderHours * 60 * 60 * 1000;
+    const delay = Math.max(0, reminderMs - Date.now());
+    try {
+      await reminderQueue.add(
+        "send-reminder",
+        { reservationId },
+        {
+          jobId: reminderJobId(reservationId),
+          delay,
+          removeOnComplete: true,
+          removeOnFail: 100,
+        },
+      );
+    } catch (err) {
+      logJobError("reservation", "reschedule reminder ekleme hata", {
+        reservationId,
+        err: (err as Error).message,
+      });
+    }
+  }
+
+  // Ziyaretciye yeni tarih/saat bildirimi (kaynak kanaldan).
+  if (updated.source === "telegram" && updated.telegramChatId) {
+    try {
+      await sendTelegramReschedule(updated.telegramChatId, updated);
+    } catch (err) {
+      logJobError("reservation", "telegram reschedule notify hata", {
+        reservationId,
+        err: (err as Error).message,
+      });
+    }
+  } else if (process.env.WA_ACCESS_TOKEN) {
+    try {
+      await sendWAReschedule(updated);
+    } catch (err) {
+      logJobError("reservation", "wa reschedule notify hata", {
+        reservationId,
+        err: (err as Error).message,
+      });
+    }
+  }
 
   return updated;
 }

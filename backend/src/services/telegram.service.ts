@@ -301,6 +301,24 @@ export async function sendVisitorConfirmation(
   return r?.ok ? "sent" : null;
 }
 
+export async function sendVisitorReschedule(
+  chatId: number | string,
+  reservation: ReservationWithVisitor,
+): Promise<string | null> {
+  const text = [
+    `Merhaba ${tgEscape(reservation.visitor.name)},`,
+    "",
+    "🔄 Rezervasyonunuz *güncellendi*.",
+    `📅 Yeni tarih: ${fmtVisitDate(reservation.visitDate)}`,
+    `🕒 Yeni saat: ${reservation.startTime}`,
+    `⏱ Süre: ${reservation.durationMinutes} dk`,
+    "",
+    "Bu değişiklik konusunda sorularınız varsa cevap verebilirsiniz.",
+  ].join("\n");
+  const r = await sendMessage(chatId, text);
+  return r?.ok ? "sent" : null;
+}
+
 export async function sendVisitorRejection(
   chatId: number | string,
   reservation: ReservationWithVisitor,

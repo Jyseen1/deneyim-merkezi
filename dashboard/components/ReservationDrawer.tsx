@@ -137,6 +137,7 @@ export function ReservationDrawer({
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<Action | null>(null);
   const [resending, setResending] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
 
   async function resendNotification() {
     if (!data) return;
@@ -199,6 +200,7 @@ export function ReservationDrawer({
     setData(null);
     setHistory(null);
     setResending(false);
+    setRescheduleOpen(false);
     apiFetch<Reservation>(`/reservations/${reservationId}`, {}, token)
       .then((r) => {
         if (!cancelled) setData(r);
@@ -576,11 +578,25 @@ export function ReservationDrawer({
               padding: "14px 22px",
               display: "flex",
               gap: "8px",
+              flexWrap: "wrap",
               justifyContent: "flex-end",
               borderTop: "1px solid #ede9fe",
               background: "#faf5ff",
             }}
           >
+            {/* Reschedule sadece aktif rezervasyonlarda (pending/approved) */}
+            {(data.status === "PENDING_APPROVAL" ||
+              data.status === "APPROVED") && (
+              <button
+                type="button"
+                onClick={() => setRescheduleOpen(true)}
+                disabled={busy !== null}
+                className="btn-ghost"
+                title="Rezervasyonu yeni tarih/saate taşı"
+              >
+                Tarih/Saat Değiştir
+              </button>
+            )}
             {data.status === "PENDING_APPROVAL" && (
               <>
                 <button
@@ -632,6 +648,317 @@ export function ReservationDrawer({
           </div>
         )}
       </aside>
+
+      {rescheduleOpen && data && (
+        <RescheduleModal
+          reservation={data}
+          token={token}
+          onClose={() => setRescheduleOpen(false)}
+          onSuccess={async (msg) => {
+            show(msg, "success");
+            setRescheduleOpen(false);
+            // Drawer'i tazele
+            const fresh = await apiFetch<Reservation>(
+              `/reservations/${data.id}`,
+              {},
+              token,
+            ).catch(() => null);
+            if (fresh) setData(fresh);
+            onMutated();
+          }}
+          onError={(msg) => show(msg, "error")}
+        />
+      )}
     </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Reschedule modal — yeni tarih + musait slot secimi
+// ─────────────────────────────────────────────────────────
+type AvailableSlot = { startTime: string; endTime: string };
+type SlotsResp = { date: string; slots: AvailableSlot[] };
+
+function RescheduleModal({
+  reservation,
+  token,
+  onClose,
+  onSuccess,
+  onError,
+}: {
+  reservation: Reservation;
+  token: string | undefined;
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const initialDate = (reservation.visitDate as string).slice(0, 10);
+  const [date, setDate] = useState(initialDate);
+  const [slots, setSlots] = useState<AvailableSlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [selected, setSelected] = useState<AvailableSlot | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSlotsLoading(true);
+    setSelected(null);
+    apiFetch<SlotsResp>(
+      `/slots/available?date=${date}&duration=${reservation.durationMinutes}`,
+      {},
+      token,
+    )
+      .then((r) => {
+        if (cancelled) return;
+        // Mevcut zaman ayni gun secildiyse onu da liste'ye ekleyelim,
+        // backend isSlotAvailable kendi rezervasyonunu disliyor.
+        let list = r.slots;
+        if (date === initialDate) {
+          const has = list.some((s) => s.startTime === reservation.startTime);
+          if (!has) {
+            const endMin =
+              parseInt(reservation.startTime.slice(0, 2)) * 60 +
+              parseInt(reservation.startTime.slice(3)) +
+              reservation.durationMinutes;
+            const endH = String(Math.floor(endMin / 60)).padStart(2, "0");
+            const endM = String(endMin % 60).padStart(2, "0");
+            list = [
+              { startTime: reservation.startTime, endTime: `${endH}:${endM}` },
+              ...list,
+            ].sort((a, b) => a.startTime.localeCompare(b.startTime));
+          }
+        }
+        setSlots(list);
+      })
+      .catch(() => {
+        if (!cancelled) setSlots([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSlotsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [date, reservation.durationMinutes, reservation.startTime, initialDate, token]);
+
+  async function submit() {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await apiFetch(
+        `/reservations/${reservation.id}/reschedule`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            visitDate: date,
+            startTime: selected.startTime,
+            durationMinutes: reservation.durationMinutes,
+          }),
+        },
+        token,
+      );
+      onSuccess(`Rezervasyon ${date} ${selected.startTime} olarak güncellendi`);
+    } catch (e) {
+      let msg = "Güncelleme başarısız";
+      if (e instanceof ApiError) {
+        const body = e.body as { error?: string; message?: string } | null;
+        if (e.status === 409 && body?.error === "slot_unavailable") {
+          msg = body.message ?? "Bu slot artık müsait değil";
+        } else if (e.status === 409 && body?.error === "already_processed") {
+          msg = body.message ?? "Bu rezervasyon değiştirilemez";
+        } else if (e.status === 403) {
+          msg = "Bu işlem için yönetici yetkisi gerekli";
+        } else {
+          msg = body?.message ?? body?.error ?? `Hata: HTTP ${e.status}`;
+        }
+      } else {
+        msg = (e as Error).message;
+      }
+      onError(`Tarih/Saat değiştirilemedi: ${msg}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(30,27,75,0.5)",
+        zIndex: 70,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: "460px",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          background: "#ffffff",
+          borderRadius: "16px",
+          padding: "22px",
+          boxShadow: "0 24px 48px rgba(30,27,75,0.25)",
+          border: "1px solid #ede9fe",
+        }}
+      >
+        <h3
+          className="gradient-text"
+          style={{
+            fontSize: "18px",
+            fontWeight: 700,
+            margin: 0,
+            letterSpacing: "-0.3px",
+          }}
+        >
+          Tarih/Saat Değiştir
+        </h3>
+        <p style={{ fontSize: "12px", color: "#818cf8", margin: "4px 0 16px" }}>
+          Mevcut: {initialDate} · {reservation.startTime} (
+          {reservation.durationMinutes} dk)
+        </p>
+
+        <label
+          style={{
+            display: "block",
+            fontSize: "10px",
+            color: "#818cf8",
+            fontWeight: 600,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            marginBottom: "6px",
+          }}
+        >
+          Yeni Tarih
+        </label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "9px 12px",
+            borderRadius: "10px",
+            border: "1px solid #ede9fe",
+            fontSize: "13px",
+            outline: "none",
+            fontFamily: "inherit",
+            boxSizing: "border-box",
+          }}
+        />
+
+        <div
+          style={{
+            marginTop: "16px",
+            fontSize: "10px",
+            color: "#818cf8",
+            fontWeight: 600,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            marginBottom: "8px",
+          }}
+        >
+          Müsait Saatler
+        </div>
+        {slotsLoading ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+              gap: "6px",
+            }}
+          >
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="shimmer"
+                style={{ height: "36px", borderRadius: "8px" }}
+              />
+            ))}
+          </div>
+        ) : slots.length === 0 ? (
+          <div
+            style={{
+              padding: "14px",
+              textAlign: "center",
+              fontSize: "12px",
+              color: "#a5b4fc",
+              background: "rgba(245,243,255,0.6)",
+              border: "1px dashed #c4b5fd",
+              borderRadius: "10px",
+            }}
+          >
+            Bu gün için müsait saat bulunmuyor.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+              gap: "6px",
+            }}
+          >
+            {slots.map((s) => {
+              const active =
+                selected?.startTime === s.startTime &&
+                selected?.endTime === s.endTime;
+              const isCurrent =
+                date === initialDate && s.startTime === reservation.startTime;
+              return (
+                <button
+                  key={`${s.startTime}-${s.endTime}`}
+                  type="button"
+                  onClick={() => setSelected(s)}
+                  style={{
+                    padding: "10px 6px",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: active ? "#4338ca" : "#ede9fe",
+                    color: active ? "#e0e7ff" : "#4338ca",
+                    border: active
+                      ? "1px solid #4338ca"
+                      : isCurrent
+                        ? "1px dashed #4338ca"
+                        : "1px solid transparent",
+                  }}
+                  title={isCurrent ? "Mevcut saat" : undefined}
+                >
+                  {s.startTime}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div
+          style={{
+            marginTop: "20px",
+            display: "flex",
+            gap: "8px",
+            justifyContent: "flex-end",
+          }}
+        >
+          <button onClick={onClose} disabled={busy} className="btn-ghost">
+            Vazgeç
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy || !selected}
+            className="btn-primary"
+            style={{ opacity: !selected ? 0.5 : 1 }}
+          >
+            {busy ? "Kaydediliyor..." : "Yeni Saate Taşı"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -79,6 +79,8 @@ export async function isSlotAvailable(
   startTime: string,
   durationMinutes: number,
   db: Tx = prisma,
+  // Reschedule akisinda rezervasyonun kendi mevcut slotunu sayma.
+  excludeReservationId?: string,
 ): Promise<boolean> {
   const visitDate = parseDate(date);
   const startMin = timeToMinutes(startTime);
@@ -123,6 +125,7 @@ export async function isSlotAvailable(
     where: {
       visitDate,
       status: { in: ["PENDING_APPROVAL", "APPROVED"] },
+      ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
     },
     select: { startTime: true, durationMinutes: true },
   });

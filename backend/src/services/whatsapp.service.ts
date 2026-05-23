@@ -152,6 +152,32 @@ export async function sendApprovalRequest(
   return waMessageId;
 }
 
+// Reschedule (saat/tarih degisiklik) bildirimi - 24h pencere icindeki
+// ziyaretciler icin free-form text. Acik pencere yoksa Meta reddeder ve
+// null doner; sessiz logla.
+export async function sendVisitorReschedule(
+  reservation: ReservationWithVisitor,
+): Promise<string | null> {
+  const phone = reservation.visitor.phone;
+  if (!phone) return null;
+  const body = [
+    `Merhaba ${reservation.visitor.name},`,
+    "",
+    "Rezervasyonunuz güncellendi:",
+    `Yeni tarih: ${formatDate(reservation.visitDate)}`,
+    `Yeni saat: ${reservation.startTime}`,
+    `Süre: ${reservation.durationMinutes} dk`,
+    "",
+    "Herhangi bir sorunuz olursa cevap verebilirsiniz.",
+  ].join("\n");
+  return postMessage({
+    messaging_product: "whatsapp",
+    to: normalizePhone(phone),
+    type: "text",
+    text: { body },
+  });
+}
+
 export async function sendTestMessage(
   toPhone: string,
 ): Promise<{ ok: boolean; waMessageId: string | null; reason?: string }> {

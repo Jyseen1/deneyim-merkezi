@@ -8,6 +8,7 @@ import {
   createReservation,
   markNoShow,
   rejectReservation,
+  rescheduleReservation,
   sendStaffApprovalNotifications,
 } from "../services/reservation.service";
 import {
@@ -89,6 +90,12 @@ const statusBodySchema = z.object({
   action: z.enum(["approve", "reject", "cancel", "no_show"]),
   reason: z.string().max(500).optional(),
   staffId: z.string().min(1).optional(),
+});
+
+const rescheduleBodySchema = z.object({
+  visitDate: isoDate,
+  startTime: hhmm,
+  durationMinutes: z.number().int().positive().max(600).optional(),
 });
 
 const reservationRoutes: FastifyPluginAsync = async (app) => {
@@ -273,6 +280,52 @@ const reservationRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(500).send({ error: "internal_error" });
     }
   });
+
+  // Yetkili tarafindan tarih/saat degisikligi. Slot cakisma kontrolu yapilir,
+  // status korunur, ziyaretciye bildirim gider.
+  app.patch<{ Params: { id: string } }>(
+    "/:id/reschedule",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => {
+      const parsed = rescheduleBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send({
+          error: "validation_failed",
+          details: parsed.error.flatten(),
+        });
+      }
+      try {
+        const updated = await rescheduleReservation(
+          req.params.id,
+          parsed.data.visitDate,
+          parsed.data.startTime,
+          parsed.data.durationMinutes,
+        );
+        return reply.send(updated);
+      } catch (err) {
+        if (err instanceof SlotUnavailableError) {
+          return reply.code(409).send({
+            error: "slot_unavailable",
+            message: err.message,
+            available_slots: err.alternatives,
+          });
+        }
+        if (err instanceof ReservationAlreadyProcessedError) {
+          return reply.code(409).send({
+            error: "already_processed",
+            message: err.message,
+            current_status: err.currentStatus,
+          });
+        }
+        const code = (err as { code?: string }).code;
+        if (code === "P2025") {
+          return reply.code(404).send({ error: "not_found" });
+        }
+        req.log.error({ err }, "reschedule hata");
+        return reply.code(500).send({ error: "internal_error" });
+      }
+    },
+  );
 
   // Yetkili bildirimini tekrar dene. PENDING_APPROVAL disindaki statuslarda
   // anlam yok (zaten islenmis). requireAdmin korur — sadece adminler retry.
