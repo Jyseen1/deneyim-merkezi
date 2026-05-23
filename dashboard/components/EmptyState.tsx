@@ -18,22 +18,22 @@ type ToneStyles = {
 
 const TONES: Record<EmptyStateTone, ToneStyles> = {
   default: {
-    iconBg: "#ede9fe",
-    iconColor: "#4338ca",
-    titleColor: "#1e1b4b",
-    descColor: "#818cf8",
+    iconBg: "rgba(124,58,237,0.15)",
+    iconColor: "var(--gx-accent-light)",
+    titleColor: "var(--gx-text)",
+    descColor: "var(--gx-text-muted)",
   },
   positive: {
-    iconBg: "#d1fae5",
-    iconColor: "#065f46",
-    titleColor: "#065f46",
-    descColor: "#10b981",
+    iconBg: "rgba(74,222,128,0.15)",
+    iconColor: "var(--gx-success)",
+    titleColor: "var(--gx-text)",
+    descColor: "var(--gx-text-muted)",
   },
   muted: {
-    iconBg: "#f1f5f9",
-    iconColor: "#64748b",
-    titleColor: "#334155",
-    descColor: "#94a3b8",
+    iconBg: "rgba(255,255,255,0.05)",
+    iconColor: "var(--gx-text-hint)",
+    titleColor: "var(--gx-text-muted)",
+    descColor: "var(--gx-text-hint)",
   },
 };
 
@@ -113,14 +113,15 @@ export function EmptyState({
           onClick={action.onClick}
           style={{
             marginTop: "14px",
-            padding: "8px 18px",
-            borderRadius: "99px",
-            border: "1px solid #c4b5fd",
-            background: "#ede9fe",
-            color: "#4338ca",
+            padding: "9px 20px",
+            borderRadius: "12px",
+            border: "none",
+            background: "var(--gx-gradient)",
+            color: "#ffffff",
             fontWeight: 600,
             fontSize: "12px",
             cursor: "pointer",
+            boxShadow: "0 4px 14px rgba(124,58,237,0.30)",
           }}
         >
           {action.label}

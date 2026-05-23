@@ -104,9 +104,9 @@ function StatCard({
   loading,
   accent,
 }: StatCardProps) {
-  const numberColor = accent?.numberColor ?? "#1e1b4b";
-  const iconBg = accent?.iconBg ?? "#ede9fe";
-  const iconColor = accent?.iconColor ?? "#4338ca";
+  const numberColor = accent?.numberColor ?? "var(--gx-text)";
+  const iconBg = accent?.iconBg ?? "rgba(124,58,237,0.18)";
+  const iconColor = accent?.iconColor ?? "var(--gx-accent-light)";
 
   return (
     <div
@@ -140,10 +140,10 @@ function StatCard({
           <div
             style={{
               fontSize: "11px",
-              color: "#818cf8",
+              color: "var(--gx-text-muted)",
               letterSpacing: "0.05em",
               textTransform: "uppercase",
-              fontWeight: 500,
+              fontWeight: 600,
               lineHeight: 1.3,
             }}
           >
@@ -191,7 +191,7 @@ function StatCard({
                   fontSize: "16px",
                   fontWeight: 500,
                   marginLeft: "3px",
-                  color: "#818cf8",
+                  color: "var(--gx-text-muted)",
                   letterSpacing: 0,
                 }}
               >
@@ -205,7 +205,7 @@ function StatCard({
             style={{
               marginTop: "4px",
               fontSize: "10px",
-              color: "#a5b4fc",
+              color: "var(--gx-text-hint)",
               fontWeight: 500,
             }}
           >
@@ -315,8 +315,8 @@ export function HomeStats({
           className="fade-up"
           style={{
             marginTop: "20px",
-            background: "#fef3c7",
-            border: "1px solid #fde68a",
+            background: "rgba(239,68,68,0.10)",
+            border: "1px solid rgba(239,68,68,0.30)",
             borderRadius: "14px",
             padding: "14px 18px",
             display: "flex",
@@ -325,12 +325,12 @@ export function HomeStats({
             gap: "12px",
           }}
         >
-          <div style={{ fontSize: "13px", color: "#92400e" }}>
+          <div style={{ fontSize: "13px", color: "var(--gx-danger)" }}>
             <div style={{ fontWeight: 600 }}>Backend bağlantısı kurulamadı</div>
-            <div style={{ fontSize: "11px", opacity: 0.85, marginTop: "2px", wordBreak: "break-all" }}>
+            <div style={{ fontSize: "11px", opacity: 0.85, marginTop: "2px", wordBreak: "break-all", color: "var(--gx-text-muted)" }}>
               {errorMsg}
             </div>
-            <div style={{ fontSize: "11px", opacity: 0.85, marginTop: "4px" }}>
+            <div style={{ fontSize: "11px", opacity: 0.7, marginTop: "4px", color: "var(--gx-text-muted)" }}>
               Veriler 4 saniyede bir tekrar denenir. Backend ayağa kalkınca otomatik güncellenir.
             </div>
           </div>
@@ -340,12 +340,12 @@ export function HomeStats({
             style={{
               flexShrink: 0,
               fontSize: "11px",
-              fontWeight: 500,
-              padding: "6px 14px",
+              fontWeight: 600,
+              padding: "7px 14px",
               borderRadius: "99px",
-              background: "#ffffff",
-              border: "1px solid #fde68a",
-              color: "#92400e",
+              background: "var(--gx-surface)",
+              border: "1px solid rgba(239,68,68,0.30)",
+              color: "var(--gx-danger)",
               cursor: refreshing ? "not-allowed" : "pointer",
               opacity: refreshing ? 0.5 : 1,
             }}
@@ -372,9 +372,9 @@ export function HomeStats({
           fadeClass="fade-up-2"
           loading={showShimmer}
           accent={{
-            numberColor: "#d97706",
-            iconBg: "#fef3c7",
-            iconColor: "#d97706",
+            numberColor: "var(--gx-accent-light)",
+            iconBg: "rgba(124,58,237,0.20)",
+            iconColor: "var(--gx-accent-light)",
           }}
           trend={stats.pending > 0 ? "aksiyon gerekli" : "tüm onaylar tamam"}
         />
@@ -411,8 +411,8 @@ export function HomeStats({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            borderBottom: "1px solid rgba(209,196,255,0.4)",
-            borderLeft: "4px solid #4338ca",
+            borderBottom: "1px solid var(--gx-border)",
+            borderLeft: "3px solid var(--gx-accent-light)",
             borderTopLeftRadius: 0,
             borderBottomLeftRadius: 0,
           }}
@@ -421,7 +421,7 @@ export function HomeStats({
             style={{
               fontSize: "14px",
               fontWeight: 600,
-              color: "#1e1b4b",
+              color: "var(--gx-text)",
               letterSpacing: "-0.01em",
               margin: 0,
             }}

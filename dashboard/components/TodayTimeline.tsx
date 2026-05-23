@@ -23,28 +23,28 @@ function slotVisual(status: SlotStatus): React.CSSProperties {
   switch (status) {
     case "booked":
       return {
-        background: "#4338ca",
-        color: "#e0e7ff",
-        border: "1px solid #4338ca",
+        background: "var(--gx-gradient)",
+        color: "#ffffff",
+        border: "1px solid var(--gx-accent)",
       };
     case "pending":
       return {
-        background: "#fbbf24",
-        color: "#78350f",
-        border: "1px solid #f59e0b",
+        background: "rgba(124,58,237,0.18)",
+        color: "var(--gx-accent-light)",
+        border: "1px solid rgba(124,58,237,0.40)",
       };
     case "closed":
       return {
-        background: "rgba(239,68,68,0.12)",
-        color: "#991b1b",
-        border: "1px solid rgba(239,68,68,0.3)",
+        background: "rgba(239,68,68,0.14)",
+        color: "var(--gx-danger)",
+        border: "1px solid rgba(239,68,68,0.35)",
       };
     case "available":
     default:
       return {
-        background: "rgba(255,255,255,0.5)",
-        color: "#4338ca",
-        border: "1px solid #c4b5fd",
+        background: "var(--gx-surface)",
+        color: "var(--gx-text-muted)",
+        border: "1px solid var(--gx-border)",
       };
   }
 }
@@ -122,14 +122,14 @@ export function TodayTimeline() {
           style={{
             fontSize: "14px",
             fontWeight: 600,
-            color: "#1e1b4b",
+            color: "var(--gx-text)",
             margin: 0,
             letterSpacing: "-0.01em",
           }}
         >
           Bugünkü Slotlar
         </h2>
-        <span style={{ fontSize: "11px", color: "#a5b4fc" }}>09:00 – 19:00</span>
+        <span style={{ fontSize: "11px", color: "var(--gx-text-hint)" }}>09:00 – 19:00</span>
       </header>
 
       {loading || slots === null ? (
@@ -154,7 +154,7 @@ export function TodayTimeline() {
             padding: "20px 0",
             textAlign: "center",
             fontSize: "13px",
-            color: "#a5b4fc",
+            color: "var(--gx-text-muted)",
           }}
         >
           Bugün için rezervasyon bulunmuyor.
@@ -220,7 +220,7 @@ export function TodayTimeline() {
               style={{
                 marginTop: "10px",
                 fontSize: "11px",
-                color: "#a5b4fc",
+                color: "var(--gx-text-hint)",
                 textAlign: "center",
               }}
             >
@@ -234,13 +234,13 @@ export function TodayTimeline() {
               display: "flex",
               gap: "14px",
               fontSize: "11px",
-              color: "#818cf8",
+              color: "var(--gx-text-muted)",
             }}
           >
-            <LegendDot color="#4338ca" label="Dolu" />
-            <LegendDot color="#fbbf24" label="Bekliyor" />
-            <LegendDot color="#c4b5fd" outline label="Müsait" />
-            <LegendDot color="#ef4444" outline label="Kapalı" />
+            <LegendDot color="#7C3AED" label="Dolu" />
+            <LegendDot color="#8B5CF6" outline label="Bekliyor" />
+            <LegendDot color="#71717A" outline label="Müsait" />
+            <LegendDot color="#EF4444" outline label="Kapalı" />
           </div>
         </>
       )}

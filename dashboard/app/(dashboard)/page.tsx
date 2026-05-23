@@ -42,7 +42,7 @@ export default async function DashboardHome() {
           <p
             style={{
               fontSize: "13px",
-              color: "#818cf8",
+              color: "var(--gx-text-muted)",
               margin: "4px 0 0",
             }}
           >
@@ -52,14 +52,14 @@ export default async function DashboardHome() {
 
         <span
           style={{
-            background: "rgba(67,56,202,0.08)",
-            border: "1px solid #ede9fe",
-            padding: "6px 14px",
+            background: "var(--gx-surface)",
+            border: "1px solid var(--gx-border-accent)",
+            padding: "7px 16px",
             borderRadius: "99px",
             fontSize: "12px",
-            color: "#4338ca",
-            fontWeight: 500,
-            letterSpacing: "0.01em",
+            color: "var(--gx-accent-light)",
+            fontWeight: 600,
+            letterSpacing: "0.02em",
             whiteSpace: "nowrap",
             flexShrink: 0,
           }}

@@ -76,10 +76,10 @@ export function PendingApprovalRow({
         justifyContent: "space-between",
         gap: "12px",
         transition: "background 0.15s ease",
-        borderBottom: "1px solid rgba(237,233,254,0.6)",
+        borderBottom: "1px solid var(--gx-border)",
       }}
       onMouseOver={(e) =>
-        (e.currentTarget.style.background = "rgba(245,243,255,0.8)")
+        (e.currentTarget.style.background = "rgba(124,58,237,0.06)")
       }
       onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
     >
@@ -98,15 +98,15 @@ export function PendingApprovalRow({
             width: "36px",
             height: "36px",
             borderRadius: "50%",
-            background: "#ede9fe",
-            color: "#4338ca",
-            fontWeight: 600,
+            background: "var(--gx-gradient)",
+            color: "#ffffff",
+            fontWeight: 700,
             fontSize: "12px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
-            boxShadow: "0 0 0 2px #fff, 0 0 0 4px rgba(99,102,241,0.2)",
+            boxShadow: "0 4px 12px rgba(124,58,237,0.35)",
           }}
         >
           {initialsOf(name)}
@@ -116,8 +116,8 @@ export function PendingApprovalRow({
           <div
             style={{
               fontSize: "13px",
-              fontWeight: 500,
-              color: "#1e1b4b",
+              fontWeight: 600,
+              color: "var(--gx-text)",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -128,7 +128,7 @@ export function PendingApprovalRow({
           <div
             style={{
               fontSize: "11px",
-              color: "#818cf8",
+              color: "var(--gx-text-muted)",
               marginTop: "2px",
             }}
           >
@@ -139,9 +139,9 @@ export function PendingApprovalRow({
               style={{
                 fontSize: "10px",
                 fontWeight: 600,
-                color: "#92400e",
-                background: "#fef3c7",
-                border: "1px solid #fde68a",
+                color: "var(--gx-warning)",
+                background: "rgba(251,191,36,0.15)",
+                border: "1px solid rgba(251,191,36,0.35)",
                 padding: "2px 8px",
                 borderRadius: "99px",
                 marginTop: "4px",
@@ -153,7 +153,7 @@ export function PendingApprovalRow({
             </div>
           )}
           {err && (
-            <div style={{ fontSize: "11px", color: "#ef4444", marginTop: "4px" }}>
+            <div style={{ fontSize: "11px", color: "var(--gx-danger)", marginTop: "4px" }}>
               {err}
             </div>
           )}
