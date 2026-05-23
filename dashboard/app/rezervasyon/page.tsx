@@ -31,17 +31,19 @@ declare global {
 
 const DURATION_OPTIONS = [60, 90, 120, 150, 180];
 
+// GigaX paleti — koyu cam, mor aksan
 const COLOR = {
-  heading: "#1e1b4b",
-  muted: "#818cf8",
-  pale: "#a5b4fc",
-  cardBg: "rgba(255,255,255,0.85)",
-  cardBorder: "rgba(209,196,255,0.6)",
-  primary: "#4338ca",
-  primaryHover: "#3730a3",
-  primaryText: "#e0e7ff",
-  ghostBg: "#ede9fe",
-  ghostText: "#4338ca",
+  heading: "var(--gx-text)",
+  muted: "var(--gx-text-muted)",
+  pale: "var(--gx-text-hint)",
+  cardBg:
+    "linear-gradient(135deg, rgba(124,58,237,0.12), rgba(255,255,255,0.02)), #16161D",
+  cardBorder: "var(--gx-border)",
+  primary: "var(--gx-accent)",
+  primaryHover: "var(--gx-accent-light)",
+  primaryText: "#ffffff",
+  ghostBg: "var(--gx-surface)",
+  ghostText: "var(--gx-text)",
 };
 
 function todayISO(): string {
@@ -79,12 +81,40 @@ function PageBg() {
         position: "fixed",
         inset: 0,
         zIndex: -1,
-        background:
-          "linear-gradient(135deg, #e8e4ff 0%, #ddd6fe 40%, #d4d4ff 70%, #e8e4ff 100%)",
-        backgroundSize: "400% 400%",
-        animation: "bgShift 12s ease infinite",
+        background: "var(--gx-bg)",
+        overflow: "hidden",
+        pointerEvents: "none",
       }}
-    />
+    >
+      {/* Üst kose mor perde */}
+      <div
+        style={{
+          position: "absolute",
+          top: "-180px",
+          right: "-120px",
+          width: "480px",
+          height: "480px",
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(124,58,237,0.28) 0%, transparent 70%)",
+          filter: "blur(20px)",
+        }}
+      />
+      {/* Alt kose hafif glow */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "-160px",
+          left: "-160px",
+          width: "440px",
+          height: "440px",
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)",
+          filter: "blur(20px)",
+        }}
+      />
+    </div>
   );
 }
 
@@ -92,7 +122,17 @@ export default function PublicReservationPage() {
   return (
     <Suspense
       fallback={
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#a5b4fc", fontSize: "13px" }}>
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--gx-text-hint)",
+            fontSize: "13px",
+            background: "var(--gx-bg)",
+          }}
+        >
           Yükleniyor…
         </div>
       }
@@ -347,47 +387,31 @@ function ReservationForm() {
       <PageBg />
 
       <div style={{ maxWidth: "560px", margin: "0 auto" }}>
-        {/* Header */}
+        {/* Header — GigaX logo */}
         <div
           className="fade-up"
           style={{
             display: "flex",
             alignItems: "center",
             gap: "12px",
-            marginBottom: "20px",
+            marginBottom: "22px",
           }}
         >
-          <div
-            style={{
-              width: "38px",
-              height: "38px",
-              borderRadius: "12px",
-              background: "#e0e7ff",
-              color: "#3730a3",
-              fontWeight: 700,
-              fontSize: "14px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(67,56,202,0.2)",
-            }}
-          >
-            DM
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/gigax-logo.png"
+            alt="GigaX"
+            style={{ height: "24px", width: "auto", flexShrink: 0 }}
+          />
           <div style={{ minWidth: 0 }}>
             <div
-              className="gradient-text"
               style={{
-                fontSize: "18px",
-                fontWeight: 700,
-                letterSpacing: "-0.3px",
-                lineHeight: 1.1,
+                fontSize: "12px",
+                color: "var(--gx-text-muted)",
+                letterSpacing: "0.05em",
               }}
             >
-              Deneyim Merkezi
-            </div>
-            <div style={{ fontSize: "13px", color: "#818cf8" }}>
-              Ziyaret Rezervasyonu
+              Rezervasyon
             </div>
           </div>
         </div>
@@ -473,7 +497,7 @@ function ReservationForm() {
             marginTop: "16px",
             textAlign: "center",
             fontSize: "11px",
-            color: "#a5b4fc",
+            color: "var(--gx-text-hint)",
           }}
         >
           © {new Date().getFullYear()} Deneyim Merkezi
@@ -516,13 +540,17 @@ function Stepper({ current }: { current: 1 | 2 | 3 }) {
           >
             <div
               style={{
-                width: "28px",
-                height: "28px",
+                width: "30px",
+                height: "30px",
                 borderRadius: "50%",
-                background: active || done ? "#4338ca" : "rgba(255,255,255,0.7)",
-                color: active || done ? "#e0e7ff" : "#a5b4fc",
+                background:
+                  active || done ? "var(--gx-gradient)" : "var(--gx-surface)",
+                color:
+                  active || done ? "#ffffff" : "var(--gx-text-hint)",
                 border:
-                  active || done ? "none" : "1px solid rgba(209,196,255,0.7)",
+                  active || done
+                    ? "none"
+                    : "1px solid var(--gx-border)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -530,6 +558,10 @@ function Stepper({ current }: { current: 1 | 2 | 3 }) {
                 fontWeight: 700,
                 flexShrink: 0,
                 transition: "all 0.2s ease",
+                boxShadow:
+                  active || done
+                    ? "0 4px 12px rgba(124,58,237,0.35)"
+                    : "none",
               }}
             >
               {done ? "✓" : s.n}
@@ -537,7 +569,7 @@ function Stepper({ current }: { current: 1 | 2 | 3 }) {
             <div
               style={{
                 fontSize: "12px",
-                color: active ? "#1e1b4b" : "#818cf8",
+                color: active ? "var(--gx-text)" : "var(--gx-text-muted)",
                 fontWeight: active ? 600 : 500,
                 whiteSpace: "nowrap",
                 overflow: "hidden",
@@ -552,7 +584,9 @@ function Stepper({ current }: { current: 1 | 2 | 3 }) {
                   flex: 1,
                   height: "1px",
                   background:
-                    current > s.n ? "#4338ca" : "rgba(165,180,252,0.4)",
+                    current > s.n
+                      ? "var(--gx-accent)"
+                      : "var(--gx-border)",
                 }}
               />
             )}
@@ -618,7 +652,7 @@ function Step1(props: {
         <div
           style={{
             fontSize: "10px",
-            color: "#818cf8",
+            color: "var(--gx-text-muted)",
             fontWeight: 600,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
@@ -645,11 +679,11 @@ function Step1(props: {
           <div
             style={{
               padding: "10px 12px",
-              background: "#fee2e2",
-              border: "1px solid #fecaca",
+              background: "rgba(239,68,68,0.10)",
+              border: "1px solid rgba(239,68,68,0.30)",
               borderRadius: "10px",
               fontSize: "12px",
-              color: "#991b1b",
+              color: "var(--gx-danger)",
             }}
           >
             Müsait saatler alınamadı: {props.slotsError}
@@ -660,7 +694,7 @@ function Step1(props: {
             style={{
               padding: "16px",
               textAlign: "center",
-              color: "#a5b4fc",
+              color: "var(--gx-text-hint)",
               fontSize: "13px",
               border: "1px dashed #c4b5fd",
               borderRadius: "10px",
@@ -689,18 +723,27 @@ function Step1(props: {
                     fontSize: "13px",
                     fontWeight: 600,
                     cursor: "pointer",
-                    background: active ? "#4338ca" : "#ede9fe",
-                    color: active ? "#e0e7ff" : "#4338ca",
-                    border: active ? "1px solid #4338ca" : "1px solid transparent",
+                    background: active
+                      ? "var(--gx-gradient)"
+                      : "var(--gx-surface)",
+                    color: active ? "#ffffff" : "var(--gx-text-muted)",
+                    border: active
+                      ? "1px solid var(--gx-accent)"
+                      : "1px solid var(--gx-border)",
                     transition: "all 0.15s ease",
+                    boxShadow: active
+                      ? "0 4px 14px rgba(124,58,237,0.30)"
+                      : "none",
                   }}
                   onMouseEnter={(e) => {
                     if (!active)
-                      e.currentTarget.style.border = "1px solid #c4b5fd";
+                      e.currentTarget.style.border =
+                        "1px solid var(--gx-border-accent)";
                   }}
                   onMouseLeave={(e) => {
                     if (!active)
-                      e.currentTarget.style.border = "1px solid transparent";
+                      e.currentTarget.style.border =
+                        "1px solid var(--gx-border)";
                   }}
                 >
                   {s.startTime} – {s.endTime}
@@ -763,7 +806,7 @@ function Step2(props: {
           placeholder="+90 5XX XXX XX XX"
           style={fieldInput()}
         />
-        <div style={{ fontSize: "11px", color: "#a5b4fc", marginTop: "4px" }}>
+        <div style={{ fontSize: "11px", color: "var(--gx-text-hint)", marginTop: "4px" }}>
           Onay mesajı bu numaraya gönderilecek.
         </div>
       </Field>
@@ -846,8 +889,8 @@ function Step3(props: {
     <div>
       <div
         style={{
-          background: "#faf5ff",
-          border: "1px solid #ede9fe",
+          background: "var(--gx-surface)",
+          border: "1px solid var(--gx-border)",
           borderRadius: "12px",
           padding: "10px 12px",
           minWidth: 0,
@@ -872,9 +915,9 @@ function Step3(props: {
           style={{
             marginTop: "14px",
             padding: "10px 12px",
-            background: "#fee2e2",
-            border: "1px solid #fecaca",
-            color: "#991b1b",
+            background: "rgba(239,68,68,0.10)",
+            border: "1px solid rgba(239,68,68,0.30)",
+            color: "var(--gx-danger)",
             borderRadius: "10px",
             fontSize: "12px",
           }}
@@ -898,11 +941,11 @@ function Step3(props: {
                     type="button"
                     onClick={() => props.onPickAlt(a)}
                     style={{
-                      background: "#ede9fe",
-                      color: "#4338ca",
-                      border: "1px solid #ddd6fe",
+                      background: "rgba(124,58,237,0.15)",
+                      color: "var(--gx-accent-light)",
+                      border: "1px solid var(--gx-border-accent)",
                       borderRadius: "8px",
-                      padding: "6px 10px",
+                      padding: "7px 10px",
                       fontSize: "12px",
                       fontWeight: 600,
                       cursor: "pointer",
@@ -977,7 +1020,7 @@ function SumRow({
       <span
         style={{
           fontSize: "11px",
-          color: "#818cf8",
+          color: "var(--gx-text-muted)",
           width: "60px",
           flexShrink: 0,
           lineHeight: 1.4,
@@ -989,7 +1032,7 @@ function SumRow({
       <span
         style={{
           fontSize: "12.5px",
-          color: "#1e1b4b",
+          color: "var(--gx-text)",
           flex: 1,
           minWidth: 0,
           fontWeight: 500,
@@ -1031,8 +1074,9 @@ function SuccessCard({
           width: "76px",
           height: "76px",
           borderRadius: "50%",
-          background: "#d1fae5",
-          color: "#059669",
+          background: "rgba(74,222,128,0.18)",
+          color: "var(--gx-success)",
+          border: "1px solid rgba(74,222,128,0.35)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -1054,26 +1098,26 @@ function SuccessCard({
       >
         Talebiniz alındı
       </h2>
-      <p style={{ fontSize: "13px", color: "#1e1b4b", margin: "8px 0 4px" }}>
+      <p style={{ fontSize: "13px", color: "var(--gx-text)", margin: "8px 0 4px" }}>
         Onay için WhatsApp mesajı bekleyiniz.
       </p>
-      <p style={{ fontSize: "11px", color: "#818cf8", margin: "0 0 14px" }}>
+      <p style={{ fontSize: "11px", color: "var(--gx-text-muted)", margin: "0 0 14px" }}>
         {formatTrLongDate(dateISO)} {slot ? `· ${slot.startTime} – ${slot.endTime}` : ""}
       </p>
       <div
         style={{
-          background: "#faf5ff",
-          border: "1px solid #ede9fe",
+          background: "var(--gx-surface)",
+          border: "1px solid var(--gx-border)",
           borderRadius: "10px",
           padding: "10px 12px",
           fontSize: "11px",
-          color: "#818cf8",
+          color: "var(--gx-text-muted)",
         }}
       >
         Rezervasyon kodu:{" "}
         <span
           style={{
-            color: "#4338ca",
+            color: "var(--gx-accent-light)",
             fontFamily:
               "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
             fontWeight: 600,
@@ -1104,14 +1148,14 @@ function GroupSizeStepper({
   const atMax = safe >= max;
 
   const btnBase: React.CSSProperties = {
-    minWidth: "40px",
-    minHeight: "40px",
+    minWidth: "44px",
+    minHeight: "44px",
     borderRadius: "10px",
-    border: "1px solid #ddd6fe",
-    background: "#ede9fe",
-    color: "#4338ca",
+    border: "1px solid var(--gx-border-accent)",
+    background: "rgba(124,58,237,0.15)",
+    color: "var(--gx-accent-light)",
     fontSize: "20px",
-    fontWeight: 600,
+    fontWeight: 700,
     lineHeight: 1,
     cursor: "pointer",
     display: "flex",
@@ -1146,11 +1190,11 @@ function GroupSizeStepper({
       <div
         style={{
           flex: 1,
-          minHeight: "40px",
+          minHeight: "44px",
           borderRadius: "10px",
-          border: "1px solid #ede9fe",
-          background: "rgba(255,255,255,0.85)",
-          color: "#1e1b4b",
+          border: "1px solid var(--gx-border)",
+          background: "var(--gx-surface)",
+          color: "var(--gx-text)",
           fontSize: "14px",
           fontWeight: 600,
           display: "flex",
@@ -1194,7 +1238,7 @@ function Field({
         style={{
           display: "block",
           fontSize: "10px",
-          color: "#818cf8",
+          color: "var(--gx-text-muted)",
           fontWeight: 600,
           letterSpacing: "0.06em",
           textTransform: "uppercase",
@@ -1212,19 +1256,17 @@ function fieldInput(): React.CSSProperties {
   return {
     width: "100%",
     maxWidth: "100%",
-    minWidth: 0, // iOS/Telegram date input intrinsic min-content'i bypass eder
+    minWidth: 0,
     boxSizing: "border-box",
     display: "block",
-    padding: "10px 12px",
+    padding: "11px 13px",
     borderRadius: "10px",
-    border: "1px solid #ede9fe",
-    background: "rgba(255,255,255,0.85)",
-    color: "#1e1b4b",
+    border: "1px solid var(--gx-border)",
+    background: "var(--gx-surface)",
+    color: "var(--gx-text)",
     fontSize: "13px",
     outline: "none",
     fontFamily: "inherit",
-    // iOS native date input bazi durumlarda intrinsic width kullaniyor;
-    // -webkit-appearance: none + explicit width zorunlu.
     WebkitAppearance: "none",
     MozAppearance: "none",
     appearance: "none",
