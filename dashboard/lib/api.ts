@@ -54,7 +54,11 @@ export async function apiFetch<T = unknown>(
     throw new ApiError(0, `Backend'e baglanilamadi: ${(err as Error).message}`);
   }
 
-  if (res.status === 401) {
+  // 401'i SADECE token sağlandığında login'e at. Token undefined ise istek
+  // session henüz hidrate olmadan atılmış demek (useSession `loading` race);
+  // session resolve olunca tekrar denenir. Token undefined'ken login'e atmak
+  // hidrasyon race'ini sonsuz redirect döngüsüne çevirir.
+  if (res.status === 401 && token) {
     handleUnauthorized();
   }
 
