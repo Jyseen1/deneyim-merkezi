@@ -353,16 +353,18 @@ export function Sidebar({
             </div>
             <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
               <div
+                className="font-display"
                 style={{
                   color: "var(--gx-text)",
-                  fontSize: "12px",
-                  fontWeight: 600,
+                  fontSize: "13px",
+                  fontWeight: 500,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  letterSpacing: "-0.01em",
                 }}
               >
-                {userName}
+                {(userName || "").trim().split(/\s+/)[0] || "Kullanıcı"}
               </div>
               <div
                 style={{

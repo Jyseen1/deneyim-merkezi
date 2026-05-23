@@ -139,18 +139,34 @@ export default function SettingsPage() {
     <div style={{ maxWidth: "900px", margin: "0 auto" }}>
       <div className="fade-up" style={{ marginBottom: "20px" }}>
         <h1
-          className="gradient-text font-display"
+          className="font-display"
           style={{
-            fontSize: "26px",
-            fontWeight: 700,
-            letterSpacing: "-0.5px",
+            fontSize: "32px",
+            fontWeight: 400,
+            letterSpacing: "-0.02em",
+            color: "var(--gx-text)",
+            lineHeight: 1.1,
             margin: 0,
           }}
         >
           Ayarlar
         </h1>
-        <p style={{ fontSize: "13px", color: "var(--gx-text-muted)", margin: "4px 0 0" }}>
-          Sistem davranışını yapılandırın.
+        <p
+          style={{
+            fontSize: "13px",
+            color: "var(--gx-text-muted)",
+            margin: "8px 0 0",
+            lineHeight: 1.5,
+          }}
+        >
+          Sistem{" "}
+          <span
+            className="font-serif font-italic"
+            style={{ color: "var(--gx-accent-light)" }}
+          >
+            davranışını
+          </span>{" "}
+          yapılandırın.
         </p>
       </div>
 
@@ -336,15 +352,16 @@ function Section({
         }}
       >
         <h2
+          className="font-display"
           style={{
-            fontSize: "14px",
-            fontWeight: 600,
+            fontSize: "16px",
+            fontWeight: 500,
             color: "var(--gx-text)",
             letterSpacing: "-0.01em",
             margin: 0,
-            paddingLeft: "10px",
+            paddingLeft: "12px",
             borderLeft: "3px solid var(--gx-accent-light)",
-            lineHeight: 1.1,
+            lineHeight: 1.2,
           }}
         >
           {title}
