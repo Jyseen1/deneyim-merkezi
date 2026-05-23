@@ -536,13 +536,14 @@ function ReservationForm() {
 
         <p
           style={{
-            marginTop: "16px",
+            marginTop: "20px",
             textAlign: "center",
             fontSize: "11px",
             color: "var(--gx-text-hint)",
+            letterSpacing: "0.05em",
           }}
         >
-          © {new Date().getFullYear()} Deneyim Merkezi
+          © {new Date().getFullYear()} GigaX
         </p>
       </div>
     </div>
@@ -1051,6 +1052,8 @@ function Step3(props: {
 }
 
 function SumRow({
+  // icon prop hala API'de duruyor ama artik render edilmiyor (premium sade gorunum)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   icon,
   label,
   value,
@@ -1066,42 +1069,34 @@ function SumRow({
       style={{
         display: "flex",
         alignItems: "flex-start",
-        gap: "8px",
-        padding: "8px 0",
-        borderBottom: last ? "none" : "1px solid rgba(237,233,254,0.7)",
+        gap: "12px",
+        padding: "10px 0",
+        borderBottom: last ? "none" : "1px solid var(--gx-border)",
         minWidth: 0,
       }}
     >
       <span
         style={{
-          fontSize: "14px",
-          width: "18px",
-          textAlign: "center",
-          flexShrink: 0,
-          lineHeight: 1.4,
-        }}
-      >
-        {icon}
-      </span>
-      <span
-        style={{
           fontSize: "11px",
-          color: "var(--gx-text-muted)",
-          width: "60px",
+          color: "var(--gx-text-hint)",
+          width: "80px",
           flexShrink: 0,
           lineHeight: 1.4,
           paddingTop: "1px",
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+          fontWeight: 600,
         }}
       >
         {label}
       </span>
       <span
         style={{
-          fontSize: "12.5px",
+          fontSize: "13px",
           color: "var(--gx-text)",
           flex: 1,
           minWidth: 0,
-          fontWeight: 500,
+          fontWeight: 600,
           lineHeight: 1.4,
           wordBreak: "break-word",
           overflowWrap: "anywhere",
