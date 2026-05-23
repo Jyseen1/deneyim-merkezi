@@ -10,26 +10,27 @@ type Palette = {
   icon: string;
 };
 
+// GigaX paleti — koyu cam zemin, parlak ikon
 const PALETTES: Record<ToastType, Palette> = {
   success: {
-    bg: "#d1fae5",
-    border: "#a7f3d0",
-    color: "#065f46",
-    iconBg: "#10b981",
+    bg: "rgba(74,222,128,0.12)",
+    border: "rgba(74,222,128,0.35)",
+    color: "#4ADE80",
+    iconBg: "#4ADE80",
     icon: "✓",
   },
   error: {
-    bg: "#fee2e2",
-    border: "#fca5a5",
-    color: "#991b1b",
-    iconBg: "#ef4444",
+    bg: "rgba(239,68,68,0.12)",
+    border: "rgba(239,68,68,0.35)",
+    color: "#EF4444",
+    iconBg: "#EF4444",
     icon: "!",
   },
   info: {
-    bg: "#ede9fe",
-    border: "#c4b5fd",
-    color: "#4338ca",
-    iconBg: "#7c3aed",
+    bg: "rgba(124,58,237,0.15)",
+    border: "rgba(124,58,237,0.35)",
+    color: "#8B5CF6",
+    iconBg: "#7C3AED",
     icon: "i",
   },
 };
@@ -68,14 +69,17 @@ export function ToastViewport({
               pointerEvents: "auto",
               minWidth: "240px",
               maxWidth: "380px",
-              padding: "10px 12px",
+              padding: "11px 14px",
               borderRadius: "12px",
               fontSize: "13px",
               fontWeight: 500,
               color: p.color,
-              background: p.bg,
+              // Koyu surface + renkli cam overlay
+              background: `${p.bg}, var(--gx-surface-2)`,
               border: `1px solid ${p.border}`,
-              boxShadow: "0 12px 28px rgba(30,27,75,0.16)",
+              boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
               display: "flex",
               alignItems: "flex-start",
               gap: "10px",
