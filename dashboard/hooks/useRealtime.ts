@@ -26,16 +26,25 @@ export function useRealtime(handlers: RealtimeHandlers = {}) {
   hRef.current = handlers;
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      console.log("[sse] token yok, baglanmiyor");
+      return;
+    }
     const url = `${backendBase()}/api/v1/events/stream?token=${encodeURIComponent(token)}`;
+    console.log("[sse] connecting", url.replace(/token=[^&]+/, "token=***"));
     let es: EventSource | null = null;
     try {
       es = new EventSource(url);
-    } catch {
+    } catch (err) {
+      console.error("[sse] EventSource ctor fail", err);
       return;
     }
 
+    es.onopen = () => console.log("[sse] open");
+    es.addEventListener("ready", () => console.log("[sse] ready handshake"));
+
     const handleNew = (e: MessageEvent) => {
+      console.log("[sse] new_reservation", e.data);
       try {
         const data = JSON.parse(e.data);
         hRef.current.onNewReservation?.(data);
@@ -44,6 +53,7 @@ export function useRealtime(handlers: RealtimeHandlers = {}) {
       }
     };
     const handleUpd = (e: MessageEvent) => {
+      console.log("[sse] reservation_updated", e.data);
       try {
         const data = JSON.parse(e.data);
         hRef.current.onReservationUpdated?.(data);
@@ -55,12 +65,17 @@ export function useRealtime(handlers: RealtimeHandlers = {}) {
     es.addEventListener("new_reservation", handleNew);
     es.addEventListener("reservation_updated", handleUpd);
 
-    // EventSource hatasi: tarayici otomatik reconnect dener; log gereksiz.
-    es.onerror = () => {
-      /* noop */
+    // EventSource hatasi: tarayici otomatik reconnect dener.
+    es.onerror = (e) => {
+      console.warn(
+        "[sse] error (browser will auto-reconnect)",
+        es?.readyState,
+        e,
+      );
     };
 
     return () => {
+      console.log("[sse] cleanup");
       try {
         es?.removeEventListener("new_reservation", handleNew);
         es?.removeEventListener("reservation_updated", handleUpd);

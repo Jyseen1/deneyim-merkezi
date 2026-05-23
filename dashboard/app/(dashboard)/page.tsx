@@ -50,34 +50,22 @@ export default async function DashboardHome() {
           </p>
         </div>
 
-        <div
+        <span
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
+            background: "rgba(67,56,202,0.08)",
+            border: "1px solid #ede9fe",
+            padding: "6px 14px",
+            borderRadius: "99px",
+            fontSize: "12px",
+            color: "#4338ca",
+            fontWeight: 500,
+            letterSpacing: "0.01em",
+            whiteSpace: "nowrap",
             flexShrink: 0,
           }}
         >
-          <span
-            style={{
-              background: "rgba(67,56,202,0.08)",
-              border: "1px solid #ede9fe",
-              padding: "6px 14px",
-              borderRadius: "99px",
-              fontSize: "12px",
-              color: "#4338ca",
-              fontWeight: 500,
-              letterSpacing: "0.01em",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {today}
-          </span>
-          <button type="button" className="btn-primary">
-            <span style={{ fontSize: "16px", lineHeight: 1, marginRight: "2px" }}>+</span>
-            <span>Rezervasyon</span>
-          </button>
-        </div>
+          {today}
+        </span>
       </div>
 
       <HomeStats initial={initial} staffId={staffId}>

@@ -197,6 +197,7 @@ export default function CalendarPage() {
   const [recurring, setRecurring] = useState<RecurringRule[]>([]);
   const [settings, setSettings] = useState<SettingsLite>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [blockDayOpen, setBlockDayOpen] = useState(false);
   const [blockRangeOpen, setBlockRangeOpen] = useState(false);
@@ -218,40 +219,61 @@ export default function CalendarPage() {
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
+    setLoadError(null);
     const startISO = toLocalIso(period.start);
     const lastDay = addDays(period.end, -1);
     const endISO = toLocalIso(lastDay);
+
+    // Rezervasyon ve diger veri ayri try'larda; rezervasyon hatasi
+    // gorunur olsun, digerleri sessizce best-effort yuklensin.
     try {
-      const [resvRes, blocksRes, recurRes, settingsRes] = await Promise.all([
-        apiFetch<ReservationList>(
-          `/reservations?date_from=${startISO}&date_to=${endISO}&limit=300`,
-          {},
-          token,
-        ).catch(() => ({ items: [] as Reservation[], total: 0, page: 1, limit: 300 })),
-        apiFetch<{ items: SlotBlock[] }>(
-          `/slots/blocks?date_from=${startISO}&date_to=${endISO}`,
-          {},
-          token,
-        ).catch(() => ({ items: [] as SlotBlock[] })),
-        apiFetch<{ items: RecurringRule[] }>("/slots/recurring", {}, token).catch(
-          () => ({ items: [] as RecurringRule[] }),
-        ),
-        apiFetch<SettingsLite>("/settings", {}, token).catch(
-          () => DEFAULT_SETTINGS,
-        ),
-      ]);
+      const resvRes = await apiFetch<ReservationList>(
+        `/reservations?date_from=${startISO}&date_to=${endISO}&limit=300`,
+        {},
+        token,
+      );
       setItems(resvRes.items);
-      setBlocks(blocksRes.items);
-      setRecurring(recurRes.items);
-      setSettings({
-        workStart: settingsRes.workStart || DEFAULT_SETTINGS.workStart,
-        workEnd: settingsRes.workEnd || DEFAULT_SETTINGS.workEnd,
-        defaultDuration:
-          settingsRes.defaultDuration || DEFAULT_SETTINGS.defaultDuration,
+      // Debug: takvim hangi araligi cekiyor, kac kayit donmus
+      console.log("[calendar] reservations", {
+        startISO,
+        endISO,
+        count: resvRes.items.length,
+        sample: resvRes.items[0],
       });
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? `Rezervasyonlar yüklenemedi (HTTP ${err.status}): ${err.message}`
+          : `Rezervasyonlar yüklenemedi: ${(err as Error).message}`;
+      console.error("[calendar] reservation load error", err);
+      setLoadError(msg);
+      setItems([]);
     }
+
+    // Blocks + recurring + settings — best-effort
+    const [blocksRes, recurRes, settingsRes] = await Promise.all([
+      apiFetch<{ items: SlotBlock[] }>(
+        `/slots/blocks?date_from=${startISO}&date_to=${endISO}`,
+        {},
+        token,
+      ).catch(() => ({ items: [] as SlotBlock[] })),
+      apiFetch<{ items: RecurringRule[] }>("/slots/recurring", {}, token).catch(
+        () => ({ items: [] as RecurringRule[] }),
+      ),
+      apiFetch<SettingsLite>("/settings", {}, token).catch(
+        () => DEFAULT_SETTINGS,
+      ),
+    ]);
+    setBlocks(blocksRes.items);
+    setRecurring(recurRes.items);
+    setSettings({
+      workStart: settingsRes.workStart || DEFAULT_SETTINGS.workStart,
+      workEnd: settingsRes.workEnd || DEFAULT_SETTINGS.workEnd,
+      defaultDuration:
+        settingsRes.defaultDuration || DEFAULT_SETTINGS.defaultDuration,
+    });
+
+    setLoading(false);
   }, [period.start, period.end, token]);
 
   useEffect(() => {
@@ -401,8 +423,48 @@ export default function CalendarPage() {
           </button>
         </div>
 
-        <ViewSwitcher view={view} onChange={setView} />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            flexWrap: "wrap",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "11px",
+              color: "#818cf8",
+              background: "rgba(67,56,202,0.06)",
+              border: "1px solid #ede9fe",
+              padding: "4px 10px",
+              borderRadius: "99px",
+              whiteSpace: "nowrap",
+            }}
+            title="Bu periyotta yüklenen rezervasyon sayısı"
+          >
+            {items.length} rezervasyon
+          </span>
+          <ViewSwitcher view={view} onChange={setView} />
+        </div>
       </div>
+
+      {loadError && (
+        <div
+          className="fade-up"
+          style={{
+            marginBottom: "14px",
+            padding: "10px 14px",
+            background: "#fee2e2",
+            border: "1px solid #fecaca",
+            color: "#991b1b",
+            borderRadius: "12px",
+            fontSize: "13px",
+          }}
+        >
+          {loadError}
+        </div>
+      )}
 
       {/* MAIN VIEW */}
       <div style={{ position: "relative" }}>

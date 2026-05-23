@@ -568,13 +568,26 @@ function Step1(props: {
   return (
     <div>
       <Field label="Ziyaret tarihi">
-        <input
-          type="date"
-          min={todayISO()}
-          value={props.dateISO}
-          onChange={(e) => props.setDateISO(e.target.value)}
-          style={fieldInput()}
-        />
+        {/* iOS Safari/Telegram WebView date input'unu container icine kilitle:
+            wrapper width:100% + overflow:hidden + minWidth:0 + flex zinciri
+            input'un intrinsic genislemesini engeller. */}
+        <div
+          style={{
+            display: "flex",
+            width: "100%",
+            maxWidth: "100%",
+            minWidth: 0,
+            overflow: "hidden",
+          }}
+        >
+          <input
+            type="date"
+            min={todayISO()}
+            value={props.dateISO}
+            onChange={(e) => props.setDateISO(e.target.value)}
+            style={{ ...fieldInput(), flex: 1 }}
+          />
+        </div>
       </Field>
 
       <Field label="Süre" style={{ marginTop: "14px" }}>
@@ -1189,7 +1202,8 @@ function fieldInput(): React.CSSProperties {
   return {
     width: "100%",
     maxWidth: "100%",
-    boxSizing: "border-box", // padding+border ic genislige dahil — dar viewport'ta yatay tasmayi onler
+    minWidth: 0, // iOS/Telegram date input intrinsic min-content'i bypass eder
+    boxSizing: "border-box",
     display: "block",
     padding: "10px 12px",
     borderRadius: "10px",
@@ -1199,5 +1213,10 @@ function fieldInput(): React.CSSProperties {
     fontSize: "13px",
     outline: "none",
     fontFamily: "inherit",
+    // iOS native date input bazi durumlarda intrinsic width kullaniyor;
+    // -webkit-appearance: none + explicit width zorunlu.
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    appearance: "none",
   };
 }
