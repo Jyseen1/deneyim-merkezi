@@ -387,33 +387,80 @@ function ReservationForm() {
       <PageBg />
 
       <div style={{ maxWidth: "560px", margin: "0 auto" }}>
-        {/* Header — GigaX logo */}
+        {/* Header — GigaX logo + uppercase etiket + büyük başlık + italic dokunuş */}
         <div
           className="fade-up"
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            marginBottom: "22px",
+            flexDirection: "column",
+            gap: "10px",
+            marginBottom: "24px",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/gigax-logo.png"
-            alt="GigaX"
-            style={{ height: "24px", width: "auto", flexShrink: 0 }}
-          />
-          <div style={{ minWidth: 0 }}>
-            <div
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              minWidth: 0,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/gigax-logo.png"
+              alt="GigaX"
+              style={{ height: "26px", width: "auto", flexShrink: 0 }}
+            />
+            <span
               style={{
-                fontSize: "12px",
-                color: "var(--gx-text-muted)",
-                letterSpacing: "0.05em",
+                fontSize: "10px",
+                color: "var(--gx-accent-light)",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                paddingTop: "2px",
               }}
             >
               Rezervasyon
-            </div>
+            </span>
           </div>
+          {!successId && (
+            <div style={{ marginTop: "4px" }}>
+              <h1
+                className="font-display"
+                style={{
+                  fontSize: "28px",
+                  fontWeight: 600,
+                  color: "var(--gx-text)",
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.1,
+                  margin: 0,
+                }}
+              >
+                Ziyaret{" "}
+                <span
+                  className="font-serif font-italic"
+                  style={{
+                    fontWeight: 400,
+                    color: "var(--gx-accent-light)",
+                    letterSpacing: "0",
+                  }}
+                >
+                  planla
+                </span>
+              </h1>
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: "var(--gx-text-muted)",
+                  margin: "6px 0 0",
+                  lineHeight: 1.5,
+                }}
+              >
+                Tarih ve saati seç, bilgilerini bırak — gerisini biz yapalım.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Stepper */}
@@ -423,14 +470,9 @@ function ReservationForm() {
           <SuccessCard id={successId} dateISO={dateISO} slot={selectedSlot} />
         ) : (
           <div
-            className="fade-up fade-up-1"
+            className="glass fade-up fade-up-1"
             style={{
-              background: COLOR.cardBg,
-              border: `1px solid ${COLOR.cardBorder}`,
-              borderRadius: "16px",
-              padding: "18px 16px",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
+              padding: "20px 18px",
               minWidth: 0,
             }}
           >
@@ -754,13 +796,20 @@ function Step1(props: {
         )}
       </div>
 
-      <div style={{ marginTop: "20px", display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ marginTop: "22px" }}>
         <button
           type="button"
           className="btn-primary"
           onClick={props.onNext}
           disabled={!props.selectedSlot}
-          style={{ opacity: props.selectedSlot ? 1 : 0.5, cursor: props.selectedSlot ? "pointer" : "not-allowed" }}
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            opacity: props.selectedSlot ? 1 : 0.5,
+            cursor: props.selectedSlot ? "pointer" : "not-allowed",
+            padding: "13px 20px",
+            fontSize: "14px",
+          }}
         >
           İleri →
         </button>
@@ -837,16 +886,16 @@ function Step2(props: {
 
       <div
         style={{
-          marginTop: "20px",
+          marginTop: "22px",
           display: "flex",
-          justifyContent: "space-between",
-          gap: "8px",
+          gap: "10px",
         }}
       >
         <button
           type="button"
           className="btn-ghost"
           onClick={props.onPrev}
+          style={{ flexShrink: 0 }}
         >
           ← Geri
         </button>
@@ -855,7 +904,14 @@ function Step2(props: {
           className="btn-primary"
           onClick={props.onNext}
           disabled={!props.canNext}
-          style={{ opacity: props.canNext ? 1 : 0.5, cursor: props.canNext ? "pointer" : "not-allowed" }}
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            opacity: props.canNext ? 1 : 0.5,
+            cursor: props.canNext ? "pointer" : "not-allowed",
+            padding: "13px 20px",
+            fontSize: "14px",
+          }}
         >
           İleri →
         </button>
@@ -962,13 +1018,17 @@ function Step3(props: {
 
       <div
         style={{
-          marginTop: "20px",
+          marginTop: "22px",
           display: "flex",
-          justifyContent: "space-between",
-          gap: "8px",
+          gap: "10px",
         }}
       >
-        <button type="button" className="btn-ghost" onClick={props.onPrev}>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={props.onPrev}
+          style={{ flexShrink: 0 }}
+        >
           ← Geri
         </button>
         <button
@@ -976,6 +1036,12 @@ function Step3(props: {
           className="btn-primary"
           onClick={props.onSubmit}
           disabled={props.submitting || !s.slot}
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            padding: "13px 20px",
+            fontSize: "14px",
+          }}
         >
           {props.submitting ? "Gönderiliyor..." : "Rezervasyon Talebi Gönder"}
         </button>
@@ -1058,15 +1124,10 @@ function SuccessCard({
 }) {
   return (
     <div
-      className="fade-up fade-up-1"
+      className="glass fade-up fade-up-1"
       style={{
-        background: "rgba(255,255,255,0.85)",
-        border: "1px solid rgba(209,196,255,0.6)",
-        borderRadius: "16px",
-        padding: "26px 22px",
+        padding: "28px 22px",
         textAlign: "center",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
       }}
     >
       <div
