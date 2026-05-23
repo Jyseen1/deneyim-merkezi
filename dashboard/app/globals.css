@@ -3,10 +3,9 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────
- * GigaX teması — koyu + mor glassmorphism. Tek yerden white-label.
- * Eski sınıflar (.glass, .btn-primary, .btn-ghost, .gradient-text,
- * .status-pill, .shimmer) buradan beslenir; inline styled component'ler
- * yavaş yavaş --gx-* değişkenlerine geçer.
+ * GigaX teması — koyu + mor glassmorphism. 3 katmanli tipografi.
+ * Tek yerden white-label rebrand. Eski sınıflar (.glass, .btn-*, vs.)
+ * yeni paletten beslenir; --gx-* değişkenleri tek kaynaktir.
  * ───────────────────────────────────────────────────────── */
 :root {
   /* Yüzeyler */
@@ -15,11 +14,11 @@
   --gx-surface:     #16161D;
   --gx-surface-2:   #1C1A2A;
 
-  /* Aksanlar */
+  /* Aksanlar — mor SADECE buton/border/ikon/aktif vurgu; metin değil */
   --gx-accent:        #7C3AED;
   --gx-accent-light:  #8B5CF6;
 
-  /* Metin */
+  /* Metin — koyu zeminde net okunur tonlar */
   --gx-text:        #FFFFFF;
   --gx-text-muted:  #A1A1AA;
   --gx-text-hint:   #71717A;
@@ -30,12 +29,17 @@
   --gx-danger:  #EF4444;
 
   /* Kenarlık */
-  --gx-border:        rgba(255,255,255,0.08);
-  --gx-border-accent: rgba(124,58,237,0.30);
+  --gx-border:        rgba(255,255,255,0.10);
+  --gx-border-accent: rgba(124,58,237,0.40);
 
   /* Gradient'ler */
   --gx-gradient: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 100%);
   --gx-glass:    linear-gradient(135deg, rgba(124,58,237,0.12) 0%, rgba(255,255,255,0.02) 100%);
+  --gx-glass-accent: linear-gradient(135deg, rgba(124,58,237,0.20) 0%, rgba(124,58,237,0.05) 100%);
+
+  /* Tipografi — 3 katman */
+  --font-body:    var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* --font-display + --font-serif zaten next/font ile -inject ediliyor */
 
   /* Geriye doniik (eski sınıflar yeni paletten beslenir) */
   --purple-deep:   var(--gx-bg-deep);
@@ -56,7 +60,7 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   background: var(--gx-bg);
   color: var(--gx-text);
   min-height: 100vh;
@@ -64,9 +68,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* DISPLAY — sayfa başlıkları, büyük sayılar, logo metni */
+.font-display { font-family: var(--font-display, "Space Grotesk"), var(--font-body); letter-spacing: -0.01em; }
+/* EDITORIAL — vurgu, italik dokunuş */
+.font-serif   { font-family: var(--font-serif, "Instrument Serif"), Georgia, serif; }
+.font-italic  { font-style: italic; }
+
 /* ─────────────────────────────────────────────────────────
- * Arka plan: koyu zemin + üst ve alt köşelerde mor radial perdeler.
- * .page-bg sabit pozisyonda, etkileşime kapali.
+ * Arka plan — koyu zemin + mor radial perdeler.
+ * .page-bg sabit pozisyonda, etkileşime kapali, page kökündeki
+ * tüm kartların arkasındadir (cam blur'unu yakalar).
  * ───────────────────────────────────────────────────────── */
 .page-bg {
   position: fixed;
@@ -79,53 +90,90 @@ body {
 .page-bg::before {
   content: '';
   position: absolute;
-  top: -240px; right: -180px;
-  width: 720px; height: 720px;
+  top: -100px; right: -50px;
+  width: 400px; height: 400px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 70%);
-  filter: blur(20px);
+  background: radial-gradient(circle, rgba(124,58,237,0.35) 0%, transparent 70%);
 }
 .page-bg::after {
   content: '';
   position: absolute;
-  bottom: -200px; left: -200px;
-  width: 600px; height: 600px;
+  bottom: -80px; left: 10%;
+  width: 350px; height: 350px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%);
-  filter: blur(20px);
+  background: radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 70%);
 }
 
-/* Üçüncü hafif blob — animasyon istemiyorsa olmadan da olur */
-@keyframes blobShift {
-  0%,100% { transform: translate(0,0); }
-  50%      { transform: translate(40px,30px); }
+/* Sayfa-içi blob'lar — bireysel sayfaların kendi atmosferi için.
+   Sayfa kök elemanı `position: relative; overflow: hidden` olmali; bu
+   blob'lar onun içinde yüzer. */
+.gx-blob {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  z-index: 0;
+}
+.gx-blob-tr {
+  top: -100px; right: -50px;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(124,58,237,0.35) 0%, transparent 70%);
+}
+.gx-blob-bl {
+  bottom: -80px; left: 10%;
+  width: 350px; height: 350px;
+  background: radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 70%);
+}
+.gx-blob-mid {
+  top: 30%; left: 40%;
+  width: 280px; height: 280px;
+  background: radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%);
 }
 
 /* ─────────────────────────────────────────────────────────
- * Cam kart — .glass (eski) ve .gx-card (yeni isim) aynı stili paylaşır.
+ * Cam kart — kullanıcı brifinin TAM değerleri.
+ * .glass (eski) ve .gx-card (yeni isim) aynı.
  * ───────────────────────────────────────────────────────── */
 .glass,
 .gx-card {
-  background: var(--gx-glass), var(--gx-surface);
+  background: linear-gradient(
+    135deg,
+    rgba(124, 58, 237, 0.12),
+    rgba(255, 255, 255, 0.02)
+  );
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--gx-border);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   color: var(--gx-text);
+  position: relative;
+  z-index: 1;
   transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.25s ease,
     border-color 0.2s ease;
 }
-.gx-card-accent {
-  border-color: var(--gx-border-accent);
+
+/* Vurgulu kart (örn "Bekleyen Onaylar" satırı veya öne çıkmasını istediğimiz
+   kart): daha güçlü mor cam + accent border. */
+.gx-card-accent,
+.glass.gx-card-accent {
+  background: linear-gradient(
+    135deg,
+    rgba(124, 58, 237, 0.20),
+    rgba(124, 58, 237, 0.05)
+  );
+  border: 1px solid rgba(124, 58, 237, 0.4);
 }
+
 .glass-hover:hover,
 .glass.glass-hover:hover,
 .gx-card.gx-card-hover:hover {
-  background: linear-gradient(135deg, rgba(124,58,237,0.20), rgba(255,255,255,0.04)),
-    var(--gx-surface-2);
+  background: linear-gradient(
+    135deg,
+    rgba(124, 58, 237, 0.18),
+    rgba(255, 255, 255, 0.03)
+  );
   border-color: var(--gx-border-accent);
-  transform: translateY(-3px);
-  box-shadow: 0 14px 40px rgba(124,58,237,0.18);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 40px rgba(124, 58, 237, 0.18);
 }
 
 /* Fade-in-up animasyonu (degismedi) */
@@ -174,7 +222,7 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────
- * Butonlar — .btn-primary/.btn-ghost (eski) ve .gx-btn-* (yeni alias).
+ * Butonlar — mor gradient + parlama hover, scale active
  * ───────────────────────────────────────────────────────── */
 .btn-primary,
 .gx-btn-primary {
@@ -183,10 +231,11 @@ body {
   border: none;
   padding: 10px 20px;
   border-radius: 12px;
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all 0.2s ease;
   letter-spacing: 0.01em;
   display: inline-flex;
   align-items: center;
@@ -195,7 +244,7 @@ body {
 }
 .btn-primary:hover:not(:disabled),
 .gx-btn-primary:hover:not(:disabled) {
-  filter: brightness(1.15);
+  filter: brightness(1.10);
   box-shadow: 0 6px 22px rgba(124,58,237,0.45);
   transform: translateY(-1px);
 }
@@ -210,11 +259,12 @@ body {
 
 .btn-ghost,
 .gx-btn-ghost {
-  background: transparent;
+  background: rgba(255,255,255,0.04);
   border: 1px solid var(--gx-border);
   color: var(--gx-text);
   padding: 9px 18px;
   border-radius: 12px;
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -223,7 +273,7 @@ body {
 .btn-ghost:hover:not(:disabled),
 .gx-btn-ghost:hover:not(:disabled) {
   border-color: var(--gx-border-accent);
-  background: rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.07);
 }
 .btn-ghost:disabled,
 .gx-btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -241,9 +291,7 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────
- * Input / select / textarea — global GigaX stili.
- * Inline styled bileşenler buna eklenmeden de calisir; ama bu sinif
- * uygulayan herhangi bir field tutarli gorunur.
+ * Input / select / textarea — global GigaX stili
  * ───────────────────────────────────────────────────────── */
 .gx-input,
 input.gx-input,
@@ -257,7 +305,7 @@ textarea.gx-input {
   padding: 10px 12px;
   font-size: 13px;
   outline: none;
-  font-family: inherit;
+  font-family: var(--font-body);
   box-sizing: border-box;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -268,7 +316,7 @@ textarea.gx-input {
 }
 
 /* ─────────────────────────────────────────────────────────
- * Status rozetleri — GigaX paleti
+ * Status rozetleri — KESIN değerler (kullanıcı brifi)
  * ───────────────────────────────────────────────────────── */
 .status-pill {
   display: inline-block;
@@ -281,33 +329,63 @@ textarea.gx-input {
 }
 .status-pending  {
   background: rgba(124,58,237,0.15);
-  color: var(--gx-accent-light);
-  border-color: rgba(124,58,237,0.30);
+  color: #8B5CF6;
+  border-color: rgba(124,58,237,0.35);
 }
 .status-approved {
   background: rgba(74,222,128,0.15);
-  color: var(--gx-success);
-  border-color: rgba(74,222,128,0.30);
+  color: #4ADE80;
+  border-color: rgba(74,222,128,0.35);
 }
 .status-rejected {
   background: rgba(239,68,68,0.15);
-  color: var(--gx-danger);
-  border-color: rgba(239,68,68,0.30);
+  color: #EF4444;
+  border-color: rgba(239,68,68,0.35);
 }
 .status-cancelled{
   background: rgba(161,161,170,0.15);
   color: var(--gx-text-muted);
-  border-color: rgba(161,161,170,0.30);
+  border-color: rgba(161,161,170,0.35);
 }
 .status-completed{
   background: rgba(96,165,250,0.15);
   color: #60A5FA;
-  border-color: rgba(96,165,250,0.30);
+  border-color: rgba(96,165,250,0.35);
 }
 .status-noshow   {
   background: rgba(251,191,36,0.15);
-  color: var(--gx-warning);
-  border-color: rgba(251,191,36,0.30);
+  color: #FBBF24;
+  border-color: rgba(251,191,36,0.35);
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Tablo — koyu zeminde okunur, satir hover hafif aydinlanma
+ * ───────────────────────────────────────────────────────── */
+.gx-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.gx-table thead tr {
+  background: rgba(255,255,255,0.03);
+}
+.gx-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--gx-text-muted);
+  border-bottom: 1px solid var(--gx-border);
+}
+.gx-table td {
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--gx-text);
+  border-bottom: 1px solid var(--gx-border);
+}
+.gx-table tbody tr:hover {
+  background: rgba(255,255,255,0.05);
 }
 
 /* Scrollbar — mor cam */

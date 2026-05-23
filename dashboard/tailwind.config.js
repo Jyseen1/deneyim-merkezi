@@ -22,6 +22,11 @@ module.exports = {
           danger: "#EF4444",
         },
       },
+      fontFamily: {
+        display: ["var(--font-display)", "ui-sans-serif", "system-ui"],
+        body: ["var(--font-inter)", "ui-sans-serif", "system-ui"],
+        serif: ["var(--font-serif)", "ui-serif", "Georgia"],
+      },
     },
   },
   plugins: [],
