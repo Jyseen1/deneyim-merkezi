@@ -57,16 +57,26 @@ function writeHidePast(v: boolean) {
   }
 }
 
+// Filtre input/select stili — onFocus/onBlur ile mor focus ring inline.
 const inputStyle: React.CSSProperties = {
   background: "var(--gx-surface)",
   border: "1px solid var(--gx-border)",
   color: "var(--gx-text)",
   borderRadius: "10px",
-  padding: "9px 12px",
+  padding: "10px 12px",
   fontSize: "13px",
   outline: "none",
   fontFamily: "inherit",
+  transition: "border-color 0.15s ease, box-shadow 0.15s ease",
 };
+function applyFocusRing(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
+  e.currentTarget.style.borderColor = "var(--gx-accent)";
+  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,58,237,0.20)";
+}
+function removeFocusRing(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
+  e.currentTarget.style.borderColor = "var(--gx-border)";
+  e.currentTarget.style.boxShadow = "none";
+}
 
 function backendBase(): string {
   return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
@@ -245,6 +255,8 @@ export default function ReservationsPage() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as StatusFilter)}
+            onFocus={applyFocusRing}
+            onBlur={removeFocusRing}
             style={inputStyle}
           >
             {STATUS_OPTIONS.map((o) => (
@@ -272,6 +284,8 @@ export default function ReservationsPage() {
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
+            onFocus={applyFocusRing}
+            onBlur={removeFocusRing}
             style={inputStyle}
           />
         </div>
@@ -293,6 +307,8 @@ export default function ReservationsPage() {
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
+            onFocus={applyFocusRing}
+            onBlur={removeFocusRing}
             style={inputStyle}
           />
         </div>
@@ -347,8 +363,28 @@ export default function ReservationsPage() {
             type="button"
             onClick={exportCSV}
             disabled={exporting}
-            className="btn-ghost"
             title="Mevcut filtrelere göre CSV indir"
+            style={{
+              padding: "10px 18px",
+              fontSize: "13px",
+              fontWeight: 600,
+              borderRadius: "12px",
+              background: "rgba(124,58,237,0.10)",
+              border: "1px solid rgba(124,58,237,0.30)",
+              color: "var(--gx-accent-light)",
+              cursor: exporting ? "not-allowed" : "pointer",
+              opacity: exporting ? 0.6 : 1,
+              transition: "all 0.18s ease",
+            }}
+            onMouseOver={(e) => {
+              if (exporting) return;
+              e.currentTarget.style.background = "rgba(124,58,237,0.18)";
+              e.currentTarget.style.borderColor = "rgba(124,58,237,0.50)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = "rgba(124,58,237,0.10)";
+              e.currentTarget.style.borderColor = "rgba(124,58,237,0.30)";
+            }}
           >
             {exporting ? "..." : "CSV İndir"}
           </button>
