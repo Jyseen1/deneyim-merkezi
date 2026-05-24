@@ -76,7 +76,8 @@ function ModalShell({
         position: "fixed",
         inset: 0,
         background: "rgba(0,0,0,0.65)",
-        zIndex: 60,
+        // Above drawer (70) and any picker (9999) opened from within.
+        zIndex: 9999,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

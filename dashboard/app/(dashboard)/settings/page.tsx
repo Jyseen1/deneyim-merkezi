@@ -954,7 +954,9 @@ function AddStaffModal({
         position: "fixed",
         inset: 0,
         background: "rgba(0,0,0,0.65)",
-        zIndex: 60,
+        // Above drawer (70), pickers (9999), below toast (9999 keeps order).
+        // Pickers inside this modal also use 9999, both stack on this overlay.
+        zIndex: 9999,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
