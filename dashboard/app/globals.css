@@ -152,9 +152,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* ─────────────────────────────────────────────────────────
- * Arka plan — koyu zemin + mor radial perdeler.
- * .page-bg sabit pozisyonda, etkileşime kapali, page kökündeki
- * tüm kartların arkasındadir (cam blur'unu yakalar).
+ * Arka plan — 4 katman: solid + nokta izgara + cizgi izgara + donen conic.
+ * Hepsi position:fixed inset:0 z-index:-1; DOM sirasi stack sirasidir.
+ * Tum icerik (sidebar, kartlar) varsayilan z-index:0 ile bunlarin USTUNDE.
+ * .page-bg solid renk tabanidir; uzerine 3 desen katmani biner.
  * ───────────────────────────────────────────────────────── */
 .page-bg {
   position: fixed;
@@ -164,21 +165,58 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   overflow: hidden;
   pointer-events: none;
 }
-.page-bg::before {
-  content: '';
-  position: absolute;
-  top: -100px; right: -50px;
-  width: 400px; height: 400px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(124,58,237,0.35) 0%, transparent 70%);
+
+/* KATMAN 1 — ince nokta izgara (sabit, her yerde). */
+.bg-dots {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
-.page-bg::after {
-  content: '';
-  position: absolute;
-  bottom: -80px; left: 10%;
-  width: 350px; height: 350px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 70%);
+
+/* KATMAN 2 — buyuk cizgi izgara, ust kisimda yumusakca fade-out. */
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 96px 96px;
+  -webkit-mask-image: radial-gradient(circle at 60% 0%, black 30%, transparent 85%);
+  mask-image: radial-gradient(circle at 60% 0%, black 30%, transparent 85%);
+}
+
+/* KATMAN 3 — donen conic isik huzmesi. inset:-50% taşma payiyla kose
+   kesintisi olmasin. transform:rotate GPU-accelerated; will-change hint. */
+.bg-conic {
+  position: fixed;
+  inset: -50%;
+  z-index: -1;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg at 72% 18%,
+    transparent 0deg,
+    rgba(124, 58, 237, 0.20) 55deg,
+    transparent 130deg,
+    rgba(139, 92, 246, 0.13) 210deg,
+    transparent 290deg
+  );
+  filter: blur(55px);
+  animation: bgspin 40s linear infinite;
+  will-change: transform;
+}
+
+@keyframes bgspin {
+  to { transform: rotate(360deg); }
+}
+
+/* Erisilebilirlik: kullanici azaltilmis hareket istiyorsa donmesin. */
+@media (prefers-reduced-motion: reduce) {
+  .bg-conic { animation: none; }
 }
 
 /* Sayfa-içi blob'lar — bireysel sayfaların kendi atmosferi için.

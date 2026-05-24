@@ -15,6 +15,9 @@ export default async function DashboardLayout({
   return (
     <>
       <div className="page-bg" aria-hidden="true" />
+      <div className="bg-dots" aria-hidden="true" />
+      <div className="bg-grid" aria-hidden="true" />
+      <div className="bg-conic" aria-hidden="true" />
       <Sidebar
         userName={session.user?.name ?? "Kullanıcı"}
         userEmail={session.user?.email ?? ""}
