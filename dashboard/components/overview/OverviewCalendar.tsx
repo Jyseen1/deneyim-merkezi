@@ -328,7 +328,19 @@ function EmbedDay({
   const hours = ["09:00", "11:00", "13:00", "15:00", "17:00", "19:00"];
 
   return (
-    <div style={{ padding: "12px 16px 16px" }}>
+    // flex column + flex:1 → card wrapper kart dolu yüksekliğine yayar.
+    // Satırları "space-between" ile aralarına eşit boşluk dağıt + track height
+    // 28→44 (saat slotları daha ferah, sağ panelle dengeli).
+    <div
+      style={{
+        padding: "12px 16px 16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+        flex: 1,
+        justifyContent: "space-between",
+      }}
+    >
       {hours.map((h) => {
         const hm = parseHHMM(h);
         const inHour = dayItems.filter((r) => {
@@ -337,16 +349,13 @@ function EmbedDay({
         });
         if (inHour.length === 0) {
           return (
-            <div key={h} className="hrow" style={{ padding: "6px 0" }}>
+            <div key={h} className="hrow" style={{ padding: 0 }}>
               <div className="ht">{h}</div>
               <div
                 className="track"
-                style={{ height: "28px", cursor: "default" }}
+                style={{ height: "44px", cursor: "default" }}
               >
-                <div
-                  className="empty"
-                  style={{ lineHeight: "28px" }}
-                >
+                <div className="empty" style={{ lineHeight: "44px" }}>
                   {dayClosed ? "Kapalı" : "Müsait"}
                 </div>
               </div>
@@ -355,11 +364,11 @@ function EmbedDay({
         }
         const first = inHour[0];
         return (
-          <div key={h} className="hrow" style={{ padding: "6px 0" }}>
+          <div key={h} className="hrow" style={{ padding: 0 }}>
             <div className="ht">{h}</div>
             <div
               className="track"
-              style={{ height: "28px" }}
+              style={{ height: "44px" }}
               onClick={() => onSlotClick(first.id)}
               role="button"
             >
@@ -367,7 +376,7 @@ function EmbedDay({
                 className={`fill ${
                   first.status === "PENDING_APPROVAL" ? "pend" : "busy"
                 }`}
-                style={{ fontSize: "11px" }}
+                style={{ fontSize: "12px" }}
               >
                 <span className="who">{first.visitor?.name ?? "?"}</span>
                 <span className="mt">
@@ -576,7 +585,15 @@ function EmbedMonth({
   );
 
   return (
-    <div className="month" style={{ padding: "12px" }}>
+    <div
+      className="month"
+      style={{
+        padding: "12px",
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <div className="m-dow">
         {TR_DAYS_SHORT_MON.map((d) => (
           <span key={d}>{d}</span>

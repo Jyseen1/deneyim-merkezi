@@ -284,29 +284,11 @@ export function OverviewClient({
               <b style={{ color: "var(--accent2)", fontWeight: 600 }}>
                 {stats.today}
               </b>{" "}
-              <em
-                style={{
-                  fontFamily: "var(--serif)",
-                  fontStyle: "italic",
-                  color: "var(--accent3)",
-                }}
-              >
-                ziyaret
-              </em>{" "}
-              planlı ve{" "}
+              <em className="accent-serif">ziyaret</em> planlı ve{" "}
               <b style={{ color: "var(--accent2)", fontWeight: 600 }}>
                 {stats.pending}
               </b>{" "}
-              <em
-                style={{
-                  fontFamily: "var(--serif)",
-                  fontStyle: "italic",
-                  color: "var(--accent3)",
-                }}
-              >
-                onay
-              </em>{" "}
-              seni bekliyor.
+              <em className="accent-serif">onay</em> seni bekliyor.
             </div>
           </div>
 
@@ -474,17 +456,8 @@ export function OverviewClient({
                   gap: "5px",
                 }}
               >
-                Bekleyen
-                <em
-                  style={{
-                    fontFamily: "var(--serif)",
-                    fontStyle: "italic",
-                    color: "var(--accent3)",
-                    fontWeight: 400,
-                  }}
-                >
-                  {pendingCountWord}
-                </em>
+                Bekleyen{" "}
+                <em className="accent-serif">{pendingCountWord}</em>
               </div>
               <div
                 style={{

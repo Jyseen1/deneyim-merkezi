@@ -106,15 +106,32 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* DISPLAY — sayfa başlıkları, büyük sayılar, logo metni */
 .font-display { font-family: var(--font-display, "Space Grotesk"), var(--font-body); letter-spacing: -0.01em; }
 /* EDITORIAL — vurgu, italik dokunuş.
-   Serif font'un x-height'ı düşük olduğu için aynı px'te Inter'den küçük görünüyor;
-   okunabilirlik için ~%6 boost (em birimi → bulunduğu bağlama göre ölçeklenir). */
-.font-serif   { font-family: var(--font-serif, "Instrument Serif"), Georgia, serif; font-size: 1.06em; }
+   Serif font'un x-height'ı düşük + ince yapısı küçük puntoda eriyor görünüyor.
+   Body bağlamında relatif ~%18 boost + biraz daha açık mor (accent3 → C4B5FD)
+   ile imza korunup okunabilirlik çözülür. */
+.font-serif   {
+  font-family: var(--font-serif, "Instrument Serif"), Georgia, serif;
+  font-size: 1.18em;
+}
 .font-italic  { font-style: italic; }
+
+/* .accent-serif — gövde metni içine gömülen mor serif vurgu kelimeleri için
+   tek noktadan utility. Component'lerde tek tek inline yazmak yerine bu
+   class'ı kullan; tipografi/renk değişimi globalden olur. */
+.accent-serif {
+  font-family: var(--font-serif, "Instrument Serif"), Georgia, serif;
+  font-style: italic;
+  font-size: 1.20em;
+  color: #C4B5FD;
+  font-weight: 400;
+}
+
 /* Yerleşik <em> tagleri serif italic kullanıldığında (kart başlıkları, gruplar).
-   Font boost + genel kural olarak sol marjin — JSX whitespace yutulmasına karşı
-   her başlıkta kelime arası net görünür ("Son rezervasyonlar", "Bekleyen N talep"
-   gibi kombinasyonlar tutarlı kalsın). Block-level em'lerde (örn. day-big .dn)
-   margin etkisiz olur; sadece inline başlıklarda görsel boşluk açar. */
+   Font boost + .card-h gibi başlıklarda sol margin (JSX whitespace yutulmasına
+   karşı garantili kelime arası). Block-level em'lerde (örn. day-big .dn) margin
+   etkisiz olur; sadece inline başlıklarda görsel boşluk açar.
+   Renk de var(--accent3) yerine #C4B5FD'ye yakın daha parlak ton — küçük punto
+   serif'in kontrastını artırır. */
 .card-h em,
 .daygroup .dh em,
 .daygroup .dh .big em,
@@ -123,7 +140,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .dr-title em,
 .dr-sec em,
 .day-big .dn em {
-  font-size: 1.08em;
+  font-size: 1.20em;
+  color: #C4B5FD;
 }
 .card-h > em,
 .recent-h .t > em,
