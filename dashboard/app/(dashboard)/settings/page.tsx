@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { useToast } from "@/hooks/useToast";
@@ -947,15 +948,21 @@ function AddStaffModal({
     }
   }
 
-  return (
+  // SSR guard — createPortal document.body'ye ihtiyac duyuyor. Server'da
+  // window yok; client mount'a kadar null don.
+  if (typeof window === "undefined") return null;
+
+  // Modal'i Portal ile document.body'ye render et — aksi halde parent
+  // .gx-card'in (backdrop-filter:blur + z-index:1) yarattigi stacking
+  // context'ine hapsolur, z-index:9999 etkisiz kalir ve sonraki .gx-card'lar
+  // (Sistem Bilgisi vs.) modal'in uzerine binar.
+  return createPortal(
     <div
       onClick={onClose}
       style={{
         position: "fixed",
         inset: 0,
         background: "rgba(0,0,0,0.65)",
-        // Above drawer (70), pickers (9999), below toast (9999 keeps order).
-        // Pickers inside this modal also use 9999, both stack on this overlay.
         zIndex: 9999,
         display: "flex",
         alignItems: "center",
@@ -1058,6 +1065,7 @@ function AddStaffModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

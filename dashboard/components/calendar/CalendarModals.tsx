@@ -4,6 +4,7 @@
 // Veri kontratları, formlar ve mantık DEĞİŞMEDİ; sadece organizasyon.
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { apiFetch, ApiError } from "@/lib/api";
 import { formatTrLongDate, toLocalIso } from "@/lib/date";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -69,14 +70,18 @@ function ModalShell({
   onCancel: () => void;
   width?: number;
 }) {
-  return (
+  // SSR guard — createPortal document.body'ye ihtiyac duyuyor.
+  if (typeof window === "undefined") return null;
+
+  // Portal ile document.body'ye render — parent .gx-card/.card'in
+  // (backdrop-filter:blur + z-index) yarattigi stacking context'ten cikar.
+  return createPortal(
     <div
       onClick={onCancel}
       style={{
         position: "fixed",
         inset: 0,
         background: "rgba(0,0,0,0.65)",
-        // Above drawer (70) and any picker (9999) opened from within.
         zIndex: 9999,
         display: "flex",
         alignItems: "center",
@@ -141,7 +146,8 @@ function ModalShell({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
