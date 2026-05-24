@@ -29,6 +29,21 @@ const eventsRoutes: FastifyPluginAsync = async (app) => {
     reply.raw.setHeader("Cache-Control", "no-cache, no-transform");
     reply.raw.setHeader("Connection", "keep-alive");
     reply.raw.setHeader("X-Accel-Buffering", "no"); // proxy buffering kapali
+
+    // CORS headers — @fastify/cors plugin's reply.header() calls are dropped
+    // once we hijack(); SSE response needs ACAO/ACAC written via raw socket so
+    // EventSource accepts cross-origin responses. Origin echo mirrors the
+    // global allowlist (server.ts) so credentials:true stays valid.
+    const origin = req.headers.origin;
+    const allowed = ["http://localhost:3000", process.env.DASHBOARD_URL].filter(
+      Boolean,
+    ) as string[];
+    if (origin && allowed.includes(origin)) {
+      reply.raw.setHeader("Access-Control-Allow-Origin", origin);
+      reply.raw.setHeader("Access-Control-Allow-Credentials", "true");
+      reply.raw.setHeader("Vary", "Origin");
+    }
+
     reply.raw.flushHeaders?.();
 
     // Fastify yanit lifecycle'ini bypass et — stream'i biz yonetelim
