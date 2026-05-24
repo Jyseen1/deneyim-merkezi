@@ -675,6 +675,30 @@ function TeamSection() {
     }
   }
 
+  async function reactivate(id: string, name: string) {
+    setBusyId(id);
+    try {
+      await apiFetch(
+        `/staff/${id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ isActive: true }),
+        },
+        token,
+      );
+      show(`${name} yeniden aktifleştirildi`, "success");
+      await load();
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? (e.body as { error?: string } | null)?.error ?? e.message
+          : (e as Error).message;
+      show(`İşlem başarısız: ${msg}`, "error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <>
       <p
@@ -813,37 +837,56 @@ function TeamSection() {
                 >
                   {s.isActive ? "Aktif" : "Pasif"}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => softDelete(s.id)}
-                  disabled={isSelf || busyId === s.id || !s.isActive}
-                  title={
-                    isSelf
-                      ? "Kendi hesabınızı pasif yapamazsınız"
-                      : !s.isActive
-                        ? "Zaten pasif"
+                {s.isActive ? (
+                  <button
+                    type="button"
+                    onClick={() => softDelete(s.id)}
+                    disabled={isSelf || busyId === s.id}
+                    title={
+                      isSelf
+                        ? "Kendi hesabınızı pasif yapamazsınız"
                         : "Pasif yap"
-                  }
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    borderRadius: "8px",
-                    border: "1px solid rgba(239,68,68,0.3)",
-                    background: "transparent",
-                    color: "#f87171",
-                    cursor:
-                      isSelf || busyId === s.id || !s.isActive
-                        ? "not-allowed"
-                        : "pointer",
-                    opacity:
-                      isSelf || busyId === s.id || !s.isActive ? 0.4 : 1,
-                    flexShrink: 0,
-                    fontFamily: "var(--font-inter), system-ui",
-                  }}
-                >
-                  {busyId === s.id ? "..." : "Sil"}
-                </button>
+                    }
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      borderRadius: "8px",
+                      border: "1px solid rgba(239,68,68,0.3)",
+                      background: "transparent",
+                      color: "#f87171",
+                      cursor:
+                        isSelf || busyId === s.id ? "not-allowed" : "pointer",
+                      opacity: isSelf || busyId === s.id ? 0.4 : 1,
+                      flexShrink: 0,
+                      fontFamily: "var(--font-inter), system-ui",
+                    }}
+                  >
+                    {busyId === s.id ? "..." : "Sil"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => reactivate(s.id, s.name)}
+                    disabled={busyId === s.id}
+                    title="Yeniden aktifleştir"
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      borderRadius: "8px",
+                      border: "1px solid rgba(74,222,128,0.35)",
+                      background: "transparent",
+                      color: "var(--gx-success)",
+                      cursor: busyId === s.id ? "not-allowed" : "pointer",
+                      opacity: busyId === s.id ? 0.4 : 1,
+                      flexShrink: 0,
+                      fontFamily: "var(--font-inter), system-ui",
+                    }}
+                  >
+                    {busyId === s.id ? "..." : "Aktifleştir"}
+                  </button>
+                )}
               </div>
             );
           })}
@@ -870,8 +913,13 @@ function TeamSection() {
         <AddStaffModal
           token={token}
           onClose={() => setAddOpen(false)}
-          onSuccess={(name) => {
-            show(`${name} eklendi`, "success");
+          onSuccess={(name, reactivated) => {
+            show(
+              reactivated
+                ? `${name} yeniden aktifleştirildi`
+                : `${name} eklendi`,
+              "success",
+            );
             setAddOpen(false);
             load();
           }}
@@ -890,7 +938,7 @@ function AddStaffModal({
 }: {
   token: string | undefined;
   onClose: () => void;
-  onSuccess: (name: string) => void;
+  onSuccess: (name: string, reactivated: boolean) => void;
   onError: (msg: string) => void;
 }) {
   const [name, setName] = useState("");
@@ -913,7 +961,7 @@ function AddStaffModal({
     }
     setBusy(true);
     try {
-      await apiFetch(
+      const res = await apiFetch<{ reactivated?: boolean }>(
         "/staff",
         {
           method: "POST",
@@ -929,13 +977,18 @@ function AddStaffModal({
         },
         token,
       );
-      onSuccess(name.trim());
+      onSuccess(name.trim(), Boolean(res?.reactivated));
     } catch (e) {
       let msg = "İşlem başarısız";
       if (e instanceof ApiError) {
-        if (e.status === 409) msg = "Bu e-posta veya telefon zaten kayıtlı";
-        else if (e.status === 403) msg = "Bu işlem için yönetici yetkisi gerekli";
-        else {
+        if (e.status === 409) {
+          // Backend ayri mesaj donduruyor: "zaten aktif" vs "telefon
+          // baska kullanicida". Body'den oku, fallback generic.
+          const body = e.body as { error?: string } | null;
+          msg = body?.error ?? "Bu e-posta veya telefon zaten kayıtlı";
+        } else if (e.status === 403) {
+          msg = "Bu işlem için yönetici yetkisi gerekli";
+        } else {
           const body = e.body as { error?: string } | null;
           msg = body?.error ?? `Hata: ${e.message}`;
         }

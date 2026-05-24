@@ -74,6 +74,57 @@ const staffRoutes: FastifyPluginAsync = async (app) => {
       const passwordHash = password
         ? await bcrypt.hash(password, BCRYPT_COST)
         : null;
+
+      // Reaktivasyon akisi: ayni email zaten varsa
+      //   - isActive:true  → 409 (zaten aktif)
+      //   - isActive:false → mevcut kaydi update et (isActive:true + yeni
+      //     alanlar). DB'de tekrarlanmaz, eski geçmiş korunur.
+      const existing = await prisma.staff.findUnique({
+        where: { email },
+        select: { id: true, isActive: true },
+      });
+      if (existing) {
+        if (existing.isActive) {
+          return reply
+            .code(409)
+            .send({ error: "Bu e-posta zaten aktif olarak kayıtlı" });
+        }
+        try {
+          const reactivated = await prisma.staff.update({
+            where: { id: existing.id },
+            data: {
+              isActive: true,
+              name,
+              waPhone: waPhone ?? null,
+              role,
+              // password verilmediyse passwordHash'i degistirme (eski
+              // kalmis hash silinmesin diye conditional set).
+              ...(passwordHash !== null ? { passwordHash } : {}),
+            },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              waPhone: true,
+              role: true,
+              isActive: true,
+            },
+          });
+          return reply
+            .code(200)
+            .send({ ...publicView(reactivated), reactivated: true });
+        } catch (err) {
+          const code = (err as { code?: string }).code;
+          if (code === "P2002") {
+            return reply
+              .code(409)
+              .send({ error: "Bu telefon başka bir kullanıcıda kayıtlı" });
+          }
+          req.log.error({ err }, "staff reactivate hata");
+          return reply.code(500).send({ error: "internal_error" });
+        }
+      }
+
       try {
         const created = await prisma.staff.create({
           data: {
