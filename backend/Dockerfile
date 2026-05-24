@@ -6,6 +6,14 @@ RUN npm ci
 COPY prisma ./prisma
 RUN npx prisma generate
 COPY tsconfig.json ./
+# Cache-bust: Railway her commit icin RAILWAY_GIT_COMMIT_SHA build-arg'ini
+# benzersiz deger ile gecer. Bu ARG'i bir RUN'da kullanarak ASAGIDAKI tum
+# layer'lari (COPY src + RUN npm run build) commit basina gecersiz kiliyoruz.
+# Boylece stale Docker layer cache'i derlenmis dist/'i tekrar kullanamaz —
+# kaynak degisince mutlaka yeniden derlenir. (Onceki bug: c25dde9'daki yeni
+# route eski cache'lenmis dist/ ile deploy edildigi icin 404 donuyordu.)
+ARG RAILWAY_GIT_COMMIT_SHA=local
+RUN echo "Building commit: ${RAILWAY_GIT_COMMIT_SHA}"
 COPY src ./src
 RUN npm run build
 
