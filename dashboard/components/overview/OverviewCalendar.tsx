@@ -81,7 +81,7 @@ export function OverviewCalendar({
   onAddReservation: () => void;
 }) {
   const token = useBackendToken();
-  const [mode, setMode] = useState<Mode>("week");
+  const [mode, setMode] = useState<Mode>("day");
   const [anchor, setAnchor] = useState<Date>(() => new Date());
 
   const [items, setItems] = useState<Reservation[]>([]);

@@ -2126,10 +2126,11 @@ input:-webkit-autofill:focus {
 }
 .ov2-header {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-shrink: 0;
+  padding: 6px 0 4px;
 }
 .ov2-h-l { flex: 1; min-width: 0; }
 .ov2-date {
@@ -2150,19 +2151,21 @@ input:-webkit-autofill:focus {
 }
 .ov2-greet {
   font-family: var(--inter);
-  font-size: 26px;
+  font-size: 36px;
   font-weight: 300;
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   color: var(--txt);
-  letter-spacing: -0.01em;
-  line-height: 1.15;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 .ov2-greet em {
   font-family: var(--serif);
   font-style: italic;
-  font-size: 1.08em;
-  color: var(--accent4);
+  font-size: 1.12em;
+  color: #A78BFA;
   font-weight: 400;
+  /* Sadece isim parlasin — "Hos geldin," normal kalir. */
+  text-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
 }
 .ov2-tagline {
   font-size: 12px;
