@@ -14,7 +14,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "telegram:webhook": "tsx src/scripts/set-telegram-webhook.ts",
     "telegram:menu": "tsx src/scripts/setup-telegram-menu.ts",
-    "reset:reservations": "tsx src/scripts/reset-reservations.ts"
+    "reset:reservations": "tsx src/scripts/reset-reservations.ts",
+    "test:email": "tsx src/scripts/test-email.ts"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

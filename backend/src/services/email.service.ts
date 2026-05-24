@@ -113,7 +113,7 @@ export type SendEmailOpts = {
   text?: string;
 };
 
-async function sendEmail(opts: SendEmailOpts): Promise<void> {
+export async function sendEmail(opts: SendEmailOpts): Promise<void> {
   if (!IS_LIVE) {
     console.log(
       JSON.stringify({
