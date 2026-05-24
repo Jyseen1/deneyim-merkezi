@@ -353,7 +353,8 @@ export function OverviewClient({
               }}
             >
               <div className="card-h" style={{ margin: 0 }}>
-                Bekleyen{" "}<em>{pendingCountWord}</em>
+                Bekleyen
+                <em style={{ marginLeft: "6px" }}>{pendingCountWord}</em>
               </div>
               <button
                 type="button"
@@ -411,13 +412,16 @@ export function OverviewClient({
           </div>
         )}
 
-        {/* 4. İKİ KOLON — Sol: mini takvim, Sağ: aksiyon + son rezervasyonlar */}
+        {/* 4. İKİ KOLON — Sol: mini takvim, Sağ: aksiyon + son rezervasyonlar.
+            alignItems:center → sol takvim sağ kolonun toplam yüksekliğine göre
+            dikey ortalanır (alt boşluk varsa simetrik dağılır). */}
         <div
           className="overview-grid fade-up fade-up-3"
           style={{
             display: "grid",
             gridTemplateColumns: "1.1fr 1fr",
             gap: "18px",
+            alignItems: "center",
           }}
         >
           <OverviewCalendar
@@ -468,7 +472,8 @@ export function OverviewClient({
                 }}
               >
                 <div className="card-h" style={{ margin: 0 }}>
-                  Son{" "}<em>rezervasyonlar</em>
+                  Son
+                  <em style={{ marginLeft: "6px" }}>rezervasyonlar</em>
                 </div>
                 <button
                   type="button"

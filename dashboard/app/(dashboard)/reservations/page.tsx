@@ -11,7 +11,7 @@ import {
 } from "@/lib/types";
 import { ReservationDrawer } from "@/components/ReservationDrawer";
 import { EmptyState, InboxIcon } from "@/components/EmptyState";
-import { DatePicker } from "@/components/ui/DatePicker";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { GXSelect } from "@/components/ui/GXSelect";
 import { TR_DAYS, toLocalIso } from "@/lib/date";
 import { useRealtime } from "@/hooks/useRealtime";
@@ -294,45 +294,18 @@ export default function ReservationsPage() {
               ariaLabel="Durum filtresi"
             />
           </FilterField>
-          <FilterField label="Tarih aralığı" width={340}>
-            {/* İki DatePicker tek alana görsel olarak birleştirildi.
-                Veri kontratı korunur: backend yine date_from + date_to alır. */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
+          <FilterField label="Tarih aralığı" width={260}>
+            {/* Tek takvim açılışında range seçimi — backend kontratı korunur:
+                state'te ayrı dateFrom/dateTo string'leri tutulur, query'ye
+                aynen geçer. DateRangePicker sadece UI birleştirir. */}
+            <DateRangePicker
+              value={{ from: dateFrom, to: dateTo }}
+              onChange={(v) => {
+                setDateFrom(v.from);
+                setDateTo(v.to);
               }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <DatePicker
-                  value={dateFrom}
-                  onChange={setDateFrom}
-                  placeholder="Başlangıç"
-                  ariaLabel="Başlangıç tarihi"
-                />
-              </div>
-              <span
-                aria-hidden
-                style={{
-                  color: "var(--muted2)",
-                  fontSize: "14px",
-                  flexShrink: 0,
-                  userSelect: "none",
-                }}
-              >
-                –
-              </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <DatePicker
-                  value={dateTo}
-                  onChange={setDateTo}
-                  placeholder="Bitiş"
-                  min={dateFrom || undefined}
-                  ariaLabel="Bitiş tarihi"
-                />
-              </div>
-            </div>
+              ariaLabel="Tarih aralığı"
+            />
           </FilterField>
           {hasActiveFilter && (
             <button
