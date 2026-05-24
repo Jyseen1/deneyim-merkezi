@@ -2076,3 +2076,34 @@ input:-webkit-autofill:focus {
   margin-top: auto;
 }
 .ovm-foot b { color: var(--txt); font-weight: 600; }
+
+/* ─────────────────────────────────────────────────────────
+ * Overview Calendar — viewport-bound height + themed inner scroll.
+ * Pins the card so Day/Month content scrolls inside the card
+ * instead of pushing the page down.
+ * ───────────────────────────────────────────────────────── */
+.ov-cal-card {
+  max-height: calc(100vh - 320px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 58, 237, 0.4) transparent;
+}
+.ov-cal-card::-webkit-scrollbar {
+  width: 8px;
+}
+.ov-cal-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ov-cal-card::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.4);
+  border-radius: 4px;
+}
+.ov-cal-card::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.6);
+}
+@media (max-width: 900px) {
+  .ov-cal-card {
+    max-height: none;
+    overflow-y: visible;
+  }
+}

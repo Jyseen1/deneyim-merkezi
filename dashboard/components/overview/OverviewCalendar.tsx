@@ -174,12 +174,13 @@ export function OverviewCalendar({
 
   return (
     <div
-      className="card"
+      className="card ov-cal-card"
       style={{
         padding: 0,
         minWidth: 0,
         // flex column → ajanda alanı flex:1, footer margin-top:auto ile alta
         // yapışır. .grid2 align-items:stretch ile bu kart sağ panel kadar uzar.
+        // Yükseklik viewport'a sabit (.ov-cal-card globals.css) → iç scroll.
         display: "flex",
         flexDirection: "column",
         minHeight: "100%",
