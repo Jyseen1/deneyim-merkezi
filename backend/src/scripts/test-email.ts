@@ -1,26 +1,96 @@
-// Tek seferlik smoke test scripti — Resend entegrasyonu calisiyor mu?
+// Smoke test — 4 email template'i mock veriyle render edip Resend uzerinden
+// gonderir. Production'a deploy etmeden gercek inbox'ta gormek icin.
+//
 // Kullanim:
-//   cd backend && npx tsx src/scripts/test-email.ts
+//   cd backend && npm run test:email
 //
 // Gerekenler (backend/.env'de):
-//   RESEND_API_KEY=re_xxxxxxxxxxxx     (Resend dashboard)
-//   EMAIL_FROM="GigaX <test@verified-domain.com>"
-//   GMAIL_USER=poyrazyapayzeka@gmail.com  (alici — kendine gondersin)
-//
-// Bu script email.service'in IS_LIVE check'ini bypass'lar: NODE_ENV=production
-// olarak ayarlanir, sonra dinamik import ile email.service yuklenir. Boylece
-// dev makinesinde de gercek mail atilabilir.
+//   RESEND_API_KEY=re_xxxxxxxxxxxx
+//   EMAIL_FROM="GigaX <test@verified-domain.com>"  (test modunda onboarding@resend.dev)
+//   GMAIL_USER=poyrazyapayzeka@gmail.com           (alici — Resend hesabinin email'i)
 
 import "dotenv/config";
 
+// Mock veri — 4 senaryonun gerektirdigi tum degiskenler. String'e cevirilir
+// cunku composeEmail Record<string, string> bekliyor.
+const MOCK_VISITOR = {
+  name: "Ahmet Yılmaz",
+  phone: "+90 555 123 45 67",
+  email: "ahmet@test.com",
+};
+
+type Scenario = {
+  template: "admin-new-reservation" | "customer-approved" | "customer-rejected" | "customer-rescheduled";
+  subject: string;
+  vars: Record<string, string>;
+};
+
+const SCENARIOS: Scenario[] = [
+  {
+    template: "admin-new-reservation",
+    subject: `[TEST] Yeni başvuru: ${MOCK_VISITOR.name} · 31 Mayıs 2026, Pazar 14:00`,
+    vars: {
+      preheader: `${MOCK_VISITOR.name} · 31 Mayıs 2026 14:00`,
+      visitor_name: MOCK_VISITOR.name,
+      visitor_phone: MOCK_VISITOR.phone,
+      visitor_email: MOCK_VISITOR.email,
+      group_size: "3",
+      visit_date: "31 Mayıs 2026, Pazar",
+      start_time: "14:00",
+      duration: "60",
+      note: "Doğum günü sürprizi",
+      source: "web",
+      dashboard_url: "https://deneyim-merkezi.vercel.app",
+    },
+  },
+  {
+    template: "customer-approved",
+    subject: "[TEST] Rezervasyonunuz onaylandı",
+    vars: {
+      preheader: "Rezervasyonunuz onaylandı · 31 Mayıs 2026 14:00",
+      visitor_name: MOCK_VISITOR.name,
+      visit_date: "31 Mayıs 2026, Pazar",
+      start_time: "14:00",
+      duration: "60",
+      group_size: "3",
+    },
+  },
+  {
+    template: "customer-rejected",
+    subject: "[TEST] Rezervasyon talebiniz hakkında",
+    vars: {
+      preheader: "Talebiniz hakkında · 31 Mayıs 2026 14:00",
+      visitor_name: MOCK_VISITOR.name,
+      visit_date: "31 Mayıs 2026, Pazar",
+      start_time: "14:00",
+      book_url: "https://gigax.tech/rezervasyon",
+      alternatives_html:
+        '<p style="color:#A1A1AA;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">Alternatif saatler: 16:00, 17:00</p>',
+    },
+  },
+  {
+    template: "customer-rescheduled",
+    subject: "[TEST] Rezervasyon tarihiniz güncellendi",
+    vars: {
+      preheader: "Tarih güncellendi · 1 Haziran 2026 11:00",
+      visitor_name: MOCK_VISITOR.name,
+      old_date: "31 Mayıs 2026",
+      old_time: "14:00",
+      new_date: "1 Haziran 2026, Pazartesi",
+      new_time: "11:00",
+      duration: "60",
+      group_size: "3",
+    },
+  },
+];
+
 async function main() {
-  // 1) Env validasyonu
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.GMAIL_USER;
   const from = process.env.EMAIL_FROM;
 
   console.log("─".repeat(50));
-  console.log("GigaX Email Smoke Test");
+  console.log("GigaX Email Template Smoke Test (4 senaryo)");
   console.log("─".repeat(50));
   console.log("RESEND_API_KEY:", apiKey ? `set (${apiKey.slice(0, 6)}…)` : "MISSING");
   console.log("EMAIL_FROM:    ", from ?? "MISSING");
@@ -28,51 +98,47 @@ async function main() {
   console.log("─".repeat(50));
 
   if (!apiKey) {
-    console.error("✗ RESEND_API_KEY tanimli degil. backend/.env'e ekle.");
+    console.error("✗ RESEND_API_KEY tanımlı değil. backend/.env'e ekle.");
     process.exit(1);
   }
   if (!to) {
-    console.error("✗ GMAIL_USER tanimli degil. backend/.env'e ekle.");
+    console.error("✗ GMAIL_USER tanımlı değil. backend/.env'e ekle.");
     process.exit(1);
   }
   if (!from) {
-    console.error("✗ EMAIL_FROM tanimli degil. backend/.env'e ekle.");
+    console.error("✗ EMAIL_FROM tanımlı değil. backend/.env'e ekle.");
     process.exit(1);
   }
 
-  // 2) Force live mode — email.service IS_LIVE'i true olsun diye NODE_ENV'i
-  //    production'a cek, sonra dinamik import. Bu sayede dev makinede gercek
-  //    mail atabiliriz (normalde dev'de console fallback).
+  // Force live mode → IS_LIVE = true (normalde dev'de console fallback).
   process.env.NODE_ENV = "production";
 
-  const { sendEmail } = await import("../services/email.service");
+  const { sendEmail, composeEmail } = await import("../services/email.service");
 
-  // 3) Mail icerigi
-  const html = `<!DOCTYPE html>
-<html><body style="margin:0;padding:30px;background:#0A0A0F;font-family:Arial,sans-serif;">
-  <div style="max-width:520px;margin:0 auto;padding:28px;background:#16161D;border:1px solid rgba(124,58,237,0.3);border-radius:14px;color:#E4E4E7;">
-    <div style="height:2px;background:linear-gradient(90deg,transparent,#7C3AED,transparent);margin:-28px -28px 24px;"></div>
-    <h1 style="margin:0 0 8px;font-size:24px;font-weight:300;color:#FFFFFF;">Test <span style="font-style:italic;color:#C4B5FD;font-family:Georgia,serif;">basarili</span></h1>
-    <p style="margin:0;font-size:14px;color:#A1A1AA;line-height:1.6;">GigaX email servisi calisiyor. Bu mail Resend SDK uzerinden gonderildi.</p>
-    <div style="margin-top:20px;padding:12px 16px;background:rgba(124,58,237,0.10);border:1px solid rgba(124,58,237,0.25);border-radius:8px;font-size:12px;color:#A78BFA;font-family:monospace;">
-      Timestamp: ${new Date().toISOString()}
-    </div>
-  </div>
-</body></html>`;
-
-  console.log(`Gonderiliyor → ${to} …`);
-  try {
-    await sendEmail({
-      to,
-      subject: "GigaX Email Test",
-      html,
-    });
-    console.log("✓ Mail gonderildi. Inbox'i (ve Spam'i) kontrol et.");
-    process.exit(0);
-  } catch (err) {
-    console.error("✗ Gonderim hatasi:", (err as Error).message);
-    process.exit(1);
+  let okCount = 0;
+  for (const sc of SCENARIOS) {
+    const html = composeEmail(sc.template, sc.vars);
+    process.stdout.write(`→ ${sc.template.padEnd(24)} ... `);
+    try {
+      await sendEmail({
+        to,
+        subject: sc.subject,
+        html,
+      });
+      console.log("✓");
+      okCount += 1;
+    } catch (err) {
+      console.log("✗");
+      console.error("   Hata:", (err as Error).message);
+    }
   }
+
+  console.log("─".repeat(50));
+  console.log(`Sonuç: ${okCount}/${SCENARIOS.length} mail gönderildi → ${to}`);
+  console.log("Inbox'ı (ve Spam'i) kontrol et.");
+  console.log("─".repeat(50));
+
+  process.exit(okCount === SCENARIOS.length ? 0 : 1);
 }
 
 main().catch((err) => {

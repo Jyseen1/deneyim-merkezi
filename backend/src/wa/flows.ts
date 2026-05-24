@@ -111,6 +111,18 @@ export const flowJson = {
             required: true,
           },
           {
+            type: "RadioButtonsGroup",
+            name: "product",
+            label: "Hangi ürün için?",
+            required: true,
+            "data-source": [
+              { id: "gigax", title: "Giga X" },
+              { id: "sangfor", title: "Sangfor" },
+              { id: "gigabyte", title: "Gigabyte" },
+              { id: "diger", title: "Diğer" },
+            ],
+          },
+          {
             type: "TextArea",
             name: "note",
             label: "Not (isteğe bağlı)",
@@ -129,6 +141,7 @@ export const flowJson = {
                 visitor_name: "${form.visitor_name}",
                 visitor_phone: "${form.visitor_phone}",
                 group_size: "${form.group_size}",
+                product: "${form.product}",
                 note: "${form.note}",
               },
             },
@@ -147,6 +160,7 @@ export const flowJson = {
         visitor_name: { type: "string", __example__: "Ahmet Yılmaz" },
         visitor_phone: { type: "string", __example__: "+905551234567" },
         group_size: { type: "string", __example__: "3" },
+        product: { type: "string", __example__: "gigax" },
         note: { type: "string", __example__: "" },
       },
       layout: {
@@ -176,6 +190,7 @@ export const flowJson = {
                 visitor_name: "${data.visitor_name}",
                 visitor_phone: "${data.visitor_phone}",
                 group_size: "${data.group_size}",
+                product: "${data.product}",
                 note: "${data.note}",
               },
             },

@@ -11,6 +11,7 @@ import * as path from "node:path";
 import { Resend } from "resend";
 import type { Reservation, Visitor } from "@prisma/client";
 import { prisma } from "../db/client";
+import { productLabel } from "../types/product";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "GigaX <onboarding@resend.dev>";
@@ -58,7 +59,7 @@ function render(template: string, vars: Record<string, string>): string {
 
 // Layout + scenario birlesimi. Scenario once kendi vars'i ile render edilir;
 // olusan HTML, layout'taki {{!content}} (raw) hedefine yerlestirilir.
-function composeEmail(scenarioName: string, vars: Record<string, string>): string {
+export function composeEmail(scenarioName: string, vars: Record<string, string>): string {
   const scenarioHtml = render(loadTemplate(scenarioName), vars);
   return render(loadTemplate("layout"), {
     ...vars,
@@ -207,6 +208,7 @@ export async function sendAdminNewReservation(reservationId: string): Promise<vo
     duration: String(r.durationMinutes),
     note: r.note ?? "—",
     source: r.source ?? "web",
+    product: productLabel(r.product),
     dashboard_url: dashboardLink(r.id),
   });
   try {

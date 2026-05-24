@@ -20,6 +20,7 @@ import {
   SlotUnavailableError,
   TooManyPendingReservationsError,
 } from "../types/reservation";
+import { PRODUCT_SLUGS } from "../types/product";
 import { verifyJWT } from "../middleware/auth";
 import { requireAdmin } from "../middleware/requireAdmin";
 
@@ -62,6 +63,8 @@ const createBodySchema = z
     durationMinutes: z.number().int().positive().max(600).optional(),
     groupSize: z.number().int().positive().max(50).optional(),
     note: z.string().max(1000).optional(),
+    // Urun zorunlu — form akislarinin hepsi (web/telegram/whatsapp) gondermeli.
+    product: z.enum(PRODUCT_SLUGS),
     source: z.enum(["web", "whatsapp", "telegram"]).optional(),
     telegramChatId: z.string().max(64).optional(),
   })
@@ -78,6 +81,7 @@ const createBodySchema = z
 
 const listQuerySchema = z.object({
   status: z.enum(reservationStatuses).optional(),
+  product: z.enum(PRODUCT_SLUGS).optional(),
   date_from: isoDate.optional(),
   date_to: isoDate.optional(),
   // Aktif + gelecek olanlari goster: COMPLETED/CANCELLED/REJECTED/NO_SHOW
@@ -177,7 +181,7 @@ const reservationRoutes: FastifyPluginAsync = async (app) => {
         .code(400)
         .send({ error: "validation_failed", details: parsed.error.flatten() });
     }
-    const { status, date_from, date_to, hide_past, page, limit } = parsed.data;
+    const { status, product, date_from, date_to, hide_past, page, limit } = parsed.data;
 
     const where: Prisma.ReservationWhereInput = {};
     if (status) {
@@ -187,6 +191,9 @@ const reservationRoutes: FastifyPluginAsync = async (app) => {
       where.status = {
         notIn: ["COMPLETED", "CANCELLED", "REJECTED", "NO_SHOW"],
       };
+    }
+    if (product) {
+      where.product = product;
     }
 
     if (date_from || date_to) {

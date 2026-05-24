@@ -14,11 +14,17 @@ import { EmptyState, InboxIcon } from "@/components/EmptyState";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { GXSelect } from "@/components/ui/GXSelect";
 import { TR_DAYS, toLocalIso } from "@/lib/date";
+import {
+  PRODUCT_OPTIONS,
+  type ProductSlug,
+  productLabel,
+} from "@/lib/products";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useBackendToken } from "@/hooks/useBackendToken";
 import { useToast } from "@/hooks/useToast";
 
 type StatusFilter = "ALL" | ReservationStatus;
+type ProductFilter = "ALL" | ProductSlug;
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "ALL", label: "Tümü" },
@@ -27,6 +33,11 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "REJECTED", label: "Reddedildi" },
   { value: "CANCELLED", label: "İptal" },
   { value: "NO_SHOW", label: "Gelmedi" },
+];
+
+const PRODUCT_FILTER_OPTIONS: { value: ProductFilter; label: string }[] = [
+  { value: "ALL", label: "Tümü" },
+  ...PRODUCT_OPTIONS.map((o) => ({ value: o.slug, label: o.label })),
 ];
 
 const MONTHS = [
@@ -103,6 +114,7 @@ export default function ReservationsPage() {
   const [exporting, setExporting] = useState(false);
 
   const [status, setStatus] = useState<StatusFilter>("ALL");
+  const [product, setProduct] = useState<ProductFilter>("ALL");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
@@ -130,6 +142,7 @@ export default function ReservationsPage() {
     try {
       const sp = new URLSearchParams();
       if (status !== "ALL") sp.set("status", status);
+      if (product !== "ALL") sp.set("product", product);
       if (dateFrom) sp.set("date_from", dateFrom);
       if (dateTo) sp.set("date_to", dateTo);
       const url = `${backendBase()}/api/v1/reservations/export?${sp.toString()}`;
@@ -160,13 +173,14 @@ export default function ReservationsPage() {
   const query = useMemo(() => {
     const sp = new URLSearchParams();
     if (status !== "ALL") sp.set("status", status);
+    if (product !== "ALL") sp.set("product", product);
     if (dateFrom) sp.set("date_from", dateFrom);
     if (dateTo) sp.set("date_to", dateTo);
     if (hidePast) sp.set("hide_past", "1");
     sp.set("page", String(page));
     sp.set("limit", String(PAGE_SIZE));
     return sp.toString();
-  }, [status, dateFrom, dateTo, hidePast, page]);
+  }, [status, product, dateFrom, dateTo, hidePast, page]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -195,7 +209,7 @@ export default function ReservationsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [status, dateFrom, dateTo, hidePast]);
+  }, [status, product, dateFrom, dateTo, hidePast]);
 
   useRealtime({
     onNewReservation: () => load(),
@@ -204,7 +218,11 @@ export default function ReservationsPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
   const hasActiveFilter =
-    status !== "ALL" || dateFrom !== "" || dateTo !== "" || !hidePast;
+    status !== "ALL" ||
+    product !== "ALL" ||
+    dateFrom !== "" ||
+    dateTo !== "" ||
+    !hidePast;
 
   // TARİH GRUPLAMA — sayfanın görünen kayıtlarını güne göre grupla.
   // Backend sıralaması korunur; sadece görsel olarak başlıklarla bölünür.
@@ -294,6 +312,14 @@ export default function ReservationsPage() {
               ariaLabel="Durum filtresi"
             />
           </FilterField>
+          <FilterField label="Ürün" width={150}>
+            <GXSelect<ProductFilter>
+              options={PRODUCT_FILTER_OPTIONS}
+              value={product}
+              onChange={setProduct}
+              ariaLabel="Ürün filtresi"
+            />
+          </FilterField>
           <FilterField label="Tarih aralığı" width={260}>
             {/* Tek takvim açılışında range seçimi — backend kontratı korunur:
                 state'te ayrı dateFrom/dateTo string'leri tutulur, query'ye
@@ -312,6 +338,7 @@ export default function ReservationsPage() {
               type="button"
               onClick={() => {
                 setStatus("ALL");
+                setProduct("ALL");
                 setDateFrom("");
                 setDateTo("");
                 setHidePast(true);
@@ -534,6 +561,24 @@ function DayGroup({
             <div className="nm">{r.visitor?.name ?? "—"}</div>
             <div className="ph">{formatPhone(r.visitor?.phone)}</div>
             <div className="ppl">{r.groupSize} kişi</div>
+            {r.product && (
+              <span
+                style={{
+                  fontSize: "10px",
+                  fontFamily: "var(--grotesk)",
+                  fontWeight: 500,
+                  padding: "3px 8px",
+                  borderRadius: "999px",
+                  background: "rgba(124,58,237,0.10)",
+                  color: "var(--accent3)",
+                  border: "1px solid rgba(124,58,237,0.25)",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}
+              >
+                {productLabel(r.product)}
+              </span>
+            )}
             <span className={pillClass(r.status)}>{STATUS_LABEL[r.status]}</span>
           </div>
         );

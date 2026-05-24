@@ -20,6 +20,7 @@ import {
   TooManyPendingReservationsError,
   type CreateReservationInput,
 } from "../types/reservation";
+import { PRODUCT_SLUGS } from "../types/product";
 import { notifyAdminError } from "../services/error-alert.service";
 
 // Telegram webhook payload sablonu (gerekli alanlar).
@@ -49,6 +50,7 @@ const webAppFormSchema = z.object({
   durationMinutes: z.number().int().positive().optional(),
   groupSize: z.number().int().positive(),
   note: z.string().optional(),
+  product: z.enum(PRODUCT_SLUGS),
   telegramChatId: z.union([z.string(), z.number()]).optional(),
 });
 
@@ -168,6 +170,7 @@ async function handleUpdate(
       durationMinutes: toIntOpt(result.data.durationMinutes),
       groupSize: result.data.groupSize,
       note: result.data.note?.trim() || undefined,
+      product: result.data.product,
       source: "telegram",
       telegramChatId: String(result.data.telegramChatId ?? chatId),
     };

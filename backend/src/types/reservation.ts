@@ -1,4 +1,5 @@
 import type { Reservation, Visitor } from "@prisma/client";
+import type { ProductSlug } from "./product";
 
 export type ReservationWithVisitor = Reservation & { visitor: Visitor };
 
@@ -11,6 +12,9 @@ export type CreateReservationInput = {
   durationMinutes?: number;
   groupSize?: number;
   note?: string;
+  // Yeni rezervasyonlarda zorunlu (form validation enforce eder); type-system
+  // de zorunlu tutuyor ki yeni cagri noktalari unutmasin.
+  product: ProductSlug;
   source?: "web" | "whatsapp" | "telegram";
   telegramChatId?: string;
 };

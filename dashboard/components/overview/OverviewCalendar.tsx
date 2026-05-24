@@ -16,6 +16,7 @@ import {
   type Reservation,
   type ReservationList,
 } from "@/lib/types";
+import { productLabel } from "@/lib/products";
 
 // Genel Bakış'a gömülü kompakt Yoğunluk takvim — takvim sayfasının küçük versiyonu.
 // Görsel dil takvim sayfası ile aynı (.heat, .hrow, .m-cell), embed olduğu için
@@ -423,6 +424,25 @@ function EmbedDay({
               <div className="ovd-name">{heroVisit.visitor?.name ?? "—"}</div>
               <div className="ovd-sub">
                 <span>{heroVisit.groupSize} kişi</span>
+                {heroVisit.product && (
+                  <>
+                    <span className="sep">·</span>
+                    <span
+                      style={{
+                        fontFamily: "var(--grotesk)",
+                        fontSize: "10px",
+                        fontWeight: 500,
+                        padding: "2px 8px",
+                        borderRadius: "999px",
+                        background: "rgba(124,58,237,0.18)",
+                        color: "var(--accent4)",
+                        border: "1px solid rgba(124,58,237,0.35)",
+                      }}
+                    >
+                      {productLabel(heroVisit.product)}
+                    </span>
+                  </>
+                )}
                 {heroVisit.status === "PENDING_APPROVAL" && (
                   <>
                     <span className="sep">·</span>

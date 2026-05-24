@@ -298,6 +298,7 @@ export async function createReservation(input: CreateReservationInput) {
         note: input.note ?? undefined,
         status: "PENDING_APPROVAL",
         source: input.source ?? "web",
+        product: input.product,
         telegramChatId: input.telegramChatId ?? null,
       },
     });

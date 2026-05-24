@@ -10,12 +10,18 @@ import {
   Check,
   Clock,
   Mail,
+  Package,
   Phone,
   StickyNote,
   Timer,
   User,
   Users,
 } from "lucide-react";
+import {
+  PRODUCT_OPTIONS,
+  type ProductSlug,
+  productLabel,
+} from "@/lib/products";
 
 export const dynamic = "force-dynamic";
 
@@ -181,6 +187,7 @@ function ReservationForm() {
   const [email, setEmail] = useState("");
   const [groupSize, setGroupSize] = useState(1);
   const [note, setNote] = useState("");
+  const [product, setProduct] = useState<ProductSlug | null>(null);
 
   // Adim 3 / submit
   const [submitting, setSubmitting] = useState(false);
@@ -219,6 +226,7 @@ function ReservationForm() {
     if (name.trim().length < 2) return false;
     if (!/^\+90\d{10}$/.test(phone)) return false;
     if (groupSize < 1 || groupSize > 20) return false;
+    if (!product) return false;
     return true;
   }
 
@@ -308,6 +316,7 @@ function ReservationForm() {
         durationMinutes: Number(duration),
         groupSize: Number(groupSize),
         note: note.trim() || undefined,
+        product,
       };
 
       // Telegram modunda source + chat_id ekle ki backend onay/red mesajini
@@ -522,6 +531,8 @@ function ReservationForm() {
               setGroupSize={setGroupSize}
               note={note}
               setNote={setNote}
+              product={product}
+              setProduct={setProduct}
               canNext={step2Valid()}
               onPrev={() => setStep(1)}
               onNext={() => setStep(3)}
@@ -538,6 +549,7 @@ function ReservationForm() {
                 email,
                 groupSize,
                 note,
+                product,
               }}
               onPrev={() => setStep(2)}
               onSubmit={submit}
@@ -867,6 +879,8 @@ function Step2(props: {
   setGroupSize: (v: number) => void;
   note: string;
   setNote: (v: string) => void;
+  product: ProductSlug | null;
+  setProduct: (v: ProductSlug) => void;
   canNext: boolean;
   onPrev: () => void;
   onNext: () => void;
@@ -927,6 +941,45 @@ function Step2(props: {
           value={props.groupSize}
           onChange={props.setGroupSize}
         />
+      </Field>
+      <Field label="Hangi ürün için? *" style={{ marginTop: "12px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "8px",
+          }}
+        >
+          {PRODUCT_OPTIONS.map((opt) => {
+            const active = props.product === opt.slug;
+            return (
+              <button
+                key={opt.slug}
+                type="button"
+                onClick={() => props.setProduct(opt.slug)}
+                style={{
+                  padding: "12px 10px",
+                  borderRadius: "10px",
+                  border: active
+                    ? "1px solid var(--gx-accent)"
+                    : "1px solid var(--gx-border)",
+                  background: active
+                    ? "linear-gradient(135deg, rgba(124,58,237,0.18), rgba(124,58,237,0.04))"
+                    : "var(--gx-surface)",
+                  color: active ? "#fff" : "var(--gx-text)",
+                  fontSize: "13px",
+                  fontFamily: "var(--grotesk)",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  textAlign: "center",
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       </Field>
       <Field label="Not" optional style={{ marginTop: "12px" }}>
         <textarea
@@ -1008,6 +1061,7 @@ type SummaryProps = {
   email: string;
   groupSize: number;
   note: string;
+  product: ProductSlug | null;
 };
 
 function Step3(props: {
@@ -1069,6 +1123,11 @@ function Step3(props: {
           icon={<Users size={14} color="#8B5CF6" strokeWidth={2} />}
           label="Kişi"
           value={`${s.groupSize} kişi`}
+        />
+        <SumRow
+          icon={<Package size={14} color="#8B5CF6" strokeWidth={2} />}
+          label="Ürün"
+          value={productLabel(s.product)}
           last={!s.note}
         />
         {s.note && (

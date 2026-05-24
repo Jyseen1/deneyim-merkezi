@@ -31,6 +31,9 @@ model Reservation {
   note            String?
   status          ReservationStatus @default(PENDING_APPROVAL)
   source          String?           @default("web") // web | whatsapp | telegram
+  // Hangi urun icin gelindi: gigax | sangfor | gigabyte | diger.
+  // Yeni rezervasyonlarda formdan zorunlu; eski (migrasyon oncesi) rows null kalir.
+  product         String?
   telegramChatId  String?
   // Yetkili Telegram onay mesaji referansi (her kanaldan gelen status
   // degisikliginde bu mesaj guncellenir, butonlari kaldirilir).

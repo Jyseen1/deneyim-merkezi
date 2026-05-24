@@ -25,6 +25,8 @@ export type Reservation = {
   durationMinutes: number;
   groupSize: number;
   note: string | null;
+  // Slug (lib/products.ts); eski rezervasyonlarda null. Label icin productLabel().
+  product: string | null;
   status: ReservationStatus;
   waMessageId: string | null;
   approvedAt: string | null;

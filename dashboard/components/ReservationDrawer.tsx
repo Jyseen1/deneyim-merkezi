@@ -10,6 +10,7 @@ import {
   type ReservationStatus,
 } from "@/lib/types";
 import { formatTrDateTime, formatTrShortDate } from "@/lib/date";
+import { productLabel } from "@/lib/products";
 import { DatePicker } from "@/components/ui/DatePicker";
 
 type Action = "approve" | "reject" | "cancel" | "no_show";
@@ -504,6 +505,7 @@ export function ReservationDrawer({
                 <Row label="Saat" value={data.startTime} />
                 <Row label="Süre" value={`${data.durationMinutes} dk`} />
                 <Row label="Kişi sayısı" value={data.groupSize} />
+                <Row label="Ürün" value={productLabel(data.product)} />
                 {data.note && <Row label="Not" value={data.note} />}
               </Block>
 

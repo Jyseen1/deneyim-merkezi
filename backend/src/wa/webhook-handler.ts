@@ -12,6 +12,7 @@ import {
   TooManyPendingReservationsError,
   type CreateReservationInput,
 } from "../types/reservation";
+import { PRODUCT_SLUGS } from "../types/product";
 import { notifyAdminError } from "../services/error-alert.service";
 
 // Meta WhatsApp Flow nfm_reply payload yapisi (flows.ts ile uyumlu snake_case).
@@ -26,6 +27,7 @@ const flowReplySchema = z.object({
   group_size: z.union([z.string(), z.number()]),
   note: z.string().optional(),
   email: z.string().email().optional(),
+  product: z.enum(PRODUCT_SLUGS),
 });
 
 function toIntOptional(v: unknown): number | undefined {
@@ -147,6 +149,8 @@ async function routeMessage(msg: WAMessage, log: FastifyBaseLogger) {
         durationMinutes: toIntOptional(validated.data.duration),
         groupSize: toIntRequired(validated.data.group_size, 1),
         note: validated.data.note?.trim() || undefined,
+        product: validated.data.product,
+        source: "whatsapp",
       };
 
       try {
