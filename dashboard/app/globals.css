@@ -157,26 +157,52 @@ input[type="date"]::-webkit-calendar-picker-indicator {
  * Tum icerik (sidebar, kartlar) varsayilan z-index:0 ile bunlarin USTUNDE.
  * .page-bg solid renk tabanidir; uzerine 3 desen katmani biner.
  * ───────────────────────────────────────────────────────── */
+/* Katman sirasi (alttan uste): page-bg(-4) → conic(-3) → dots(-2) →
+   grid(-1) → icerik(0+). Conic izgaranin ALTINDA ki izgara onun uzerinde
+   gorunsun; conic glow desen bosluklarindan sizar. Eski hata: 4 katman da
+   z-index:-1 idi, conic DOM'da son oldugu icin izgaranin ustune biniyor +
+   asiri solgun kaliyordu, fark edilmiyordu. */
 .page-bg {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: -4;
   background: var(--gx-bg);
   overflow: hidden;
   pointer-events: none;
 }
 
-/* KATMAN 1 — ince nokta izgara (sabit, her yerde). */
+/* KATMAN 3 — donen conic isik huzmesi. Solid zeminin hemen ustunde (-3),
+   izgaralarin altinda. inset:-50% taşma payiyla kose kesintisi olmasin.
+   transform:rotate GPU-accelerated; will-change hint. */
+.bg-conic {
+  position: fixed;
+  inset: -50%;
+  z-index: -3;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg at 72% 18%,
+    transparent 0deg,
+    rgba(124, 58, 237, 0.35) 55deg,
+    transparent 130deg,
+    rgba(139, 92, 246, 0.22) 210deg,
+    transparent 290deg
+  );
+  filter: blur(70px);
+  animation: bgspin 40s linear infinite;
+  will-change: transform;
+}
+
+/* KATMAN 1 — ince nokta izgara (conic'in ustunde, sabit). */
 .bg-dots {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: -2;
   pointer-events: none;
   background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
-/* KATMAN 2 — buyuk cizgi izgara, ust kisimda yumusakca fade-out. */
+/* KATMAN 2 — buyuk cizgi izgara, ust kisimda yumusakca fade-out (en ustte). */
 .bg-grid {
   position: fixed;
   inset: 0;
@@ -188,26 +214,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background-size: 96px 96px;
   -webkit-mask-image: radial-gradient(circle at 60% 0%, black 30%, transparent 85%);
   mask-image: radial-gradient(circle at 60% 0%, black 30%, transparent 85%);
-}
-
-/* KATMAN 3 — donen conic isik huzmesi. inset:-50% taşma payiyla kose
-   kesintisi olmasin. transform:rotate GPU-accelerated; will-change hint. */
-.bg-conic {
-  position: fixed;
-  inset: -50%;
-  z-index: -1;
-  pointer-events: none;
-  background: conic-gradient(
-    from 0deg at 72% 18%,
-    transparent 0deg,
-    rgba(124, 58, 237, 0.20) 55deg,
-    transparent 130deg,
-    rgba(139, 92, 246, 0.13) 210deg,
-    transparent 290deg
-  );
-  filter: blur(55px);
-  animation: bgspin 40s linear infinite;
-  will-change: transform;
 }
 
 @keyframes bgspin {
