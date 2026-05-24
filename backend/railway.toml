@@ -2,7 +2,11 @@
 builder = "dockerfile"
 
 [deploy]
-startCommand = "node dist/server.js"
+# Onemli: railway.toml startCommand Dockerfile CMD'sini override eder.
+# Bu satir olmasaydi Dockerfile'in "migrate deploy && start" CMD'i calisirdi;
+# burada hem migration hem sunucu acikca zincirleniyor ki her iki dosya da
+# kendi basina dogru kalsin.
+startCommand = "npx prisma migrate deploy && node dist/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
