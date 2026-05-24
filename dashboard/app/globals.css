@@ -1895,6 +1895,8 @@ input:-webkit-autofill:focus {
 }
 .ovm-cell {
   aspect-ratio: 1 / 1.05;
+  max-height: calc((100vh - 480px) / 6);
+  min-height: 0;
   position: relative;
   border-radius: 10px;
   padding: 5px 6px;
