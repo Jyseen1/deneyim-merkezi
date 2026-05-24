@@ -699,6 +699,29 @@ function TeamSection() {
     }
   }
 
+  async function hardDelete(id: string, name: string) {
+    if (
+      !window.confirm(
+        `${name} kalıcı olarak silinecek, bu işlem geri alınamaz. Emin misiniz?`,
+      )
+    )
+      return;
+    setBusyId(id);
+    try {
+      await apiFetch(`/staff/${id}/permanent`, { method: "DELETE" }, token);
+      show(`${name} kalıcı olarak silindi`, "info");
+      await load();
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? (e.body as { error?: string } | null)?.error ?? e.message
+          : (e as Error).message;
+      show(`İşlem başarısız: ${msg}`, "error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <>
       <p
@@ -865,27 +888,48 @@ function TeamSection() {
                     {busyId === s.id ? "..." : "Sil"}
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => reactivate(s.id, s.name)}
-                    disabled={busyId === s.id}
-                    title="Yeniden aktifleştir"
-                    style={{
-                      padding: "6px 12px",
-                      fontSize: "12px",
-                      fontWeight: 500,
-                      borderRadius: "8px",
-                      border: "1px solid rgba(74,222,128,0.35)",
-                      background: "transparent",
-                      color: "var(--gx-success)",
-                      cursor: busyId === s.id ? "not-allowed" : "pointer",
-                      opacity: busyId === s.id ? 0.4 : 1,
-                      flexShrink: 0,
-                      fontFamily: "var(--font-inter), system-ui",
-                    }}
-                  >
-                    {busyId === s.id ? "..." : "Aktifleştir"}
-                  </button>
+                  <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => reactivate(s.id, s.name)}
+                      disabled={busyId === s.id}
+                      title="Yeniden aktifleştir"
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                        fontWeight: 500,
+                        borderRadius: "8px",
+                        border: "1px solid rgba(74,222,128,0.35)",
+                        background: "transparent",
+                        color: "var(--gx-success)",
+                        cursor: busyId === s.id ? "not-allowed" : "pointer",
+                        opacity: busyId === s.id ? 0.4 : 1,
+                        fontFamily: "var(--font-inter), system-ui",
+                      }}
+                    >
+                      {busyId === s.id ? "..." : "Aktifleştir"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => hardDelete(s.id, s.name)}
+                      disabled={busyId === s.id}
+                      title="Kalıcı olarak sil (geri alınamaz)"
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                        fontWeight: 500,
+                        borderRadius: "8px",
+                        border: "1px solid rgba(239,68,68,0.3)",
+                        background: "transparent",
+                        color: "#f87171",
+                        cursor: busyId === s.id ? "not-allowed" : "pointer",
+                        opacity: busyId === s.id ? 0.4 : 1,
+                        fontFamily: "var(--font-inter), system-ui",
+                      }}
+                    >
+                      {busyId === s.id ? "..." : "Sil"}
+                    </button>
+                  </div>
                 )}
               </div>
             );

@@ -224,6 +224,45 @@ const staffRoutes: FastifyPluginAsync = async (app) => {
       }
     },
   );
+
+  // Hard delete: DB'den kalıcı kaldırır. Yalnızca ZATEN PASİF kayıtlar için —
+  // aktif birini önce pasifleştirmek (soft-delete) gerekir. Bu iki adımlı
+  // akış, yanlışlıkla aktif admin'in kalıcı silinmesini engeller.
+  // Staff modelinin baska tabloyla iliskisi yok + Reservation.approvedBy duz
+  // String (FK degil) → prisma.staff.delete() FK constraint'e takilmaz,
+  // gecmis rezervasyonlar approvedBy degerini metin olarak korur.
+  app.delete<{ Params: { id: string } }>(
+    "/:id/permanent",
+    { preHandler: [verifyJWT, requireAdmin] },
+    async (req, reply) => {
+      if (req.user?.id === req.params.id) {
+        return reply
+          .code(403)
+          .send({ error: "Kendi hesabınızı kalıcı silemezsiniz" });
+      }
+      const target = await prisma.staff.findUnique({
+        where: { id: req.params.id },
+        select: { isActive: true },
+      });
+      if (!target) {
+        return reply.code(404).send({ error: "not_found" });
+      }
+      if (target.isActive) {
+        return reply
+          .code(409)
+          .send({ error: "Önce pasifleştirin, sonra kalıcı silin" });
+      }
+      try {
+        await prisma.staff.delete({ where: { id: req.params.id } });
+        return reply.code(204).send();
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        if (code === "P2025") return reply.code(404).send({ error: "not_found" });
+        req.log.error({ err }, "staff hard delete hata");
+        return reply.code(500).send({ error: "internal_error" });
+      }
+    },
+  );
 };
 
 export default staffRoutes;
