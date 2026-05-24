@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GigaX — İstatistik Varyantları</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0F;--bg2:#0F0F18;--bg3:#141420;
+    --accent:#7C3AED;--accent2:#8B5CF6;--accent3:#A78BFA;
+    --green:#4ADE80;--red:#EF4444;--amber:#F59E0B;
+    --line:rgba(255,255,255,0.08);--line2:rgba(255,255,255,0.05);
+    --txt:#E4E4E7;--muted:#71717A;--muted2:#52525B;--muted3:#3F3F46;
+    --grotesk:'Space Grotesk',sans-serif;--inter:'Inter',sans-serif;--serif:'Instrument Serif',serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#000;color:var(--txt);font-family:var(--inter);-webkit-font-smoothing:antialiased}
+  .selector{position:sticky;top:0;z-index:100;background:rgba(10,10,15,0.85);backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--line);padding:16px 32px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .selector .brand{font-family:var(--grotesk);font-weight:700;font-size:18px;margin-right:24px}
+  .selector .brand b{color:var(--accent2)}
+  .selector .label{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted2);margin-right:8px}
+  .tab{padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;border:1px solid var(--line2);
+    background:transparent;color:var(--muted);transition:all 150ms}
+  .tab:hover{border-color:rgba(124,58,237,0.3);color:var(--txt)}
+  .tab.active{border-color:rgba(124,58,237,0.5);background:rgba(124,58,237,0.18);color:var(--accent3)}
+  .layout{display:none;padding:32px 40px;min-height:100vh;position:relative;overflow:hidden}
+  .layout.active{display:block}
+  .glow{position:absolute;border-radius:50%;pointer-events:none;filter:blur(80px);top:-100px;right:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(124,58,237,0.15),transparent 70%)}
+  .ltitle{font-family:var(--grotesk);font-size:12px;color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:20px}
+  .ltitle em{font-family:var(--serif);font-style:italic;color:var(--accent3);text-transform:none}
+
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px}
+  .topbar h1{font-family:var(--grotesk);font-size:28px;font-weight:600}
+  .topbar .sub{font-size:13px;color:var(--muted);margin-top:4px}
+  .topbar .sub em{font-family:var(--serif);font-style:italic;color:var(--accent3);font-size:1.08em}
+  .seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+  .seg b{font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;color:var(--muted);font-weight:500}
+  .seg b.on{background:var(--accent);color:#fff}
+
+  .card{background:linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015));
+    border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(20px);position:relative}
+  .card-accent{position:absolute;top:0;left:24px;right:24px;height:1px;background:linear-gradient(90deg,transparent,rgba(124,58,237,0.5),transparent)}
+  .card-h{font-family:var(--grotesk);font-size:14px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+  .card-h em{font-family:var(--serif);font-style:italic;color:var(--accent3);font-weight:400;font-size:1.08em}
+  .card-h .meta{font-size:11px;color:var(--muted3);font-weight:400;font-family:var(--inter)}
+
+  /* ===== V1: KOMPAKT KPI ŞERİT + GRID ===== */
+  /* kpi strip: tek satır, ince, ayraçlı */
+  .kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);padding:18px 0;margin-bottom:18px}
+  .kpi-strip .kpi{padding:0 24px;border-right:1px solid var(--line2);text-align:center}
+  .kpi-strip .kpi:last-child{border-right:0}
+  .kpi-strip .kpi .ic{width:30px;height:30px;border-radius:9px;background:rgba(124,58,237,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:14px}
+  .kpi-strip .kpi .l{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted2);margin-bottom:6px}
+  .kpi-strip .kpi .v{font-family:var(--grotesk);font-size:30px;font-weight:300;line-height:1}
+  .kpi-strip .kpi .v small{font-size:14px;color:var(--muted2)}
+  .kpi-strip .kpi .v.green{color:var(--green)}
+  .kpi-strip .kpi .v.amber{color:var(--amber)}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+  .grid-3{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+
+  /* donut mor tonlu */
+  .donut-wrap{display:flex;align-items:center;gap:28px}
+  .donut{position:relative;width:140px;height:140px;flex-shrink:0}
+  .donut svg{transform:rotate(-90deg)}
+  .donut .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .donut .center .n{font-family:var(--grotesk);font-size:34px;font-weight:300;line-height:1}
+  .donut .center .l{font-size:10px;color:var(--muted2);font-family:var(--serif);font-style:italic;color:var(--accent3);margin-top:2px}
+  .leg{flex:1;display:flex;flex-direction:column;gap:11px}
+  .leg-row{display:flex;align-items:center;gap:10px;font-size:13px}
+  .leg-row .dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+  .leg-row .nm{flex:1;color:var(--txt)}
+  .leg-row .pc{color:var(--muted);font-size:12px;width:40px;text-align:right}
+  .leg-row .ct{font-family:var(--grotesk);font-weight:500;width:24px;text-align:right}
+
+  /* saat dağılım bars - mor */
+  .hbar-row{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+  .hbar-row .t{font-family:var(--grotesk);font-size:12px;color:var(--muted2);width:44px}
+  .hbar-row .track{flex:1;height:8px;background:rgba(255,255,255,0.04);border-radius:4px;overflow:hidden}
+  .hbar-row .fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:4px}
+  .hbar-row .c{font-size:12px;color:var(--muted);width:20px;text-align:right}
+
+  /* tarih gruplu recent (kompakt) */
+  .daygroup{margin-bottom:14px}
+  .daygroup .dh{font-size:13px;font-family:var(--grotesk);font-weight:600;margin-bottom:8px}
+  .daygroup .dh em{font-family:var(--serif);font-style:italic;color:var(--accent3);font-size:1.08em}
+  .daygroup .dh .c{font-size:11px;color:var(--muted3);font-weight:400;font-family:var(--inter)}
+  .rmini{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.025);border:1px solid var(--line);margin-bottom:5px;cursor:pointer}
+  .rmini:hover{border-color:rgba(124,58,237,0.4)}
+  .rmini .tm{font-family:var(--grotesk);font-weight:500;font-size:14px;width:46px;color:var(--accent3)}
+  .rmini .nm{font-weight:600;font-size:13px;flex:1}
+  .rmini .pp{font-size:12px;color:var(--muted3);width:46px}
+  .pill{font-size:11px;padding:4px 11px;border-radius:999px}
+  .pill.ok{background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.2)}
+  .pill.cancel{background:rgba(113,113,122,0.15);color:var(--muted);border:1px solid var(--line)}
+  .pill.noshow{background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.25)}
+
+  /* ===== V2: BÜYÜK SOL ÖZET + SAĞ DETAY ===== */
+  .hero-grid{display:grid;grid-template-columns:300px 1fr;gap:18px;margin-bottom:18px}
+  .hero-card{padding:28px;display:flex;flex-direction:column;justify-content:center}
+  .hero-card .big{font-family:var(--grotesk);font-size:64px;font-weight:300;line-height:1;letter-spacing:-2px}
+  .hero-card .big-l{font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted2);margin-top:8px}
+  .hero-card .big-l em{font-family:var(--serif);font-style:italic;color:var(--accent3);text-transform:none;font-size:1.15em}
+  .hero-card .delta{margin-top:18px;font-size:13px;color:var(--green);display:flex;align-items:center;gap:6px}
+  .mini-kpi{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .mini-kpi .mk{padding:18px 20px}
+  .mini-kpi .mk .l{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted2);margin-bottom:8px;display:flex;align-items:center;gap:7px}
+  .mini-kpi .mk .l .d{width:7px;height:7px;border-radius:50%}
+  .mini-kpi .mk .v{font-family:var(--grotesk);font-size:26px;font-weight:300}
+  .mini-kpi .mk .v small{font-size:13px;color:var(--muted2)}
+</style>
+</head>
+<body>
+
+<div class="selector">
+  <div class="brand">Giga<b>X</b></div>
+  <span class="label">İstatistik</span>
+  <button class="tab active" onclick="show('S1',this)">1 · Kompakt Şerit</button>
+  <button class="tab" onclick="show('S2',this)">2 · Hero Özet</button>
+</div>
+
+<!-- ===== S1: KOMPAKT ŞERİT ===== -->
+<div class="layout active" id="S1">
+  <div class="glow"></div>
+  <div class="ltitle">Varyasyon 1 — <em>Kompakt Şerit</em> · KPI'lar tek ince şeritte, donut mor tonlu, recent tarih gruplu</div>
+  <div class="topbar">
+    <div><h1>İstatistik</h1><div class="sub">Rezervasyon <em>eğilimleri</em> ve performans göstergeleri.</div></div>
+    <div class="seg"><b>Bu Hafta</b><b class="on">Bu Ay</b><b>Son 3 Ay</b></div>
+  </div>
+
+  <!-- KPI tek şerit -->
+  <div class="card kpi-strip">
+    <div class="card-accent"></div>
+    <div class="kpi"><div class="ic">📅</div><div class="l">Toplam</div><div class="v">9</div></div>
+    <div class="kpi"><div class="ic">✓</div><div class="l">Onay Oranı</div><div class="v green">100<small>%</small></div></div>
+    <div class="kpi"><div class="ic">⚡</div><div class="l">Ort. Yanıt</div><div class="v">12<small>dk</small></div></div>
+    <div class="kpi"><div class="ic">⊘</div><div class="l">İptal Oranı</div><div class="v">11<small>%</small></div></div>
+    <div class="kpi"><div class="ic">○</div><div class="l">Gelmeme</div><div class="v amber">13<small>%</small></div></div>
+  </div>
+
+  <!-- iki kolon: durum + saat -->
+  <div class="grid-2">
+    <div class="card" style="padding:22px">
+      <div class="card-h">Durum <em>dağılımı</em></div>
+      <div class="donut-wrap">
+        <div class="donut">
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            <circle cx="70" cy="70" r="58" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="16"/>
+            <!-- onaylı %78 mor koyu -->
+            <circle cx="70" cy="70" r="58" fill="none" stroke="#7C3AED" stroke-width="16" stroke-dasharray="284 364" stroke-linecap="round"/>
+            <!-- iptal %11 mor açık -->
+            <circle cx="70" cy="70" r="58" fill="none" stroke="#A78BFA" stroke-width="16" stroke-dasharray="40 364" stroke-dashoffset="-284" stroke-linecap="round"/>
+            <!-- gelmedi %11 amber -->
+            <circle cx="70" cy="70" r="58" fill="none" stroke="#F59E0B" stroke-width="16" stroke-dasharray="40 364" stroke-dashoffset="-324" stroke-linecap="round"/>
+          </svg>
+          <div class="center"><div class="n">9</div><div class="l">toplam</div></div>
+        </div>
+        <div class="leg">
+          <div class="leg-row"><span class="dot" style="background:#7C3AED"></span><span class="nm">Onaylı</span><span class="pc">78%</span><span class="ct">7</span></div>
+          <div class="leg-row"><span class="dot" style="background:#8B5CF6"></span><span class="nm">Bekleyen</span><span class="pc">0%</span><span class="ct">0</span></div>
+          <div class="leg-row"><span class="dot" style="background:#EF4444"></span><span class="nm">Reddedilen</span><span class="pc">0%</span><span class="ct">0</span></div>
+          <div class="leg-row"><span class="dot" style="background:#A78BFA"></span><span class="nm">İptal</span><span class="pc">11%</span><span class="ct">1</span></div>
+          <div class="leg-row"><span class="dot" style="background:#F59E0B"></span><span class="nm">Gelmedi</span><span class="pc">11%</span><span class="ct">1</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="padding:22px">
+      <div class="card-h">Saat <em>dağılımı</em></div>
+      <div class="hbar-row"><span class="t">09:00</span><div class="track"></div><span class="c">0</span></div>
+      <div class="hbar-row"><span class="t">11:00</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="c">2</span></div>
+      <div class="hbar-row"><span class="t">13:00</span><div class="track"><div class="fill" style="width:50%"></div></div><span class="c">1</span></div>
+      <div class="hbar-row"><span class="t">15:00</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="c">2</span></div>
+      <div class="hbar-row"><span class="t">17:00</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="c">2</span></div>
+    </div>
+  </div>
+
+  <!-- recent tarih gruplu -->
+  <div class="card" style="padding:22px">
+    <div class="card-h">Son <em>rezervasyonlar</em> <span class="meta">en son kayıtlar</span></div>
+    <div class="daygroup">
+      <div class="dh">26 <em>Mayıs</em> <span class="c">· Salı</span></div>
+      <div class="rmini"><div class="tm">10:30</div><div class="nm">mert yarpuzlu</div><div class="pp">2 kişi</div><span class="pill ok">Onaylı</span></div>
+    </div>
+    <div class="daygroup">
+      <div class="dh">23 <em>Mayıs</em> <span class="c">· Cumartesi · 5 kayıt</span></div>
+      <div class="rmini"><div class="tm">13:00</div><div class="nm">poyrwz</div><div class="pp">2 kişi</div><span class="pill cancel">İptal</span></div>
+      <div class="rmini"><div class="tm">13:30</div><div class="nm">poyraz</div><div class="pp">3 kişi</div><span class="pill ok">Onaylı</span></div>
+      <div class="rmini"><div class="tm">17:00</div><div class="nm">poyraz</div><div class="pp">1 kişi</div><span class="pill noshow">Gelmedi</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== S2: HERO ÖZET ===== -->
+<div class="layout" id="S2">
+  <div class="glow"></div>
+  <div class="ltitle">Varyasyon 2 — <em>Hero Özet</em> · büyük toplam solda, KPI'lar kompakt grid, sağda detaylar</div>
+  <div class="topbar">
+    <div><h1>İstatistik</h1><div class="sub">Rezervasyon <em>eğilimleri</em> ve performans göstergeleri.</div></div>
+    <div class="seg"><b>Bu Hafta</b><b class="on">Bu Ay</b><b>Son 3 Ay</b></div>
+  </div>
+
+  <!-- hero + mini kpi -->
+  <div class="hero-grid">
+    <div class="card hero-card">
+      <div class="card-accent"></div>
+      <div class="big">9</div>
+      <div class="big-l">toplam <em>rezervasyon</em></div>
+      <div class="delta">↑ bu ay aktif</div>
+    </div>
+    <div class="mini-kpi">
+      <div class="card mk"><div class="l"><span class="d" style="background:var(--green)"></span>Onay Oranı</div><div class="v" style="color:var(--green)">100<small>%</small></div></div>
+      <div class="card mk"><div class="l"><span class="d" style="background:var(--accent3)"></span>Ort. Yanıt</div><div class="v">12<small>dk</small></div></div>
+      <div class="card mk"><div class="l"><span class="d" style="background:var(--accent2)"></span>İptal Oranı</div><div class="v">11<small>%</small></div></div>
+      <div class="card mk"><div class="l"><span class="d" style="background:var(--amber)"></span>Gelmeme</div><div class="v" style="color:var(--amber)">13<small>%</small></div></div>
+    </div>
+  </div>
+
+  <!-- iki kolon: durum donut + saat -->
+  <div class="grid-2">
+    <div class="card" style="padding:22px">
+      <div class="card-h">Durum <em>dağılımı</em></div>
+      <div class="donut-wrap">
+        <div class="donut">
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            <circle cx="70" cy="70" r="58" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="16"/>
+            <circle cx="70" cy="70" r="58" fill="none" stroke="#7C3AED" stroke-width="16" stroke-dasharray="284 364" stroke-linecap="round"/>
+            <circle cx="70" cy="70" r="58" fill="none" stroke="#A78BFA" stroke-width="16" stroke-dasharray="40 364" stroke-dashoffset="-284" stroke-linecap="round"/>
+            <circle cx="70" cy="70" r="58" fill="none" stroke="#F59E0B" stroke-width="16" stroke-dasharray="40 364" stroke-dashoffset="-324" stroke-linecap="round"/>
+          </svg>
+          <div class="center"><div class="n">9</div><div class="l">toplam</div></div>
+        </div>
+        <div class="leg">
+          <div class="leg-row"><span class="dot" style="background:#7C3AED"></span><span class="nm">Onaylı</span><span class="pc">78%</span><span class="ct">7</span></div>
+          <div class="leg-row"><span class="dot" style="background:#8B5CF6"></span><span class="nm">Bekleyen</span><span class="pc">0%</span><span class="ct">0</span></div>
+          <div class="leg-row"><span class="dot" style="background:#A78BFA"></span><span class="nm">İptal</span><span class="pc">11%</span><span class="ct">1</span></div>
+          <div class="leg-row"><span class="dot" style="background:#F59E0B"></span><span class="nm">Gelmedi</span><span class="pc">11%</span><span class="ct">1</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="padding:22px">
+      <div class="card-h">Saat <em>dağılımı</em></div>
+      <div class="hbar-row"><span class="t">09:00</span><div class="track"></div><span class="c">0</span></div>
+      <div class="hbar-row"><span class="t">11:00</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="c">2</span></div>
+      <div class="hbar-row"><span class="t">13:00</span><div class="track"><div class="fill" style="width:50%"></div></div><span class="c">1</span></div>
+      <div class="hbar-row"><span class="t">15:00</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="c">2</span></div>
+      <div class="hbar-row"><span class="t">17:00</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="c">2</span></div>
+    </div>
+  </div>
+
+  <!-- recent tarih gruplu -->
+  <div class="card" style="padding:22px;margin-top:18px">
+    <div class="card-h">Son <em>rezervasyonlar</em> <span class="meta">en son kayıtlar</span></div>
+    <div class="daygroup">
+      <div class="dh">26 <em>Mayıs</em> <span class="c">· Salı</span></div>
+      <div class="rmini"><div class="tm">10:30</div><div class="nm">mert yarpuzlu</div><div class="pp">2 kişi</div><span class="pill ok">Onaylı</span></div>
+    </div>
+    <div class="daygroup">
+      <div class="dh">23 <em>Mayıs</em> <span class="c">· Cumartesi · 5 kayıt</span></div>
+      <div class="rmini"><div class="tm">13:30</div><div class="nm">poyraz</div><div class="pp">3 kişi</div><span class="pill ok">Onaylı</span></div>
+      <div class="rmini"><div class="tm">17:00</div><div class="nm">poyraz</div><div class="pp">1 kişi</div><span class="pill noshow">Gelmedi</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(id,el){
+  document.querySelectorAll('.layout').forEach(l=>l.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.selector .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');window.scrollTo(0,0);
+}
+</script>
+</body>
+</html>

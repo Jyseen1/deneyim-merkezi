@@ -1,26 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import {
-  Bar,
-  BarChart as RBarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  Calendar,
-  CheckCircle,
-  UserX,
-  XCircle,
-  Zap,
-} from "lucide-react";
+import { CheckCircle, UserX, XCircle, Zap } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import {
   STATUS_LABEL,
@@ -30,8 +12,23 @@ import {
 } from "@/lib/types";
 import { EmptyState, InboxIcon } from "@/components/EmptyState";
 import { ReservationDrawer } from "@/components/ReservationDrawer";
-import { formatTrShortDate } from "@/lib/date";
+import { TR_DAYS, toLocalIso } from "@/lib/date";
 import { useBackendToken } from "@/hooks/useBackendToken";
+
+const MONTHS = [
+  "Ocak",
+  "Şubat",
+  "Mart",
+  "Nisan",
+  "Mayıs",
+  "Haziran",
+  "Temmuz",
+  "Ağustos",
+  "Eylül",
+  "Ekim",
+  "Kasım",
+  "Aralık",
+];
 
 function pillClass(s: ReservationStatus): string {
   switch (s) {
@@ -78,6 +75,15 @@ type PeriodStats = {
     noShow: number;
   };
 };
+
+// Donut renkleri — referans S2: mor paleti + amber + kırmızı
+const STATUS_COLORS = {
+  approved: "#7C3AED",   // koyu mor
+  pending: "#8B5CF6",    // mor
+  rejected: "#EF4444",   // kırmızı
+  cancelled: "#A78BFA",  // açık mor
+  noShow: "#F59E0B",     // amber
+} as const;
 
 export default function StatsPage() {
   const { data: session } = useSession();
@@ -140,49 +146,65 @@ export default function StatsPage() {
   }, [token]);
 
   const kpi = stats?.kpi;
-  const barData =
-    stats?.weeklyDistribution.map((b) => ({
-      label: b.label,
-      count: b.count,
-    })) ?? [];
   const hours = stats?.hourDistribution ?? [];
   const maxHour = Math.max(...hours.map((h) => h.count), 1);
 
   const statusSegments = stats
     ? [
-        { label: "Onaylı", value: stats.statusDistribution.approved, color: "#4ADE80" },
-        { label: "Bekleyen", value: stats.statusDistribution.pending, color: "#8B5CF6" },
-        { label: "Reddedilen", value: stats.statusDistribution.rejected, color: "#EF4444" },
-        { label: "İptal", value: stats.statusDistribution.cancelled, color: "#A1A1AA" },
-        { label: "Gelmedi", value: stats.statusDistribution.noShow, color: "#FBBF24" },
+        { key: "approved", label: "Onaylı", value: stats.statusDistribution.approved, color: STATUS_COLORS.approved },
+        { key: "pending", label: "Bekleyen", value: stats.statusDistribution.pending, color: STATUS_COLORS.pending },
+        { key: "rejected", label: "Reddedilen", value: stats.statusDistribution.rejected, color: STATUS_COLORS.rejected },
+        { key: "cancelled", label: "İptal", value: stats.statusDistribution.cancelled, color: STATUS_COLORS.cancelled },
+        { key: "noShow", label: "Gelmedi", value: stats.statusDistribution.noShow, color: STATUS_COLORS.noShow },
       ]
     : [];
   const statusTotal = statusSegments.reduce((acc, x) => acc + x.value, 0);
 
+  // Recent rezervasyonları tarihe göre grupla (Genel Bakış ile aynı mantık)
+  const recentGroups = useMemo(() => {
+    const m = new Map<string, Reservation[]>();
+    const order: string[] = [];
+    for (const r of recent) {
+      const iso = toLocalIso(new Date(r.visitDate));
+      if (!m.has(iso)) {
+        m.set(iso, []);
+        order.push(iso);
+      }
+      m.get(iso)!.push(r);
+    }
+    return order.map((iso) => ({
+      iso,
+      date: new Date(iso),
+      items: (m.get(iso) ?? []).sort((a, b) =>
+        a.startTime.localeCompare(b.startTime),
+      ),
+    }));
+  }, [recent]);
+
   return (
     <div style={{ maxWidth: "1180px", margin: "0 auto" }}>
-      {/* Header */}
+      {/* TOPBAR */}
       <div
         className="fade-up"
         style={{
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "space-between",
           gap: "16px",
           flexWrap: "wrap",
-          marginBottom: "24px",
+          marginBottom: "22px",
         }}
       >
         <div>
           <h1
             className="font-display"
             style={{
-              fontSize: "32px",
-              fontWeight: 400,
+              fontSize: "28px",
+              fontWeight: 600,
               letterSpacing: "-0.02em",
-              color: "var(--gx-text)",
-              lineHeight: 1.1,
+              color: "var(--txt)",
               margin: 0,
+              lineHeight: 1.1,
             }}
           >
             İstatistik
@@ -190,15 +212,15 @@ export default function StatsPage() {
           <p
             style={{
               fontSize: "13px",
-              color: "var(--gx-text-muted)",
-              margin: "8px 0 0",
+              color: "var(--muted)",
+              margin: "6px 0 0",
               lineHeight: 1.5,
             }}
           >
             Rezervasyon{" "}
             <span
               className="font-serif font-italic"
-              style={{ color: "var(--gx-accent-light)" }}
+              style={{ color: "var(--accent3)" }}
             >
               eğilimleri
             </span>{" "}
@@ -206,190 +228,271 @@ export default function StatsPage() {
           </p>
         </div>
 
-        {/* 2G — Zaman filtre butonlari */}
-        <div style={{ display: "inline-flex", gap: "6px" }}>
-          {(["week", "month", "3m"] as Period[]).map((p) => {
-            const active = p === period;
-            return (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                style={{
-                  padding: "7px 16px",
-                  borderRadius: "8px",
-                  fontSize: "13px",
-                  fontFamily: "var(--font-inter), system-ui",
-                  cursor: "pointer",
-                  transition: "all 150ms ease",
-                  border: active
-                    ? "1px solid rgba(124,58,237,0.5)"
-                    : "1px solid rgba(255,255,255,0.06)",
-                  background: active
-                    ? "rgba(124,58,237,0.20)"
-                    : "transparent",
-                  color: active ? "#A78BFA" : "#52525B",
-                  fontWeight: active ? 600 : 500,
-                }}
-              >
-                {PERIOD_LABEL[p]}
-              </button>
-            );
-          })}
+        {/* Zaman filtresi — referans .seg */}
+        <div className="seg" role="tablist" aria-label="Zaman filtresi">
+          {(["week", "month", "3m"] as Period[]).map((p) => (
+            <b
+              key={p}
+              role="tab"
+              aria-selected={period === p}
+              className={period === p ? "on" : ""}
+              onClick={() => setPeriod(p)}
+              style={{
+                background: period === p ? "var(--accent)" : "transparent",
+                color: period === p ? "#fff" : "var(--muted)",
+              }}
+            >
+              {PERIOD_LABEL[p]}
+            </b>
+          ))}
         </div>
       </div>
 
-      {/* 2B — KPI kartlari */}
-      <div className="grid grid-cols-2 md:grid-cols-5" style={{ gap: "12px" }}>
-        <KpiCard
-          label="Toplam Rezervasyon"
-          value={kpi?.total ?? 0}
-          icon={<Calendar size={16} color="rgba(124,58,237,0.6)" />}
-          fade="fade-up-1"
-          tone="default"
-          loading={loadingStats}
-        />
-        <KpiCard
-          label="Onay Oranı"
-          value={kpi?.approvalRate ?? 0}
-          suffix="%"
-          icon={<CheckCircle size={16} color="rgba(124,58,237,0.6)" />}
-          fade="fade-up-2"
-          tone={(kpi?.approvalRate ?? 0) > 0 ? "success" : "default"}
-          loading={loadingStats}
-        />
-        <KpiCard
-          label="Ort. Yanıt Süresi"
-          value={kpi?.avgResponseMinutes ?? 0}
-          suffix="dk"
-          icon={<Zap size={16} color="rgba(124,58,237,0.6)" />}
-          fade="fade-up-3"
-          tone="default"
-          loading={loadingStats}
-        />
-        <KpiCard
-          label="İptal Oranı"
-          value={kpi?.cancelRate ?? 0}
-          suffix="%"
-          icon={<XCircle size={16} color="rgba(124,58,237,0.6)" />}
-          fade="fade-up-4"
-          tone={(kpi?.cancelRate ?? 0) > 0 ? "danger" : "muted"}
-          loading={loadingStats}
-        />
-        <KpiCard
-          label="Gelmeme Oranı"
-          value={kpi?.noShowRate ?? 0}
-          suffix="%"
-          icon={<UserX size={16} color="rgba(124,58,237,0.6)" />}
-          fade="fade-up-5"
-          tone={(kpi?.noShowRate ?? 0) > 0 ? "warning" : "muted"}
-          loading={loadingStats}
-        />
-      </div>
-
-      {/* Orta — Haftalik trend (sol) + Saat dagilimi (sag) */}
+      {/* HERO + MINI KPI satırı */}
       <div
-        className="grid grid-cols-1 lg:grid-cols-[3fr_2fr]"
-        style={{ gap: "20px", marginTop: "20px" }}
+        className="stats-hero fade-up fade-up-1"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "300px 1fr",
+          gap: "18px",
+          marginBottom: "18px",
+        }}
       >
-        {/* 2C — Haftalik trend */}
-        <PanelCard fade="fade-up-5">
-          <PanelHeader
-            title={
-              period === "week"
-                ? "Haftalık Dağılım"
-                : period === "month"
-                  ? "Aylık Dağılım"
-                  : "3 Aylık Dağılım"
-            }
-            right={PERIOD_LABEL[period]}
-          />
+        {/* Hero — büyük toplam rezervasyon */}
+        <div
+          className="card"
+          style={{
+            padding: "28px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            minHeight: "180px",
+          }}
+        >
+          <div className="card-accent" />
           {loadingStats ? (
             <div
               className="shimmer"
-              style={{ height: "240px", borderRadius: "10px" }}
+              style={{ height: "64px", width: "60%", borderRadius: "8px" }}
             />
-          ) : barData.length === 0 ? (
+          ) : (
+            <>
+              <div
+                className="font-display"
+                style={{
+                  fontSize: "64px",
+                  fontWeight: 300,
+                  lineHeight: 1,
+                  letterSpacing: "-2px",
+                  color: "var(--txt)",
+                }}
+              >
+                {kpi?.total ?? 0}
+              </div>
+              <div
+                style={{
+                  fontSize: "12px",
+                  letterSpacing: "0.10em",
+                  textTransform: "uppercase",
+                  color: "var(--muted2)",
+                  marginTop: "8px",
+                  fontWeight: 600,
+                }}
+              >
+                toplam
+                <em
+                  className="font-serif font-italic"
+                  style={{
+                    marginLeft: "6px",
+                    color: "var(--accent3)",
+                    textTransform: "none",
+                    letterSpacing: 0,
+                    fontWeight: 400,
+                  }}
+                >
+                  rezervasyon
+                </em>
+              </div>
+              <div
+                style={{
+                  marginTop: "18px",
+                  fontSize: "13px",
+                  color: "var(--muted)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <span style={{ color: "var(--accent3)" }}>·</span>
+                {PERIOD_LABEL[period].toLowerCase()} aralığında
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Mini KPI — 2×2 grid */}
+        <div
+          className="stats-mini"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "14px",
+          }}
+        >
+          <MiniKpi
+            dotColor="var(--green)"
+            icon={<CheckCircle size={12} color="var(--green)" />}
+            label="Onay Oranı"
+            value={kpi?.approvalRate ?? 0}
+            suffix="%"
+            valueColor="var(--green)"
+            loading={loadingStats}
+          />
+          <MiniKpi
+            dotColor="var(--accent3)"
+            icon={<Zap size={12} color="var(--accent3)" />}
+            label="Ort. Yanıt"
+            value={kpi?.avgResponseMinutes ?? 0}
+            suffix="dk"
+            loading={loadingStats}
+          />
+          <MiniKpi
+            dotColor="var(--accent2)"
+            icon={<XCircle size={12} color="var(--accent2)" />}
+            label="İptal Oranı"
+            value={kpi?.cancelRate ?? 0}
+            suffix="%"
+            loading={loadingStats}
+          />
+          <MiniKpi
+            dotColor="var(--amber)"
+            icon={<UserX size={12} color="var(--amber)" />}
+            label="Gelmeme"
+            value={kpi?.noShowRate ?? 0}
+            suffix="%"
+            valueColor={
+              (kpi?.noShowRate ?? 0) > 0 ? "var(--amber)" : undefined
+            }
+            loading={loadingStats}
+          />
+        </div>
+      </div>
+
+      {/* DURUM DONUT + SAAT DAĞILIMI — iki kolon */}
+      <div
+        className="stats-row fade-up fade-up-2"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "18px",
+          marginBottom: "18px",
+        }}
+      >
+        {/* Durum Dağılımı */}
+        <div className="card" style={{ padding: "22px" }}>
+          <div className="card-accent" />
+          <div className="card-h">
+            Durum
+            <em style={{ marginLeft: "6px" }}>dağılımı</em>
+          </div>
+          {loadingStats ? (
+            <div
+              className="shimmer"
+              style={{ height: "180px", borderRadius: "10px" }}
+            />
+          ) : (
             <div
               style={{
-                height: "240px",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                color: "var(--gx-text-hint)",
-                fontSize: "13px",
+                gap: "28px",
+                flexWrap: "wrap",
               }}
             >
-              Veri yok.
-            </div>
-          ) : (
-            <div style={{ width: "100%", height: "240px" }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <RBarChart
-                  data={barData}
-                  margin={{ top: 10, right: 8, left: -16, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#7C3AED" stopOpacity={0.6} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="rgba(255,255,255,0.04)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="label"
-                    tick={{
-                      fill: "#52525B",
-                      fontSize: 11,
-                      fontFamily: "var(--font-inter), system-ui",
-                    }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{
-                      fill: "#52525B",
-                      fontSize: 11,
-                      fontFamily: "var(--font-inter), system-ui",
-                    }}
-                    axisLine={false}
-                    tickLine={false}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "rgba(124,58,237,0.06)" }}
-                    contentStyle={{
-                      background: "rgba(10,10,15,0.95)",
-                      border: "1px solid rgba(124,58,237,0.3)",
-                      borderRadius: "10px",
-                      backdropFilter: "blur(20px)",
-                      fontFamily: "var(--font-display), system-ui",
-                    }}
-                    labelStyle={{ color: "#A78BFA", fontSize: 12 }}
-                    itemStyle={{
-                      color: "#E4E4E7",
-                      fontSize: 14,
-                      fontWeight: 300,
-                    }}
-                  />
-                  <Bar
-                    dataKey="count"
-                    fill="url(#barGrad)"
-                    radius={[6, 6, 0, 0]}
-                    maxBarSize={48}
-                  />
-                </RBarChart>
-              </ResponsiveContainer>
+              <DonutSvg
+                segments={statusSegments.filter((s) => s.value > 0)}
+                total={statusTotal}
+              />
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "11px",
+                  minWidth: 0,
+                }}
+              >
+                {statusSegments.map((s) => {
+                  const pct = statusTotal
+                    ? Math.round((s.value / statusTotal) * 100)
+                    : 0;
+                  return (
+                    <div
+                      key={s.key}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: "9px",
+                          height: "9px",
+                          borderRadius: "3px",
+                          background: s.color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        style={{
+                          flex: 1,
+                          color: "var(--txt)",
+                          minWidth: 0,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {s.label}
+                      </span>
+                      <span
+                        style={{
+                          color: "var(--muted)",
+                          fontSize: "12px",
+                          width: "40px",
+                          textAlign: "right",
+                        }}
+                      >
+                        {pct}%
+                      </span>
+                      <span
+                        className="font-display"
+                        style={{
+                          fontWeight: 500,
+                          width: "24px",
+                          textAlign: "right",
+                          color: "var(--txt)",
+                        }}
+                      >
+                        {s.value}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
-        </PanelCard>
+        </div>
 
-        {/* 2D — Saat dagilimi (custom div, recharts degil) */}
-        <PanelCard fade="fade-up-5">
-          <PanelHeader title="Saat Dağılımı" />
+        {/* Saat Dağılımı */}
+        <div className="card" style={{ padding: "22px" }}>
+          <div className="card-accent" />
+          <div className="card-h">
+            Saat
+            <em style={{ marginLeft: "6px" }}>dağılımı</em>
+          </div>
           {loadingStats ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {Array.from({ length: 5 }).map((_, i) => (
@@ -403,11 +506,9 @@ export default function StatsPage() {
           ) : hours.length === 0 ? (
             <div
               style={{
-                height: "160px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--gx-text-hint)",
+                padding: "20px 0",
+                textAlign: "center",
+                color: "var(--muted)",
                 fontSize: "13px",
               }}
             >
@@ -417,7 +518,6 @@ export default function StatsPage() {
             <div>
               {hours.map((h) => {
                 const widthPct = (h.count / maxHour) * 100;
-                const hasCount = h.count > 0;
                 return (
                   <div
                     key={h.time}
@@ -425,16 +525,15 @@ export default function StatsPage() {
                       display: "flex",
                       alignItems: "center",
                       gap: "12px",
-                      marginBottom: "10px",
+                      marginBottom: "11px",
                     }}
                   >
                     <span
+                      className="font-display"
                       style={{
-                        width: "40px",
                         fontSize: "12px",
-                        color: "#52525B",
-                        fontFamily: "var(--font-display), system-ui",
-                        flexShrink: 0,
+                        color: "var(--muted2)",
+                        width: "44px",
                       }}
                     >
                       {h.time}
@@ -442,9 +541,9 @@ export default function StatsPage() {
                     <div
                       style={{
                         flex: 1,
-                        height: "6px",
-                        background: "rgba(255,255,255,0.05)",
-                        borderRadius: "3px",
+                        height: "8px",
+                        background: "rgba(255,255,255,0.04)",
+                        borderRadius: "4px",
                         overflow: "hidden",
                       }}
                     >
@@ -453,21 +552,18 @@ export default function StatsPage() {
                           height: "100%",
                           width: `${widthPct}%`,
                           background:
-                            "linear-gradient(90deg, #7C3AED, #A78BFA)",
-                          borderRadius: "3px",
+                            "linear-gradient(90deg, var(--accent), var(--accent3))",
+                          borderRadius: "4px",
                           transition: "width 600ms ease",
                         }}
                       />
                     </div>
                     <span
                       style={{
+                        fontSize: "12px",
+                        color: "var(--muted)",
                         width: "20px",
-                        fontSize: "13px",
-                        fontWeight: 300,
-                        color: hasCount ? "#A78BFA" : "#3F3F46",
-                        fontFamily: "var(--font-display), system-ui",
                         textAlign: "right",
-                        flexShrink: 0,
                       }}
                     >
                       {h.count}
@@ -477,270 +573,83 @@ export default function StatsPage() {
               })}
             </div>
           )}
-        </PanelCard>
+        </div>
       </div>
 
-      {/* Alt — Donut (sol) + Son rezervasyonlar (sag) */}
-      <div
-        className="grid grid-cols-1 lg:grid-cols-[2fr_3fr]"
-        style={{ gap: "20px", marginTop: "20px" }}
-      >
-        {/* 2E — Durum dagilimi donut */}
-        <PanelCard fade="fade-up-5">
-          <PanelHeader title="Durum Dağılımı" />
-          {loadingStats ? (
+      {/* SON REZERVASYONLAR — tarih gruplu */}
+      <div className="card fade-up fade-up-3" style={{ padding: "22px" }}>
+        <div className="card-accent" />
+        <div className="card-h">
+          <span>
+            Son
+            <em style={{ marginLeft: "6px" }}>rezervasyonlar</em>
+          </span>
+          <span className="meta">en son kayıtlar</span>
+        </div>
+        {loadingRecent ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="shimmer"
+                style={{ height: "48px", borderRadius: "10px" }}
+              />
+            ))}
+          </div>
+        ) : recent.length === 0 ? (
+          <EmptyState
+            compact
+            icon={<InboxIcon size={28} />}
+            title="Henüz rezervasyon yok"
+            description="İlk rezervasyon geldiğinde burada özet olarak listelenir."
+          />
+        ) : (
+          recentGroups.map((g, gi) => (
             <div
-              className="shimmer"
-              style={{ height: "200px", borderRadius: "10px" }}
-            />
-          ) : (
-            <div
+              key={g.iso}
+              className="daygroup"
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "20px",
-                flexWrap: "wrap",
+                marginBottom: gi === recentGroups.length - 1 ? 0 : "14px",
               }}
             >
-              <div
-                style={{
-                  position: "relative",
-                  width: 160,
-                  height: 160,
-                  flexShrink: 0,
-                }}
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusSegments.filter((s) => s.value > 0)}
-                      dataKey="value"
-                      nameKey="label"
-                      innerRadius={55}
-                      outerRadius={75}
-                      paddingAngle={2}
-                      stroke="none"
-                    >
-                      {statusSegments
-                        .filter((s) => s.value > 0)
-                        .map((s) => (
-                          <Cell key={s.label} fill={s.color} />
-                        ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <div
-                    className="font-display"
-                    style={{
-                      fontSize: "28px",
-                      fontWeight: 300,
-                      color: "#FFFFFF",
-                      lineHeight: 1,
-                    }}
-                  >
-                    {statusTotal}
-                  </div>
-                  <div
-                    className="font-serif font-italic"
-                    style={{
-                      fontSize: "11px",
-                      color: "#8B5CF6",
-                      marginTop: "4px",
-                    }}
-                  >
-                    toplam
-                  </div>
-                </div>
+              <div className="dh">
+                {g.date.getDate()}{" "}
+                <em>{MONTHS[g.date.getMonth()]}</em>{" "}
+                <span className="c">
+                  · {TR_DAYS[g.date.getDay()]}
+                  {g.items.length > 1 ? ` · ${g.items.length} kayıt` : ""}
+                </span>
               </div>
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {statusSegments.map((s) => {
-                  const pct = statusTotal
-                    ? Math.round((s.value / statusTotal) * 100)
-                    : 0;
-                  return (
+              {g.items.map((r) => {
+                const isPending = r.status === "PENDING_APPROVAL";
+                return (
+                  <div
+                    key={r.id}
+                    className={`rmini${isPending ? " pend" : ""}`}
+                    onClick={() => setActiveId(r.id)}
+                    role="button"
+                  >
+                    <div className="tm">{r.startTime}</div>
+                    <div className="nm">{r.visitor?.name ?? "—"}</div>
                     <div
-                      key={s.label}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        marginBottom: "8px",
+                        fontSize: "12px",
+                        color: "var(--muted3)",
+                        width: "60px",
+                        flexShrink: 0,
                       }}
                     >
-                      <span
-                        style={{
-                          width: "8px",
-                          height: "8px",
-                          borderRadius: "50%",
-                          background: s.color,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          fontSize: "13px",
-                          color: "#D4D4D8",
-                          fontFamily: "var(--font-inter), system-ui",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {s.label}
-                      </span>
-                      <span
-                        style={{
-                          width: "36px",
-                          textAlign: "right",
-                          fontSize: "12px",
-                          color: "#52525B",
-                          fontFamily: "var(--font-display), system-ui",
-                        }}
-                      >
-                        {pct}%
-                      </span>
-                      <span
-                        style={{
-                          width: "20px",
-                          textAlign: "right",
-                          fontSize: "13px",
-                          fontWeight: 300,
-                          color: "#FFFFFF",
-                          fontFamily: "var(--font-display), system-ui",
-                        }}
-                      >
-                        {s.value}
-                      </span>
+                      {r.groupSize} kişi
                     </div>
-                  );
-                })}
-              </div>
+                    <span className={pillClass(r.status)}>
+                      {STATUS_LABEL[r.status]}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          )}
-        </PanelCard>
-
-        {/* 2F — Son rezervasyonlar */}
-        <PanelCard fade="fade-up-5" noPadding>
-          <div
-            style={{
-              padding: "20px 22px 0",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "baseline",
-              marginBottom: "16px",
-            }}
-          >
-            <h2
-              className="font-display"
-              style={{
-                fontSize: "15px",
-                fontWeight: 600,
-                color: "#E4E4E7",
-                margin: 0,
-                letterSpacing: "-0.01em",
-              }}
-            >
-              Son{" "}
-              <span
-                className="font-serif font-italic"
-                style={{
-                  color: "#8B5CF6",
-                  fontWeight: 400,
-                  letterSpacing: "0",
-                }}
-              >
-                rezervasyonlar
-              </span>
-            </h2>
-            <span
-              style={{
-                fontSize: "11px",
-                color: "#3F3F46",
-                fontFamily: "var(--font-inter), system-ui",
-              }}
-            >
-              en son 10 kayıt
-            </span>
-          </div>
-          <div style={{ overflowX: "auto" }}>
-            <table className="gx-table" style={{ minWidth: "520px" }}>
-              <thead>
-                <tr>
-                  <th>Ziyaretçi</th>
-                  <th>Tarih</th>
-                  <th>Saat</th>
-                  <th>Kişi</th>
-                  <th>Durum</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loadingRecent &&
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={`sk-${i}`}>
-                      {Array.from({ length: 5 }).map((_, c) => (
-                        <td key={c}>
-                          <div
-                            className="shimmer"
-                            style={{
-                              height: "12px",
-                              width: `${60 + ((i + c) % 3) * 20}%`,
-                              borderRadius: "4px",
-                            }}
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                {!loadingRecent && recent.length === 0 && (
-                  <tr>
-                    <td colSpan={5} style={{ padding: 0 }}>
-                      <EmptyState
-                        compact
-                        icon={<InboxIcon size={28} />}
-                        title="Henüz rezervasyon yok"
-                        description="İlk rezervasyon geldiğinde burada özet olarak listelenir."
-                      />
-                    </td>
-                  </tr>
-                )}
-                {recent.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="clk"
-                    onClick={() => setActiveId(r.id)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td style={{ fontWeight: 600 }}>
-                      {r.visitor?.name ?? "-"}
-                    </td>
-                    <td>{formatTrShortDate(r.visitDate)}</td>
-                    <td>{r.startTime}</td>
-                    <td>{r.groupSize}</td>
-                    <td>
-                      <span className={pillClass(r.status)}>
-                        {STATUS_LABEL[r.status]}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </PanelCard>
+          ))
+        )}
       </div>
 
       <ReservationDrawer
@@ -749,203 +658,215 @@ export default function StatsPage() {
         onClose={() => setActiveId(null)}
         onMutated={refreshRecent}
       />
+
+      {/* Mobile responsive: tek kolon */}
+      <style jsx>{`
+        @media (max-width: 900px) {
+          :global(.stats-hero) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.stats-row) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @media (max-width: 560px) {
+          :global(.stats-mini) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────
-// Panel kart + baslik wrapper
+// Mini KPI kart (Hero sağındaki 2×2 grid hücreleri)
 // ─────────────────────────────────────────────────────────
 
-function PanelCard({
-  children,
-  fade,
-  noPadding,
-}: {
-  children: React.ReactNode;
-  fade: string;
-  noPadding?: boolean;
-}) {
-  return (
-    <section
-      className={`fade-up ${fade}`}
-      style={{
-        background:
-          "linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))",
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: "16px",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        padding: noPadding ? 0 : "20px 22px",
-        overflow: "hidden",
-      }}
-    >
-      {children}
-    </section>
-  );
-}
-
-function PanelHeader({ title, right }: { title: string; right?: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: "14px",
-      }}
-    >
-      <h2
-        className="font-display"
-        style={{
-          fontSize: "14px",
-          fontWeight: 600,
-          color: "#E4E4E7",
-          margin: 0,
-          letterSpacing: "-0.01em",
-        }}
-      >
-        {title}
-      </h2>
-      {right && (
-        <span
-          style={{
-            fontSize: "11px",
-            color: "#52525B",
-            fontFamily: "var(--font-inter), system-ui",
-          }}
-        >
-          {right}
-        </span>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────
-// KPI Kart
-// ─────────────────────────────────────────────────────────
-
-type Tone = "default" | "success" | "danger" | "warning" | "muted";
-
-function KpiCard({
+function MiniKpi({
+  dotColor,
+  icon,
   label,
   value,
   suffix,
-  icon,
-  fade,
-  tone,
+  valueColor,
   loading,
 }: {
+  dotColor: string;
+  icon?: React.ReactNode;
   label: string;
   value: number;
   suffix?: string;
-  icon: React.ReactNode;
-  fade: string;
-  tone: Tone;
+  valueColor?: string;
   loading?: boolean;
 }) {
-  const numberColor =
-    tone === "success"
-      ? "#10B981"
-      : tone === "danger"
-        ? "#EF4444"
-        : tone === "warning"
-          ? "#F59E0B"
-          : tone === "muted"
-            ? "#52525B"
-            : "#FFFFFF";
-
   return (
-    <div
-      className={`fade-up ${fade}`}
-      style={{
-        position: "relative",
-        overflow: "hidden",
-        background:
-          "linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))",
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: "16px",
-        padding: "20px 24px",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        minHeight: "112px",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-      }}
-    >
-      {/* Ust accent cizgisi */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          top: 0,
-          left: "20%",
-          right: "20%",
-          height: "1px",
-          background:
-            "linear-gradient(90deg, transparent, rgba(124,58,237,0.5), transparent)",
-        }}
-      />
-
-      <div
-        style={{
-          marginBottom: "12px",
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        {icon}
-      </div>
-
+    <div className="card" style={{ padding: "18px 20px", position: "relative" }}>
       <div
         style={{
           fontSize: "10px",
           letterSpacing: "0.10em",
-          color: "#52525B",
-          fontFamily: "var(--font-inter), system-ui",
           textTransform: "uppercase",
-          marginBottom: "6px",
+          color: "var(--muted2)",
+          marginBottom: "8px",
+          display: "flex",
+          alignItems: "center",
+          gap: "7px",
           fontWeight: 600,
         }}
       >
+        <span
+          aria-hidden
+          style={{
+            width: "7px",
+            height: "7px",
+            borderRadius: "50%",
+            background: dotColor,
+            flexShrink: 0,
+          }}
+        />
         {label}
+        {icon && (
+          <span
+            style={{
+              marginLeft: "auto",
+              opacity: 0.6,
+              display: "inline-flex",
+            }}
+          >
+            {icon}
+          </span>
+        )}
       </div>
-
       {loading ? (
         <div
           className="shimmer"
-          style={{ height: "30px", width: "60%", borderRadius: "6px" }}
+          style={{ height: "26px", width: "55%", borderRadius: "6px" }}
         />
       ) : (
         <div
           className="font-display"
           style={{
-            fontSize: "36px",
+            fontSize: "26px",
             fontWeight: 300,
-            color: numberColor,
+            color: valueColor ?? "var(--txt)",
             lineHeight: 1,
             display: "inline-flex",
             alignItems: "baseline",
+            gap: "2px",
           }}
         >
           {value}
           {suffix && (
-            <span
+            <small
               style={{
-                fontSize: "14px",
-                color: "#52525B",
-                marginLeft: "3px",
-                fontFamily: "var(--font-inter), system-ui",
+                fontSize: "13px",
+                color: "var(--muted2)",
                 fontWeight: 500,
               }}
             >
               {suffix}
-            </span>
+            </small>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Donut SVG — referans S2: rotate -90, stroke-dasharray ile segmentler
+// ─────────────────────────────────────────────────────────
+
+function DonutSvg({
+  segments,
+  total,
+}: {
+  segments: { key: string; label: string; value: number; color: string }[];
+  total: number;
+}) {
+  const size = 140;
+  const stroke = 16;
+  const r = (size - stroke) / 2 - 4;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+
+  // Segmentleri sırayla render et — dashoffset birikir
+  let acc = 0;
+  const arcs = segments.map((s) => {
+    const len = total > 0 ? (s.value / total) * circumference : 0;
+    const dashArray = `${len} ${circumference - len}`;
+    const dashOffset = -acc;
+    acc += len;
+    return { ...s, dashArray, dashOffset };
+  });
+
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        style={{ transform: "rotate(-90deg)" }}
+      >
+        {/* Track */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke="rgba(255,255,255,0.04)"
+          strokeWidth={stroke}
+        />
+        {arcs.map((a) => (
+          <circle
+            key={a.key}
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={a.color}
+            strokeWidth={stroke}
+            strokeDasharray={a.dashArray}
+            strokeDashoffset={a.dashOffset}
+            strokeLinecap="butt"
+          />
+        ))}
+      </svg>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          className="font-display"
+          style={{
+            fontSize: "34px",
+            fontWeight: 300,
+            lineHeight: 1,
+            color: "var(--txt)",
+          }}
+        >
+          {total}
+        </div>
+        <div
+          className="font-serif font-italic"
+          style={{
+            fontSize: "11px",
+            color: "var(--accent3)",
+            marginTop: "2px",
+          }}
+        >
+          toplam
+        </div>
+      </div>
     </div>
   );
 }

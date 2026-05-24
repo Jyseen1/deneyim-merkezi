@@ -413,15 +413,16 @@ export function OverviewClient({
         )}
 
         {/* 4. İKİ KOLON — Sol: mini takvim, Sağ: aksiyon + son rezervasyonlar.
-            alignItems:center → sol takvim sağ kolonun toplam yüksekliğine göre
-            dikey ortalanır (alt boşluk varsa simetrik dağılır). */}
+            alignItems:flex-start → iki kolon stat satırının HEMEN ALTINDAN aynı
+            hizadan başlar. Önceki "center" hizalama sol takvim daha uzun
+            olduğu için takvimi aşağı sarkıtıyor, üstte boşluk bırakıyordu. */}
         <div
           className="overview-grid fade-up fade-up-3"
           style={{
             display: "grid",
             gridTemplateColumns: "1.1fr 1fr",
             gap: "18px",
-            alignItems: "center",
+            alignItems: "flex-start",
           }}
         >
           <OverviewCalendar
