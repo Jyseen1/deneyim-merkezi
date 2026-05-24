@@ -292,8 +292,24 @@ export function OverviewCalendar({
 }
 
 // ─────────────────────────────────────────────────────────
-// Embed Day — saat saat (kompakt, 09–19 her 2 saatte bir)
+// Embed Day — Hero Now + compact timeline (collapsed empty bands).
 // ─────────────────────────────────────────────────────────
+
+// Format a minutes-from-now value into "X dk sonra" / "X sa Y dk sonra".
+function formatUntil(mins: number): string {
+  if (mins <= 0) return "Şu an";
+  if (mins < 60) return `${mins} dk sonra`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `${h} sa sonra` : `${h} sa ${m} dk sonra`;
+}
+
+function endTime(start: string, durationMinutes: number): string {
+  const s = parseHHMM(start) + (durationMinutes || 60);
+  const h = Math.floor(s / 60);
+  const m = s % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 
 function EmbedDay({
   date,
@@ -317,77 +333,188 @@ function EmbedDay({
         parseHHMM(r.startTime) <= 9 * 60 &&
         parseHHMM(r.endTime) >= 19 * 60,
     );
-  const dayItems = items
-    .filter(
-      (r) =>
-        isSameLocalDay(new Date(r.visitDate), date) &&
-        (r.status === "APPROVED" || r.status === "PENDING_APPROVAL"),
-    )
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const dayItems = useMemo(
+    () =>
+      items
+        .filter(
+          (r) =>
+            isSameLocalDay(new Date(r.visitDate), date) &&
+            (r.status === "APPROVED" || r.status === "PENDING_APPROVAL"),
+        )
+        .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [items, date],
+  );
 
-  const hours = ["09:00", "11:00", "13:00", "15:00", "17:00", "19:00"];
+  // Mount-time "now" — Guardian decision: no setInterval, static label.
+  const now = useMemo(() => new Date(), []);
+  const isToday = isSameLocalDay(now, date);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  const totalGuests = dayItems.reduce((s, r) => s + (r.groupSize || 0), 0);
+  const pendingCount = dayItems.filter((r) => r.status === "PENDING_APPROVAL").length;
+
+  // Find the "hero" visit: next upcoming for today, else first of the day.
+  const heroVisit = useMemo(() => {
+    if (dayItems.length === 0) return null;
+    if (!isToday) return dayItems[0];
+    const upcoming = dayItems.find((r) => parseHHMM(r.startTime) >= nowMin);
+    return upcoming ?? dayItems[dayItems.length - 1];
+  }, [dayItems, isToday, nowMin]);
+
+  const heroUntilLabel = useMemo(() => {
+    if (!heroVisit) return null;
+    if (!isToday) return "Bu gün";
+    const diff = parseHHMM(heroVisit.startTime) - nowMin;
+    return formatUntil(diff);
+  }, [heroVisit, isToday, nowMin]);
+
+  // Compute morning / evening empty bands around populated hours.
+  // Boundaries: 09:00 morning start, 13:00 split, 19:00 evening end.
+  const firstStart = dayItems.length > 0 ? parseHHMM(dayItems[0].startTime) : null;
+  const lastStart =
+    dayItems.length > 0 ? parseHHMM(dayItems[dayItems.length - 1].startTime) : null;
+  const morningEmpty = !dayClosed && (firstStart === null || firstStart >= 13 * 60);
+  const eveningEmpty = !dayClosed && (lastStart === null || lastStart < 13 * 60);
+
+  // Empty card content — closed or no visits.
+  if (dayItems.length === 0) {
+    return (
+      <>
+        <div className="ovd-empty">
+          <div className="ic">○</div>
+          <div className="t">
+            {dayClosed ? (
+              <>Bu gün <em>kapalı</em></>
+            ) : (
+              <>Bu gün <em>rezervasyon</em> yok</>
+            )}
+          </div>
+        </div>
+        <div className="ovd-foot">
+          <span>Toplam <b>0</b> ziyaret</span>
+          <span>{dayClosed ? "Kapalı" : "Tüm gün müsait"}</span>
+        </div>
+      </>
+    );
+  }
 
   return (
-    // flex column + flex:1 → card wrapper kart dolu yüksekliğine yayar.
-    // Satırları "space-between" ile aralarına eşit boşluk dağıt + track height
-    // 28→44 (saat slotları daha ferah, sağ panelle dengeli).
-    <div
-      style={{
-        padding: "12px 16px 16px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "6px",
-        flex: 1,
-        justifyContent: "space-between",
-      }}
-    >
-      {hours.map((h) => {
-        const hm = parseHHMM(h);
-        const inHour = dayItems.filter((r) => {
-          const rm = parseHHMM(r.startTime);
-          return rm >= hm && rm < hm + 120;
-        });
-        if (inHour.length === 0) {
+    <>
+      {/* Hero: now / next upcoming visit */}
+      {heroVisit && (
+        <div className="ovd-hero">
+          <div className="ovd-tag">
+            <span className="dot" />
+            {isToday ? "Sıradaki ziyaret" : "İlk ziyaret"}
+            {heroUntilLabel && isToday ? ` · ${heroUntilLabel}` : null}
+          </div>
+          <div
+            className="ovd-row"
+            onClick={() => onSlotClick(heroVisit.id)}
+            role="button"
+            style={{ cursor: "pointer" }}
+          >
+            <div className="ovd-time">
+              {heroVisit.startTime.split(":")[0]}
+              <span className="min">:{heroVisit.startTime.split(":")[1]}</span>
+            </div>
+            <div className="ovd-meta">
+              <div className="ovd-name">{heroVisit.visitor?.name ?? "—"}</div>
+              <div className="ovd-sub">
+                <span>{heroVisit.groupSize} kişi</span>
+                {heroVisit.status === "PENDING_APPROVAL" && (
+                  <>
+                    <span className="sep">·</span>
+                    <span className="pend">Onay bekliyor</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Summary chips */}
+      <div className="ovd-summary">
+        <div className="ovd-chip">
+          <span className="v">{dayItems.length}</span>
+          <span className="l">Ziyaret</span>
+        </div>
+        <div className="ovd-chip">
+          <span className="v">{totalGuests}</span>
+          <span className="l">Misafir</span>
+        </div>
+        {pendingCount > 0 ? (
+          <div className="ovd-chip warn">
+            <span className="v">{pendingCount}</span>
+            <span className="l">Onay bekliyor</span>
+          </div>
+        ) : (
+          <div className="ovd-chip">
+            <span className="v">0</span>
+            <span className="l">Bekleyen</span>
+          </div>
+        )}
+      </div>
+
+      {/* Compact timeline — only populated rows + collapsed empty bands */}
+      <div className="ovd-tl">
+        <div className="ovd-tl-h">Bugünün Programı</div>
+
+        {morningEmpty && (
+          <div className="ovd-band">
+            <span className="ic">○</span>
+            <span className="lbl">Sabah müsait</span>
+            <span className="rng-x">09:00 – 13:00</span>
+          </div>
+        )}
+
+        {dayItems.map((r) => {
+          const isPending = r.status === "PENDING_APPROVAL";
           return (
-            <div key={h} className="hrow" style={{ padding: 0 }}>
-              <div className="ht">{h}</div>
+            <div key={r.id} className={`ovd-tlrow${isPending ? " pend" : ""}`}>
+              <div className="ovd-tt">{r.startTime}</div>
               <div
-                className="track"
-                style={{ height: "44px", cursor: "default" }}
+                className={`ovd-tcard${isPending ? " pend" : ""}`}
+                onClick={() => onSlotClick(r.id)}
+                role="button"
               >
-                <div className="empty" style={{ lineHeight: "44px" }}>
-                  {dayClosed ? "Kapalı" : "Müsait"}
+                <div className="ovd-top">
+                  <span className="ovd-tname">{r.visitor?.name ?? "—"}</span>
+                  <span className="ovd-trange">
+                    {r.startTime} – {endTime(r.startTime, r.durationMinutes)}
+                  </span>
+                </div>
+                <div className="ovd-tmeta">
+                  <span>{r.groupSize} kişi</span>
+                  <span className="sep">·</span>
+                  <span className={`ovd-tstatus ${isPending ? "pend" : "ok"}`}>
+                    {STATUS_LABEL[r.status]}
+                  </span>
                 </div>
               </div>
             </div>
           );
-        }
-        const first = inHour[0];
-        return (
-          <div key={h} className="hrow" style={{ padding: 0 }}>
-            <div className="ht">{h}</div>
-            <div
-              className="track"
-              style={{ height: "44px" }}
-              onClick={() => onSlotClick(first.id)}
-              role="button"
-            >
-              <div
-                className={`fill ${
-                  first.status === "PENDING_APPROVAL" ? "pend" : "busy"
-                }`}
-                style={{ fontSize: "12px" }}
-              >
-                <span className="who">{first.visitor?.name ?? "?"}</span>
-                <span className="mt">
-                  {first.groupSize} kişi · {STATUS_LABEL[first.status]}
-                </span>
-              </div>
-            </div>
+        })}
+
+        {eveningEmpty && dayItems.length > 0 && (
+          <div className="ovd-band">
+            <span className="ic">○</span>
+            <span className="lbl">Akşam müsait</span>
+            <span className="rng-x">17:00 – 19:00</span>
           </div>
-        );
-      })}
-    </div>
+        )}
+      </div>
+
+      <div className="ovd-foot">
+        <span>
+          {isToday ? "Bugün" : "Bu gün"} <b>{dayItems.length}</b> ziyaret · <b>{totalGuests}</b> misafir
+        </span>
+        <span>
+          {pendingCount > 0 ? `${pendingCount} onay bekliyor` : "Hepsi onaylı"}
+        </span>
+      </div>
+    </>
   );
 }
 
@@ -536,6 +663,22 @@ function EmbedWeekAgenda({
 // Embed Month — kompakt mini bar
 // ─────────────────────────────────────────────────────────
 
+// Last name from full name — "Ahmet Yılmaz" → "Yılmaz". Used as the
+// in-cell hint so the eye picks a person without reading the full string.
+function lastName(full?: string | null): string {
+  if (!full) return "";
+  const parts = full.trim().split(/\s+/);
+  return parts[parts.length - 1] ?? "";
+}
+
+// Map a visit count to a density bucket (1–4) for the dot opacity.
+function densityBucket(count: number): 1 | 2 | 3 | 4 {
+  if (count >= 5) return 4;
+  if (count >= 3) return 3;
+  if (count >= 2) return 2;
+  return 1;
+}
+
 function EmbedMonth({
   anchor,
   items,
@@ -577,88 +720,209 @@ function EmbedMonth({
     return m;
   }, [blocks, recurring, cells]);
 
-  const maxGuests = Math.max(
-    1,
-    ...Array.from(byDay.values()).flatMap((arr) =>
-      arr.map((r) => r.groupSize),
-    ),
-  );
+  // Month-level summary — only in-month, non-closed days with visits count.
+  const monthStats = useMemo(() => {
+    let totalVisits = 0;
+    let totalGuests = 0;
+    let fullDays = 0;
+    let pendingCount = 0;
+    for (const d of cells) {
+      if (d.getMonth() !== anchor.getMonth()) continue;
+      const list = byDay.get(toLocalIso(d)) ?? [];
+      if (list.length === 0) continue;
+      totalVisits += list.length;
+      fullDays += 1;
+      for (const r of list) {
+        totalGuests += r.groupSize || 0;
+        if (r.status === "PENDING_APPROVAL") pendingCount += 1;
+      }
+    }
+    return { totalVisits, totalGuests, fullDays, pendingCount };
+  }, [cells, byDay, anchor]);
+
+  // Per-week visit totals for the bottom stripe. 6 rows × 7 cells; only count
+  // in-month days so out-of-month padding does not inflate the bars.
+  const weekStats = useMemo(() => {
+    const rows: { visits: number; capacity: number; hasCurrent: boolean }[] = [];
+    for (let w = 0; w < 6; w++) {
+      let visits = 0;
+      let capacity = 0;
+      let hasCurrent = false;
+      for (let i = 0; i < 7; i++) {
+        const d = cells[w * 7 + i];
+        if (!d) continue;
+        if (d.getMonth() !== anchor.getMonth()) continue;
+        capacity += 1;
+        const list = byDay.get(toLocalIso(d)) ?? [];
+        visits += list.length;
+        if (isSameLocalDay(d, today)) hasCurrent = true;
+      }
+      if (capacity > 0) rows.push({ visits, capacity, hasCurrent });
+    }
+    const maxVisits = Math.max(1, ...rows.map((r) => r.visits));
+    return { rows, maxVisits };
+  }, [cells, byDay, anchor, today]);
 
   return (
-    <div
-      className="month"
-      style={{
-        padding: "12px",
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <div className="m-dow">
-        {TR_DAYS_SHORT_MON.map((d) => (
-          <span key={d}>{d}</span>
+    <>
+      {/* Month hero — single-glance summary */}
+      <div className="ovm-hero">
+        <div className="ovm-hero-l">
+          <div className="lbl">{MONTHS[anchor.getMonth()]} özeti</div>
+          <div className="t">
+            <b>{monthStats.totalVisits}</b> ziyaret · <em>{monthStats.fullDays}</em> dolu gün
+          </div>
+        </div>
+        <div className="ovm-hero-r">
+          <div className="ovm-stat">
+            <div className="v">{monthStats.totalGuests}</div>
+            <div className="l">Misafir</div>
+          </div>
+          {monthStats.pendingCount > 0 && (
+            <div className="ovm-stat warn">
+              <div className="v">{monthStats.pendingCount}</div>
+              <div className="l">Bekliyor</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="ovm-dow">
+        {TR_DAYS_SHORT_MON.map((d, i) => (
+          <span key={d} className={i >= 5 ? "we" : undefined}>
+            {d}
+          </span>
         ))}
       </div>
-      <div className="m-grid" style={{ gap: "4px" }}>
+
+      <div className="ovm-grid">
         {cells.map((d) => {
           const inMonth = d.getMonth() === anchor.getMonth();
           const isToday = isSameLocalDay(d, today);
           const iso = toLocalIso(d);
           const closed = blockedDays.has(iso);
           const dayItems = byDay.get(iso) ?? [];
-          const classes = [
-            "m-cell",
-            !inMonth && "dim",
-            isToday && "today",
-            closed && "closed",
-          ]
-            .filter(Boolean)
-            .join(" ");
+          const busy = dayItems.length > 0 && !closed;
+
+          // Build class string explicitly so we can read it.
+          const classes = ["ovm-cell"];
+          if (!inMonth) classes.push("dim");
+          else if (closed) classes.push("closed");
+          else if (busy) classes.push("busy");
+          else classes.push("empty");
+          if (isToday) classes.push("today");
+
+          if (!inMonth) {
+            return (
+              <div key={d.toISOString()} className={classes.join(" ")}>
+                <div className="top">
+                  <span className="n">{d.getDate()}</span>
+                </div>
+              </div>
+            );
+          }
+
+          if (closed) {
+            return (
+              <div
+                key={d.toISOString()}
+                className={classes.join(" ")}
+                onClick={() => onDayClick(d)}
+                role="button"
+              >
+                <div className="top">
+                  <span className="n">{d.getDate()}</span>
+                </div>
+                <span className="tag">Kapalı</span>
+              </div>
+            );
+          }
+
+          if (!busy) {
+            return (
+              <div
+                key={d.toISOString()}
+                className={classes.join(" ")}
+                onClick={() => onDayClick(d)}
+                role="button"
+              >
+                <div className="top">
+                  <span className="n">{d.getDate()}</span>
+                </div>
+                <span className="midline" />
+              </div>
+            );
+          }
+
+          // Busy cell — pick first visitor's surname + extra count badge.
+          const first = dayItems[0];
+          const extra = dayItems.length - 1;
+          const hintBase = lastName(first?.visitor?.name);
+          const hint = extra > 0 ? `${hintBase} +${extra}` : hintBase || "—";
+          const bucket = densityBucket(dayItems.length);
+
           return (
             <div
               key={d.toISOString()}
-              className={classes}
+              className={classes.join(" ")}
               onClick={() => onDayClick(d)}
               role="button"
-              style={{ minHeight: "52px", padding: "5px 4px" }}
             >
-              <div className="n" style={{ fontSize: "10px" }}>
-                {d.getDate()}
+              <div className="top">
+                <span className="n">{d.getDate()}</span>
+                <span className={`dot d${bucket}`} />
               </div>
-              {closed ? (
-                <div className="closed-tag">Kapalı</div>
-              ) : dayItems.length > 0 ? (
-                <>
-                  <div
-                    className="mbars"
-                    style={{ height: "16px", gap: "1px" }}
-                  >
-                    {dayItems.slice(0, 5).map((r) => {
-                      const h = Math.max(
-                        3,
-                        Math.round((r.groupSize / maxGuests) * 16),
-                      );
-                      return (
-                        <span
-                          key={r.id}
-                          className="m-bar"
-                          style={{ height: `${h}px`, maxWidth: "4px" }}
-                        />
-                      );
-                    })}
-                  </div>
-                  <div
-                    className="mcnt"
-                    style={{ fontSize: "8px", marginTop: "2px" }}
-                  >
-                    {dayItems.length}
-                  </div>
-                </>
-              ) : null}
+              <div className="bot">
+                <span className="hint">{hint}</span>
+                <span className="cnt">
+                  <b>{dayItems.length}</b> ziyaret
+                </span>
+              </div>
             </div>
           );
         })}
       </div>
-    </div>
+
+      {/* Week stripe — real horizontal bars per week */}
+      {weekStats.rows.length > 0 && (
+        <div className="ovm-wstripe">
+          <div className="ovm-wstripe-h">
+            <span>Haftalık dağılım</span>
+            <span style={{ color: "var(--accent4)" }}>
+              {monthStats.totalVisits} toplam
+            </span>
+          </div>
+          {weekStats.rows.map((row, i) => {
+            const pct = Math.round((row.visits / weekStats.maxVisits) * 100);
+            return (
+              <div
+                key={i}
+                className={`ovm-wrow${row.hasCurrent ? " current" : ""}`}
+              >
+                <span className="wn">Hafta {i + 1}</span>
+                <span className="bar">
+                  <span className="fill" style={{ width: `${pct}%` }} />
+                </span>
+                <span className="wv">
+                  {row.visits}
+                  <span className="ws">/{row.capacity}</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="ovm-foot">
+        <span>
+          {MONTHS[anchor.getMonth()]} <b>{monthStats.totalVisits}</b> ziyaret · <b>{monthStats.fullDays}</b> dolu gün
+        </span>
+        <span>
+          {monthStats.pendingCount > 0
+            ? `${monthStats.pendingCount} onay bekliyor`
+            : "Hepsi onaylı"}
+        </span>
+      </div>
+    </>
   );
 }
