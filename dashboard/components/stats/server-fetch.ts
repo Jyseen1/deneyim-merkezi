@@ -9,6 +9,7 @@ const EMPTY_STATS: DashboardStats = {
   today: 0,
   pending: 0,
   thisWeek: 0,
+  thisMonth: 0,
   utilizationPct: 0,
   pendingPreview: [],
 };

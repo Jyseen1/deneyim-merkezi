@@ -225,54 +225,117 @@ export function OverviewClient({
     }));
   }, [recent]);
 
+  // Sistem chip'leri — backend cevap verdiyse "Sistem çevrimiçi", errorMsg
+  // varsa kırmızı/offline. Telegram bağlı bilgisi backend system.telegramConnected
+  // alanından gelir; alan yoksa chip gösterilmez (uydurma sinyal vermeyiz).
+  const systemOnline = errorMsg === null;
+  const telegramConnected = stats.system?.telegramConnected;
+
   return (
     <>
       <div style={{ maxWidth: "1240px", margin: "0 auto" }}>
-        {/* 1. Karşılama — kart İÇİNDE değil, doğal */}
+        {/* 1. Karşılama — ASİMETRİK: sol blok hizalı + sağ üst status chip'leri */}
         <div
-          className="welcome fade-up"
-          style={{ textAlign: "center", padding: "14px 0 28px" }}
+          className="welcome fade-up overview-hero"
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "20px",
+            padding: "14px 0 24px",
+            textAlign: "left",
+            flexWrap: "wrap",
+          }}
         >
-          <div className="date">
-            {dateLong} · {dayName}
+          <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+            <div
+              className="date"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "10px",
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  width: "6px",
+                  height: "6px",
+                  borderRadius: "50%",
+                  background: "var(--accent2)",
+                }}
+              />
+              <span style={{ letterSpacing: "0.18em" }}>
+                {dateLong} · {dayName}
+              </span>
+            </div>
+            <h1 style={{ fontSize: "46px", fontWeight: 300, margin: 0 }}>
+              Hoş geldin{firstName && <>, <em>{firstName}</em></>}
+            </h1>
+            <div
+              style={{
+                fontSize: "15px",
+                color: "var(--muted)",
+                marginTop: "10px",
+              }}
+            >
+              Bugün{" "}
+              <b style={{ color: "var(--accent2)", fontWeight: 600 }}>
+                {stats.today}
+              </b>{" "}
+              <em
+                style={{
+                  fontFamily: "var(--serif)",
+                  fontStyle: "italic",
+                  color: "var(--accent3)",
+                }}
+              >
+                ziyaret
+              </em>{" "}
+              planlı ve{" "}
+              <b style={{ color: "var(--accent2)", fontWeight: 600 }}>
+                {stats.pending}
+              </b>{" "}
+              <em
+                style={{
+                  fontFamily: "var(--serif)",
+                  fontStyle: "italic",
+                  color: "var(--accent3)",
+                }}
+              >
+                onay
+              </em>{" "}
+              seni bekliyor.
+            </div>
           </div>
-          <h1 style={{ fontSize: "42px" }}>
-            Hoş geldin{firstName && <>, <em>{firstName}</em></>}
-          </h1>
+
           <div
             style={{
-              fontSize: "15px",
-              color: "var(--muted)",
-              marginTop: "10px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+              alignItems: "flex-end",
+              flexShrink: 0,
             }}
           >
-            Bugün{" "}
-            <b style={{ color: "var(--accent2)", fontWeight: 600 }}>
-              {stats.today}
-            </b>{" "}
-            <em
-              style={{
-                fontFamily: "var(--serif)",
-                fontStyle: "italic",
-                color: "var(--accent3)",
-              }}
-            >
-              ziyaret
-            </em>{" "}
-            planlı,{" "}
-            <b style={{ color: "var(--accent2)", fontWeight: 600 }}>
-              {stats.pending}
-            </b>{" "}
-            <em
-              style={{
-                fontFamily: "var(--serif)",
-                fontStyle: "italic",
-                color: "var(--accent3)",
-              }}
-            >
-              onay
-            </em>{" "}
-            seni bekliyor.
+            <StatusChip
+              dotColor={systemOnline ? "var(--green)" : "var(--red)"}
+              pulse={systemOnline}
+              label={
+                systemOnline ? "Sistem çevrimiçi" : "Sistem çevrimdışı"
+              }
+            />
+            {telegramConnected !== undefined && (
+              <StatusChip
+                dotColor={
+                  telegramConnected ? "var(--accent2)" : "var(--muted3)"
+                }
+                label={
+                  telegramConnected ? "Telegram bağlı" : "Telegram bağlı değil"
+                }
+              />
+            )}
           </div>
         </div>
 
@@ -308,17 +371,19 @@ export function OverviewClient({
           </div>
         )}
 
-        {/* 2. STAT satırı */}
+        {/* 2. STAT satırı — 4 kart, üst mor gradient çizgi (.card-accent),
+            Bekleyen rakamı serif italik (vurgu). */}
         <div
-          className="fade-up fade-up-1"
+          className="fade-up fade-up-1 overview-stats"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateColumns: "repeat(4, 1fr)",
             gap: "14px",
             marginBottom: "18px",
           }}
         >
           <div className="stat">
+            <div className="card-accent" />
             <div className="l">Doluluk</div>
             <div className="v">
               {stats.utilizationPct}
@@ -326,88 +391,153 @@ export function OverviewClient({
             </div>
           </div>
           <div className="stat hl">
+            <div className="card-accent" />
             <div className="l">Bekleyen</div>
-            <div className="v">{stats.pending}</div>
+            <div
+              className="v font-serif font-italic"
+              style={{ color: "var(--accent3)" }}
+            >
+              {stats.pending}
+            </div>
           </div>
           <div className="stat">
+            <div className="card-accent" />
             <div className="l">Bu Hafta</div>
             <div className="v">{stats.thisWeek}</div>
           </div>
+          <div className="stat">
+            <div className="card-accent" />
+            <div className="l">Bu Ay</div>
+            <div className="v">{stats.thisMonth ?? 0}</div>
+          </div>
         </div>
 
-        {/* 3. BEKLEYEN TALEP kartı (tek satır) */}
+        {/* 3. BEKLEYEN TALEP — kompakt yatay bar (ince, tek satır).
+            Avatar | başlık+isim+meta | inline Reddet/Onayla butonları. */}
         {pendingFirst && (
           <div
-            className="card fade-up fade-up-2"
-            style={{ marginBottom: "18px" }}
+            className="fade-up fade-up-2 pending-bar"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("button")) return;
+              setActiveId(pendingFirst.id);
+            }}
+            role="button"
+            style={{
+              marginBottom: "18px",
+              display: "flex",
+              alignItems: "center",
+              gap: "14px",
+              padding: "12px 16px",
+              borderRadius: "14px",
+              background:
+                "linear-gradient(135deg, rgba(167,139,250,0.10), rgba(124,58,237,0.04))",
+              border: "1px solid rgba(167,139,250,0.22)",
+              cursor: "pointer",
+              transition: "border-color 150ms ease, background 150ms ease",
+              flexWrap: "wrap",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "rgba(167,139,250,0.40)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "rgba(167,139,250,0.22)";
+            }}
           >
-            <div className="card-accent" />
             <div
+              aria-hidden
               style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                background:
+                  "linear-gradient(135deg, var(--accent), var(--accent2))",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: "14px",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "14px",
-                gap: "10px",
-                flexWrap: "wrap",
+                justifyContent: "center",
+                flexShrink: 0,
               }}
             >
-              <div className="card-h" style={{ margin: 0 }}>
-                Bekleyen
-                <em style={{ marginLeft: "6px" }}>{pendingCountWord}</em>
-              </div>
-              <button
-                type="button"
-                className="golink"
-                onClick={() => router.push("/reservations")}
-                aria-label="Rezervasyonlar sayfasına git"
+              {initials(pendingFirst.visitor?.name)}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily: "var(--grotesk)",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "var(--txt)",
+                  display: "inline-flex",
+                  alignItems: "baseline",
+                  gap: "5px",
+                }}
               >
-                Rezervasyonlar <span className="arr">→</span>
-              </button>
+                Bekleyen
+                <em
+                  style={{
+                    fontFamily: "var(--serif)",
+                    fontStyle: "italic",
+                    color: "var(--accent3)",
+                    fontWeight: 400,
+                  }}
+                >
+                  {pendingCountWord}
+                </em>
+              </div>
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                  marginTop: "2px",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                <b style={{ color: "var(--txt)", fontWeight: 600 }}>
+                  {pendingFirst.visitor?.name ?? "—"}
+                </b>{" "}
+                · {formatTrShortDate(pendingFirst.visitDate)} ·{" "}
+                {pendingFirst.startTime} · {pendingFirst.groupSize} kişi
+              </div>
             </div>
             <div
-              className="req clk"
-              onClick={(e) => {
-                if ((e.target as HTMLElement).closest(".btn")) return;
-                setActiveId(pendingFirst.id);
+              style={{
+                display: "inline-flex",
+                gap: "8px",
+                flexShrink: 0,
               }}
             >
-              <div className="av">{initials(pendingFirst.visitor?.name)}</div>
-              <div>
-                <div className="nm">{pendingFirst.visitor?.name ?? "—"}</div>
-                <div className="mt">
-                  {formatTrShortDate(pendingFirst.visitDate)} ·{" "}
-                  {pendingFirst.startTime} · {pendingFirst.groupSize} kişi
-                </div>
-              </div>
-              <div className="req-actions">
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  disabled={busyAction !== null}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    reject(pendingFirst.id);
-                  }}
-                >
-                  {busyAction?.id === pendingFirst.id && busyAction?.kind === "reject"
-                    ? "..."
-                    : "Reddet"}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={busyAction !== null}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    approve(pendingFirst.id);
-                  }}
-                >
-                  {busyAction?.id === pendingFirst.id && busyAction?.kind === "approve"
-                    ? "..."
-                    : "Onayla"}
-                </button>
-              </div>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={busyAction !== null}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  reject(pendingFirst.id);
+                }}
+              >
+                {busyAction?.id === pendingFirst.id &&
+                busyAction?.kind === "reject"
+                  ? "..."
+                  : "Reddet"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={busyAction !== null}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  approve(pendingFirst.id);
+                }}
+              >
+                {busyAction?.id === pendingFirst.id &&
+                busyAction?.kind === "approve"
+                  ? "..."
+                  : "Onayla"}
+              </button>
             </div>
           </div>
         )}
@@ -553,11 +683,23 @@ export function OverviewClient({
         </div>
       </div>
 
-      {/* Mobil: tek kolona iniş */}
+      {/* Mobil: 900px altı iki kolonlu grid → tek kolon, statlar 2 kolon */}
       <style jsx>{`
         @media (max-width: 900px) {
           :global(.overview-grid) {
             grid-template-columns: 1fr !important;
+          }
+          :global(.overview-stats) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          :global(.overview-hero) {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          :global(.overview-hero) > div:last-child {
+            align-items: flex-start !important;
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
           }
         }
       `}</style>
@@ -572,5 +714,57 @@ export function OverviewClient({
         }}
       />
     </>
+  );
+}
+
+// Hero sağ üst durum chip'i. pulse=true ise dot etrafında yeşil halka animasyonu
+// (.live-dot globals.css'te tanımlı, yeşil hardcoded — bu yüzden burada özel
+// keyframe gerektiren chip için inline pulse rengi türetmiyoruz; sadece yeşil
+// "Sistem çevrimiçi" için .live-dot kullanırız, diğerleri sabit dot).
+function StatusChip({
+  dotColor,
+  label,
+  pulse,
+}: {
+  dotColor: string;
+  label: string;
+  pulse?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "5px 12px",
+        borderRadius: "999px",
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid var(--line)",
+        fontSize: "11px",
+        fontFamily: "var(--inter)",
+        color: "var(--muted)",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {pulse ? (
+        <span
+          aria-hidden
+          className="live-dot"
+          style={{ margin: 0, background: dotColor, boxShadow: "none" }}
+        />
+      ) : (
+        <span
+          aria-hidden
+          style={{
+            width: "7px",
+            height: "7px",
+            borderRadius: "50%",
+            background: dotColor,
+            flexShrink: 0,
+          }}
+        />
+      )}
+      {label}
+    </div>
   );
 }

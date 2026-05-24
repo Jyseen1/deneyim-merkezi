@@ -49,8 +49,17 @@ export type DashboardStats = {
   today: number;
   pending: number;
   thisWeek: number;
+  // Genel Bakış 4. stat kartı — backend /dashboard/stats'a sonradan eklendi,
+  // geriye dönük uyum için opsiyonel.
+  thisMonth?: number;
   utilizationPct: number;
   pendingPreview: Reservation[];
+  // Hero sağ üst sistem durumu chip'leri. Backend göndermezse client tarafı
+  // güvenli fallback (`backendOnline: true` cevap geldiyse, telegram bilinmiyor).
+  system?: {
+    backendOnline: boolean;
+    telegramConnected: boolean;
+  };
 };
 
 export const STATUS_LABEL: Record<ReservationStatus, string> = {

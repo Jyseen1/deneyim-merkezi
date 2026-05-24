@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GigaX — Genel Bakış · Gün/Hafta/Ay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0F;--bg2:#0F0F18;--bg3:#141420;
+    --accent:#7C3AED;--accent2:#8B5CF6;--accent3:#A78BFA;
+    --green:#4ADE80;--red:#EF4444;--amber:#F59E0B;
+    --line:rgba(255,255,255,0.08);--line2:rgba(255,255,255,0.05);
+    --txt:#E4E4E7;--muted:#71717A;--muted2:#52525B;--muted3:#3F3F46;
+    --grotesk:'Space Grotesk',sans-serif;--inter:'Inter',sans-serif;--serif:'Instrument Serif',serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#000;color:var(--txt);font-family:var(--inter);-webkit-font-smoothing:antialiased}
+
+  /* ---------- top selector (kept) ---------- */
+  .selector{position:sticky;top:0;z-index:100;background:rgba(10,10,15,0.85);backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--line);padding:16px 32px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .selector .brand{font-family:var(--grotesk);font-weight:700;font-size:18px;margin-right:24px;letter-spacing:-0.5px}
+  .selector .brand b{color:var(--accent2)}
+  .selector .label{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted2);margin-right:8px}
+  .tab{padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid var(--line2);
+    background:transparent;color:var(--muted);transition:all 150ms;font-family:var(--inter);white-space:nowrap}
+  .tab:hover{border-color:rgba(124,58,237,0.3);color:var(--txt)}
+  .tab.active{border-color:rgba(124,58,237,0.5);background:rgba(124,58,237,0.18);color:var(--accent3)}
+
+  /* ---------- shared page shell ---------- */
+  .page{position:relative;overflow:hidden;padding:36px 40px 60px;min-height:100vh}
+  .shell{max-width:1240px;margin:0 auto;position:relative;z-index:2}
+  .glow{position:absolute;border-radius:50%;pointer-events:none;filter:blur(90px);z-index:0}
+  .glow-tr{top:-140px;right:-80px;width:440px;height:440px;background:radial-gradient(circle,rgba(124,58,237,0.20),transparent 70%)}
+  .glow-bl{bottom:-160px;left:120px;width:420px;height:420px;background:radial-gradient(circle,rgba(124,58,237,0.09),transparent 70%)}
+
+  /* ---------- ASYMMETRIC HERO (was centered welcome) ---------- */
+  .hero{display:flex;align-items:flex-start;justify-content:space-between;gap:32px;margin-bottom:30px;flex-wrap:wrap}
+  .hero-l{flex:1;min-width:280px}
+  .hero .date{font-size:11px;letter-spacing:0.18em;color:var(--accent2);text-transform:uppercase;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:9px}
+  .hero .date .dot{width:5px;height:5px;border-radius:50%;background:var(--accent2);box-shadow:0 0 8px var(--accent2)}
+  .hero h1{font-family:var(--grotesk);font-size:46px;font-weight:300;letter-spacing:-1.5px;line-height:1.02}
+  .hero h1 em{font-family:var(--serif);font-style:italic;color:var(--accent3);font-weight:400;letter-spacing:0}
+  .hero .sub{font-size:15px;color:var(--muted);margin-top:14px;max-width:440px;line-height:1.55}
+  .hero .sub b{color:var(--txt);font-weight:600}
+  .hero .sub em{font-family:var(--serif);font-style:italic;color:var(--accent3)}
+
+  /* live status chips, right side of hero (grid-breaking accent) */
+  .hero-r{display:flex;flex-direction:column;gap:8px;align-items:flex-end;padding-top:4px}
+  .chip{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);
+    padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,0.025);white-space:nowrap}
+  .chip .live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 0 0 rgba(74,222,128,0.5);animation:lp 2.4s infinite}
+  .chip.tg .live-dot{background:var(--accent3);animation:none;box-shadow:0 0 8px var(--accent3)}
+  @keyframes lp{0%{box-shadow:0 0 0 0 rgba(74,222,128,0.5)}70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+
+  /* ---------- stat strip (refined: thin numbers, serif accent, trend) ---------- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  .stat{background:linear-gradient(150deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012));
+    border:1px solid var(--line);border-radius:16px;padding:18px 20px;position:relative;overflow:hidden}
+  .stat::after{content:'';position:absolute;top:0;left:18px;right:18px;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(124,58,237,0.35),transparent)}
+  .stat.hl{border-color:rgba(124,58,237,0.4);background:linear-gradient(150deg,rgba(124,58,237,0.12),rgba(124,58,237,0.02))}
+  .stat .l{font-size:10px;letter-spacing:0.14em;color:var(--muted2);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+  .stat .l .ic{color:var(--muted3);font-size:13px}
+  .stat .v{font-family:var(--grotesk);font-size:34px;font-weight:300;line-height:1;display:flex;align-items:baseline;gap:4px}
+  .stat .v small{font-size:14px;color:var(--muted2);font-weight:400}
+  .stat .v em{font-family:var(--serif);font-style:italic;color:var(--accent3);font-size:38px}
+  .stat .trend{font-size:11px;margin-top:10px;color:var(--muted2);display:flex;align-items:center;gap:5px}
+  .stat .trend .up{color:var(--green)}
+  .stat .trend .dn{color:var(--accent3)}
+
+  /* ---------- pending request: compact inline ---------- */
+  .pending-bar{display:flex;align-items:center;gap:16px;margin-bottom:20px;
+    background:linear-gradient(135deg,rgba(167,139,250,0.10),rgba(124,58,237,0.03));
+    border:1px solid rgba(167,139,250,0.22);border-radius:16px;padding:14px 18px}
+  .pending-bar .av{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;flex-shrink:0}
+  .pending-bar .meta{flex:1;min-width:0}
+  .pending-bar .meta .top{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent3);margin-bottom:3px;font-weight:600}
+  .pending-bar .meta .top em{font-family:var(--serif);font-style:italic;text-transform:none;letter-spacing:0}
+  .pending-bar .meta .nm{font-weight:600;font-size:15px}
+  .pending-bar .meta .nm span{color:var(--muted);font-weight:400;font-size:13px;margin-left:8px}
+  .pending-bar .acts{display:flex;gap:8px;flex-shrink:0}
+  .btn{padding:9px 17px;border-radius:10px;font-size:13px;cursor:pointer;border:none;font-family:var(--inter);font-weight:500;transition:all 150ms}
+  .btn-ghost{background:rgba(255,255,255,0.06);color:var(--txt);border:1px solid var(--line)}
+  .btn-ghost:hover{background:rgba(255,255,255,0.1)}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),#6D28D9);color:#fff}
+  .btn-primary:hover{filter:brightness(1.12)}
+
+  /* ---------- cards / grid ---------- */
+  .grid{display:grid;gap:18px}
+  .card{background:linear-gradient(135deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018));
+    border:1px solid var(--line);border-radius:18px;padding:22px;backdrop-filter:blur(20px);position:relative}
+  .card-h{font-family:var(--grotesk);font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+  .card-h em{font-family:var(--serif);font-style:italic;color:var(--accent3);font-weight:400}
+
+  /* shared calendar header inside card */
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+  .cal-head .mo{font-family:var(--grotesk);font-weight:600;font-size:15px}
+  .cal-head .mo em{font-family:var(--serif);font-style:italic;color:var(--accent3)}
+  .cal-nav{display:flex;gap:6px;align-items:center}
+  .cal-nav .arrow{width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid var(--line2);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:12px;transition:all 150ms}
+  .cal-nav .arrow:hover{border-color:rgba(124,58,237,0.4);color:var(--accent3)}
+
+  .golink{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);
+    cursor:pointer;transition:all 150ms;font-family:var(--inter);text-decoration:none;
+    padding:5px 10px;border-radius:8px;border:1px solid transparent}
+  .golink:hover{color:var(--accent3);background:rgba(124,58,237,0.08);border-color:rgba(124,58,237,0.2)}
+  .golink .arr{display:inline-block;transition:transform 200ms}
+  .golink:hover .arr{transform:translateX(3px)}
+
+  /* quick actions */
+  .qa{display:flex;gap:10px;flex-wrap:wrap}
+  .qa-btn{flex:1;min-width:110px;padding:14px 11px;border-radius:13px;background:rgba(255,255,255,0.04);
+    border:1px solid var(--line);cursor:pointer;transition:all 150ms;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
+  .qa-btn:hover{border-color:rgba(124,58,237,0.4);background:rgba(124,58,237,0.08);transform:translateY(-1px)}
+  .qa-btn .t{font-size:13px;font-weight:600}
+  .qa-btn .ic{font-size:15px;color:var(--accent3)}
+
+  /* recent table */
+  .rtable{width:100%;border-collapse:collapse}
+  .rtable td{padding:11px 0;border-bottom:1px solid var(--line2);font-size:13px}
+  .rtable tr:last-child td{border:0}
+  .rtable .nm{font-weight:600}
+  .rtable tr.clk{cursor:pointer;transition:background 120ms}
+  .rtable tr.clk:hover td{background:rgba(124,58,237,0.05)}
+  .pill{font-size:11px;padding:4px 11px;border-radius:999px;display:inline-block}
+  .pill.ok{background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.2)}
+  .pill.wait{background:rgba(139,92,246,0.12);color:var(--accent3);border:1px solid rgba(139,92,246,0.25)}
+  .grp-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted2);padding:14px 0 6px;font-weight:600}
+  .grp-label em{font-family:var(--serif);font-style:italic;color:var(--accent3);text-transform:none;letter-spacing:0}
+
+  /* ---------- DAY agenda ---------- */
+  .layout{display:none}
+  .layout.active{display:block}
+  .agenda{display:flex;flex-direction:column;gap:7px}
+  .ag-row{display:flex;gap:12px;align-items:stretch}
+  .ag-time{width:44px;font-family:var(--grotesk);font-size:11px;color:var(--muted2);padding-top:9px;flex-shrink:0;text-align:right}
+  .ag-slot{flex:1;border-radius:10px;border:1px dashed var(--line);min-height:38px;display:flex;align-items:center;padding:0 14px;font-size:11px;color:var(--muted3)}
+  .ag-slot.busy{border:1px solid rgba(124,58,237,0.3);background:rgba(124,58,237,0.08);color:var(--txt);font-size:13px;font-weight:500;cursor:pointer;transition:all 130ms}
+  .ag-slot.busy:hover{border-color:rgba(124,58,237,0.55);background:rgba(124,58,237,0.15)}
+  .ag-slot.busy .who{font-weight:600}
+  .ag-slot.busy .mt{margin-left:auto;font-size:11px;color:var(--muted);font-weight:400}
+  .ag-slot.pend{border-color:rgba(167,139,250,0.35);background:rgba(167,139,250,0.07)}
+
+  /* ---------- WEEK grid ---------- */
+  .wkhead{display:grid;grid-template-columns:42px repeat(7,1fr);gap:5px;margin-bottom:8px}
+  .wkhead .wd{text-align:center;padding:8px 4px;border-radius:9px;background:var(--bg2);border:1px solid var(--line2)}
+  .wkhead .wd.today{border-color:rgba(124,58,237,0.5);background:rgba(124,58,237,0.1)}
+  .wkhead .wd .dow{font-size:9px;text-transform:uppercase;color:var(--muted3);letter-spacing:0.05em}
+  .wkhead .wd .dn{font-family:var(--grotesk);font-size:15px;font-weight:300;margin-top:2px}
+  .wkhead .wd.today .dn{color:#fff;font-weight:600}
+  .wkbody{display:flex;flex-direction:column;gap:5px}
+  .wkrow{display:grid;grid-template-columns:42px repeat(7,1fr);gap:5px;align-items:stretch}
+  .wkrow .ht{font-family:var(--grotesk);font-size:10px;color:var(--muted2);padding-top:11px;text-align:right}
+  .wkcell{min-height:36px;border-radius:8px;border:1px solid var(--line2);background:var(--bg2);position:relative;cursor:pointer;transition:all 120ms}
+  .wkcell:hover{background:var(--bg3)}
+  .wkcell.today{background:rgba(124,58,237,0.04)}
+  .ev{position:absolute;inset:3px;border-radius:6px;background:rgba(124,58,237,0.25);border:1px solid rgba(124,58,237,0.4);
+    font-size:9px;color:var(--accent3);display:flex;align-items:center;justify-content:center;font-weight:600;padding:0 3px;overflow:hidden}
+  .ev.ok{background:rgba(74,222,128,0.18);border-color:rgba(74,222,128,0.35);color:var(--green)}
+  .ev.pend{background:rgba(167,139,250,0.15);border-color:rgba(167,139,250,0.35);color:var(--accent3)}
+
+  /* ---------- MONTH grid ---------- */
+  .calm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  .cal-dow{font-size:9px;color:var(--muted3);text-align:center;text-transform:uppercase;padding-bottom:4px;letter-spacing:0.05em}
+  .calm-day{border-radius:9px;background:var(--bg2);border:1px solid var(--line2);padding:7px 5px;min-height:56px;
+    position:relative;cursor:pointer;transition:all 120ms}
+  .calm-day:hover{background:var(--bg3);border-color:rgba(124,58,237,0.25)}
+  .calm-day .n{font-size:11px;color:var(--muted)}
+  .calm-day.dim{opacity:0.28}
+  .calm-day.today{border-color:rgba(124,58,237,0.5);background:rgba(124,58,237,0.1)}
+  .calm-day.today .n{color:#fff;font-weight:600}
+  .calm-day.closed{background:rgba(239,68,68,0.06);border-color:rgba(239,68,68,0.2)}
+  .mev{margin-top:4px;font-size:8px;border-radius:4px;padding:1px 4px;background:rgba(74,222,128,0.18);color:var(--green);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mev.w{background:rgba(139,92,246,0.18);color:var(--accent3)}
+  .mev.r{background:rgba(239,68,68,0.18);color:var(--red)}
+
+  /* week summary footer */
+  .wk-foot{display:flex;gap:18px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line2);font-size:12px;color:var(--muted)}
+  .wk-foot b{color:var(--accent3);font-weight:600}
+  .wk-foot em{font-family:var(--serif);font-style:italic;color:var(--accent3)}
+
+  /* ---------- detail drawer ---------- */
+  .drawer-ov{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(2px);
+    opacity:0;pointer-events:none;transition:opacity 200ms;z-index:200}
+  .drawer{position:fixed;top:0;right:0;bottom:0;width:420px;background:#0C0C14;
+    border-left:1px solid var(--line);transform:translateX(100%);transition:transform 280ms cubic-bezier(.4,0,.2,1);
+    z-index:201;padding:28px;overflow-y:auto;box-shadow:-20px 0 60px rgba(0,0,0,0.5)}
+  #drawer.open .drawer-ov{opacity:1;pointer-events:auto}
+  #drawer.open .drawer{transform:translateX(0)}
+  .dr-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px}
+  .dr-title{font-family:var(--grotesk);font-size:18px;font-weight:600}
+  .dr-title em{font-family:var(--serif);font-style:italic;color:var(--accent3)}
+  .dr-id{font-size:11px;color:var(--muted3);font-family:'Space Grotesk';letter-spacing:0.05em}
+  .dr-x{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);flex-shrink:0}
+  .dr-badges{display:flex;gap:8px;margin:18px 0 24px}
+  .dr-tag{font-size:11px;padding:5px 12px;border-radius:999px}
+  .dr-tag.ok{background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.2)}
+  .dr-tag.loyal{background:rgba(139,92,246,0.10);color:#C4B5FD;border:1px solid rgba(139,92,246,0.2)}
+  .dr-sec{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted2);margin:22px 0 10px}
+  .dr-sec em{font-family:var(--serif);font-style:italic;color:var(--accent3);text-transform:none;letter-spacing:0}
+  .dr-card{background:rgba(255,255,255,0.03);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .dr-row{display:flex;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--line2);font-size:13px}
+  .dr-row:last-child{border:0}
+  .dr-row .k{color:var(--muted)}
+  .dr-row .v{font-weight:500}
+  .dr-actions{position:sticky;bottom:0;background:#0C0C14;padding-top:18px;margin-top:24px;
+    display:flex;gap:10px;border-top:1px solid var(--line2)}
+  .dr-actions .btn{flex:1}
+
+  @media(max-width:900px){
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .grid.two{grid-template-columns:1fr !important}
+    .hero h1{font-size:36px}
+  }
+</style>
+</head>
+<body>
+
+<div class="selector">
+  <div class="brand">Giga<b>X</b></div>
+  <span class="label">Genel Bakış · Görünüm</span>
+  <button class="tab active" onclick="show('DAY',this)">Gün</button>
+  <button class="tab" onclick="show('WEEK',this)">Hafta</button>
+  <button class="tab" onclick="show('MONTH',this)">Ay</button>
+</div>
+
+<div class="page">
+  <div class="glow glow-tr"></div><div class="glow glow-bl"></div>
+  <div class="shell">
+
+    <!-- ===== SHARED HERO (asymmetric) ===== -->
+    <div class="hero">
+      <div class="hero-l">
+        <div class="date"><span class="dot"></span>23 Mayıs 2026 · Cumartesi</div>
+        <h1>Hoş geldin, <em>Poyraz</em></h1>
+        <div class="sub">Bugün <b>4</b> <em>ziyaret</em> planlı ve <b>1</b> <em>onay</em> seni bekliyor. Her şey kontrol altında.</div>
+      </div>
+      <div class="hero-r">
+        <div class="chip"><span class="live-dot"></span>Sistem çevrimiçi</div>
+        <div class="chip tg"><span class="live-dot"></span>Telegram bağlı</div>
+      </div>
+    </div>
+
+    <!-- ===== SHARED STAT STRIP ===== -->
+    <div class="stats">
+      <div class="stat">
+        <div class="l">Doluluk <span class="ic">◷</span></div>
+        <div class="v">11<small>%</small></div>
+        <div class="trend"><span class="up">↗ 3%</span> geçen haftaya göre</div>
+      </div>
+      <div class="stat hl">
+        <div class="l">Bekleyen <span class="ic">◔</span></div>
+        <div class="v"><em>1</em></div>
+        <div class="trend"><span class="dn">●</span> aksiyon gerekiyor</div>
+      </div>
+      <div class="stat">
+        <div class="l">Bu Hafta <span class="ic">▦</span></div>
+        <div class="v">4</div>
+        <div class="trend"><span class="up">↗ 1</span> dünden bugüne</div>
+      </div>
+      <div class="stat">
+        <div class="l">Bu Ay <span class="ic">⬡</span></div>
+        <div class="v">6</div>
+        <div class="trend">toplam <em style="font-family:var(--serif);font-style:italic;color:var(--accent3)">rezervasyon</em></div>
+      </div>
+    </div>
+
+    <!-- ===== SHARED PENDING BAR ===== -->
+    <div class="pending-bar">
+      <div class="av">P</div>
+      <div class="meta">
+        <div class="top">Bekleyen <em>bir talep</em></div>
+        <div class="nm">poyraz <span>23.05.2026 · 17:00 · 1 kişi</span></div>
+      </div>
+      <div class="acts">
+        <button class="btn btn-ghost">Reddet</button>
+        <button class="btn btn-primary">Onayla</button>
+      </div>
+    </div>
+
+    <!-- ===================== GÜN ===================== -->
+    <div class="layout active" id="DAY">
+      <div class="grid two" style="grid-template-columns:1.15fr 1fr">
+        <div class="card">
+          <div class="cal-head">
+            <div class="mo">23 Mayıs · <em>Cumartesi</em></div>
+            <div class="cal-nav">
+              <div class="arrow">‹</div><div class="arrow">›</div>
+              <a class="golink" style="margin-left:4px">Takvim <span class="arr">→</span></a>
+            </div>
+          </div>
+          <div class="agenda">
+            <div class="ag-row"><div class="ag-time">09:00</div><div class="ag-slot">Müsait</div></div>
+            <div class="ag-row"><div class="ag-time">11:00</div><div class="ag-slot busy" onclick="openDrawer()"><span class="who">poyrwz</span><span class="mt">2 kişi · Onaylı</span></div></div>
+            <div class="ag-row"><div class="ag-time">13:30</div><div class="ag-slot busy" onclick="openDrawer()"><span class="who">poyraz</span><span class="mt">3 kişi · Onaylı</span></div></div>
+            <div class="ag-row"><div class="ag-time">15:00</div><div class="ag-slot busy" onclick="openDrawer()"><span class="who">poyraz</span><span class="mt">1 kişi · Onaylı</span></div></div>
+            <div class="ag-row"><div class="ag-time">17:00</div><div class="ag-slot busy pend" onclick="openDrawer()"><span class="who">poyraz</span><span class="mt">1 kişi · Bekliyor</span></div></div>
+            <div class="ag-row"><div class="ag-time">19:00</div><div class="ag-slot">Müsait</div></div>
+          </div>
+        </div>
+        <div class="grid" style="gap:16px;align-content:start">
+          <div class="card"><div class="qa">
+            <div class="qa-btn"><span class="ic">＋</span><div class="t">Rezervasyon</div></div>
+            <div class="qa-btn"><span class="ic">⊘</span><div class="t">Gün kapat</div></div>
+          </div></div>
+          <div class="card">
+            <div class="card-h">Son <em>rezervasyonlar</em><a class="golink">Tümü <span class="arr">→</span></a></div>
+            <div class="grp-label"><em>Bugün</em> · 23 Mayıs</div>
+            <table class="rtable"><tbody>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyrwz</td><td>11:00</td><td><span class="pill ok">Onaylı</span></td></tr>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyraz</td><td>13:30</td><td><span class="pill ok">Onaylı</span></td></tr>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyraz</td><td>17:00</td><td><span class="pill wait">Bekliyor</span></td></tr>
+            </tbody></table>
+            <div class="grp-label"><em>Yarın</em> · 24 Mayıs</div>
+            <table class="rtable"><tbody>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyraz</td><td>11:00</td><td><span class="pill ok">Onaylı</span></td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== HAFTA ===================== -->
+    <div class="layout" id="WEEK">
+      <div class="grid two" style="grid-template-columns:1.15fr 1fr">
+        <div class="card">
+          <div class="cal-head">
+            <div class="mo">Bu <em>hafta</em> · 18–24 Mayıs</div>
+            <div class="cal-nav"><div class="arrow">‹</div><div class="arrow">›</div></div>
+          </div>
+          <div class="wkhead">
+            <div></div>
+            <div class="wd"><div class="dow">Pt</div><div class="dn">18</div></div>
+            <div class="wd"><div class="dow">Sa</div><div class="dn">19</div></div>
+            <div class="wd"><div class="dow">Ça</div><div class="dn">20</div></div>
+            <div class="wd"><div class="dow">Pe</div><div class="dn">21</div></div>
+            <div class="wd"><div class="dow">Cu</div><div class="dn">22</div></div>
+            <div class="wd today"><div class="dow">Ct</div><div class="dn">23</div></div>
+            <div class="wd"><div class="dow">Pa</div><div class="dn">24</div></div>
+          </div>
+          <div class="wkbody">
+            <div class="wkrow"><div class="ht">09</div>
+              <div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell today"></div><div class="wkcell"></div></div>
+            <div class="wkrow"><div class="ht">11</div>
+              <div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div>
+              <div class="wkcell today"><div class="ev ok">2</div></div>
+              <div class="wkcell"><div class="ev ok">1</div></div></div>
+            <div class="wkrow"><div class="ht">13</div>
+              <div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div>
+              <div class="wkcell today"><div class="ev ok">3</div></div><div class="wkcell"></div></div>
+            <div class="wkrow"><div class="ht">15</div>
+              <div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div>
+              <div class="wkcell today"><div class="ev ok">1</div></div><div class="wkcell"></div></div>
+            <div class="wkrow"><div class="ht">17</div>
+              <div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div>
+              <div class="wkcell today"><div class="ev pend">1</div></div><div class="wkcell"></div></div>
+            <div class="wkrow"><div class="ht">19</div>
+              <div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell"></div><div class="wkcell today"></div><div class="wkcell"></div></div>
+          </div>
+          <div class="wk-foot">
+            <span>Hafta toplamı: <b>5</b> <em>rezervasyon</em></span>
+            <span>Onaylı <b>4</b> · Bekleyen <b>1</b></span>
+          </div>
+        </div>
+        <div class="grid" style="gap:16px;align-content:start">
+          <div class="card"><div class="qa">
+            <div class="qa-btn"><span class="ic">＋</span><div class="t">Rezervasyon</div></div>
+            <div class="qa-btn"><span class="ic">⊘</span><div class="t">Gün kapat</div></div>
+          </div></div>
+          <div class="card">
+            <div class="card-h">Son <em>rezervasyonlar</em><a class="golink">Tümü <span class="arr">→</span></a></div>
+            <table class="rtable"><tbody>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyrwz</td><td>23.05 · 11:00</td><td><span class="pill ok">Onaylı</span></td></tr>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyraz</td><td>23.05 · 13:30</td><td><span class="pill ok">Onaylı</span></td></tr>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyraz</td><td>24.05 · 11:00</td><td><span class="pill ok">Onaylı</span></td></tr>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyraz</td><td>23.05 · 17:00</td><td><span class="pill wait">Bekliyor</span></td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== AY ===================== -->
+    <div class="layout" id="MONTH">
+      <div class="grid two" style="grid-template-columns:1.15fr 1fr">
+        <div class="card">
+          <div class="cal-head">
+            <div class="mo">Mayıs <em>2026</em></div>
+            <div class="cal-nav"><div class="arrow">‹</div><div class="arrow">›</div></div>
+          </div>
+          <div class="calm-grid">
+            <div class="cal-dow">Pt</div><div class="cal-dow">Sa</div><div class="cal-dow">Ça</div><div class="cal-dow">Pe</div><div class="cal-dow">Cu</div><div class="cal-dow">Ct</div><div class="cal-dow">Pa</div>
+            <div class="calm-day dim"><div class="n">28</div></div><div class="calm-day dim"><div class="n">29</div></div><div class="calm-day dim"><div class="n">30</div></div><div class="calm-day"><div class="n">1</div></div><div class="calm-day"><div class="n">2</div></div><div class="calm-day"><div class="n">3</div></div><div class="calm-day"><div class="n">4</div></div>
+            <div class="calm-day"><div class="n">5</div></div><div class="calm-day"><div class="n">6</div></div><div class="calm-day"><div class="n">7</div></div><div class="calm-day"><div class="n">8</div></div><div class="calm-day"><div class="n">9</div></div><div class="calm-day"><div class="n">10</div></div><div class="calm-day"><div class="n">11</div></div>
+            <div class="calm-day"><div class="n">12</div></div><div class="calm-day"><div class="n">13</div></div><div class="calm-day"><div class="n">14</div></div><div class="calm-day"><div class="n">15</div></div><div class="calm-day"><div class="n">16</div></div><div class="calm-day"><div class="n">17</div></div><div class="calm-day"><div class="n">18</div></div>
+            <div class="calm-day"><div class="n">19</div></div><div class="calm-day"><div class="n">20</div></div><div class="calm-day"><div class="n">21</div></div><div class="calm-day"><div class="n">22</div></div>
+            <div class="calm-day today"><div class="n">23</div><div class="mev">3 onaylı</div><div class="mev w">1 bekl.</div></div>
+            <div class="calm-day"><div class="n">24</div><div class="mev">1 onaylı</div></div><div class="calm-day"><div class="n">25</div></div>
+            <div class="calm-day"><div class="n">26</div></div><div class="calm-day"><div class="n">27</div></div><div class="calm-day"><div class="n">28</div><div class="mev">1 onaylı</div></div>
+            <div class="calm-day closed"><div class="n">29</div><div class="mev r">Kapalı</div></div><div class="calm-day"><div class="n">30</div></div><div class="calm-day"><div class="n">31</div></div><div class="calm-day dim"><div class="n">1</div></div>
+          </div>
+        </div>
+        <div class="grid" style="gap:16px;align-content:start">
+          <div class="card"><div class="qa">
+            <div class="qa-btn"><span class="ic">＋</span><div class="t">Rezervasyon</div></div>
+            <div class="qa-btn"><span class="ic">⊘</span><div class="t">Gün kapat</div></div>
+          </div></div>
+          <div class="card">
+            <div class="card-h">Son <em>rezervasyonlar</em><a class="golink">Tümü <span class="arr">→</span></a></div>
+            <table class="rtable"><tbody>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyrwz</td><td>23.05 · 11:00</td><td><span class="pill ok">Onaylı</span></td></tr>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyraz</td><td>23.05 · 13:30</td><td><span class="pill ok">Onaylı</span></td></tr>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyraz</td><td>24.05 · 11:00</td><td><span class="pill ok">Onaylı</span></td></tr>
+              <tr class="clk" onclick="openDrawer()"><td class="nm">poyraz</td><td>23.05 · 17:00</td><td><span class="pill wait">Bekliyor</span></td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- detail drawer -->
+<div id="drawer">
+  <div class="drawer-ov" onclick="closeDrawer()"></div>
+  <div class="drawer">
+    <div class="dr-head">
+      <div><div class="dr-title">Rezervasyon <em>Detayı</em></div><div class="dr-id">#60EE2334</div></div>
+      <div class="dr-x" onclick="closeDrawer()">✕</div>
+    </div>
+    <div class="dr-badges">
+      <span class="dr-tag ok">Onaylı</span>
+      <span class="dr-tag loyal">Sadık ziyaretçi ✦</span>
+    </div>
+    <div class="dr-sec"><em>Ziyaretçi</em></div>
+    <div class="dr-card">
+      <div class="dr-row"><span class="k">Ad</span><span class="v">poyraz</span></div>
+      <div class="dr-row"><span class="k">Telefon</span><span class="v">+90 546 446 22 15</span></div>
+      <div class="dr-row"><span class="k">E-posta</span><span class="v" style="color:var(--muted3)">—</span></div>
+    </div>
+    <div class="dr-sec"><em>Ziyaret</em></div>
+    <div class="dr-card">
+      <div class="dr-row"><span class="k">Tarih</span><span class="v">23.05.2026</span></div>
+      <div class="dr-row"><span class="k">Saat</span><span class="v">17:00 – 19:00</span></div>
+      <div class="dr-row"><span class="k">Süre</span><span class="v">120 dk</span></div>
+      <div class="dr-row"><span class="k">Kişi</span><span class="v">1</span></div>
+    </div>
+    <div class="dr-sec"><em>Geçmiş</em></div>
+    <div class="dr-card">
+      <div class="dr-row"><span class="k">Oluşturuldu</span><span class="v" style="font-weight:400;color:var(--muted)">23.05 · 19:33</span></div>
+      <div class="dr-row"><span class="k">Onaylandı</span><span class="v" style="font-weight:400;color:var(--muted)">23.05 · 19:34 · telegram</span></div>
+    </div>
+    <div class="dr-actions">
+      <button class="btn btn-ghost">Tarih/Saat Değiştir</button>
+      <button class="btn btn-primary">İptal Et</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(id,el){
+  document.querySelectorAll('.layout').forEach(l=>l.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.selector .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  closeDrawer();
+}
+function openDrawer(){document.getElementById('drawer').classList.add('open');}
+function closeDrawer(){document.getElementById('drawer').classList.remove('open');}
+</script>
+
+</body>
+</html>

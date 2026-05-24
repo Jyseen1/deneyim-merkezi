@@ -159,48 +159,66 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
     const tomorrow = addDays(today, 1);
     const weekStart = startOfWeek(now);
     const weekEnd = addDays(weekStart, 7);
+    // Ay başlangıcı/sonu (UTC) — Genel Bakış "Bu Ay" stat kartı için
+    const monthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    const monthEnd = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+    );
     const settings = await getSettings();
     const { start: wStartMin, end: wEndMin } = workMinutesRange(settings);
     const weekCapacityMin = (wEndMin - wStartMin) * WORK_DAYS_PER_WEEK;
 
-    const [todayCount, pendingCount, weekRows, pendingPreview] =
-      await Promise.all([
-        prisma.reservation.count({
-          where: {
-            visitDate: { gte: today, lt: tomorrow },
-            status: { in: ["APPROVED", "PENDING_APPROVAL"] },
-          },
-        }),
-        prisma.reservation.count({
-          where: { status: "PENDING_APPROVAL" },
-        }),
-        prisma.reservation.findMany({
-          where: {
-            visitDate: { gte: weekStart, lt: weekEnd },
-            status: "APPROVED",
-          },
-          select: { durationMinutes: true },
-        }),
-        prisma.reservation.findMany({
-          where: { status: "PENDING_APPROVAL" },
-          include: {
-            visitor: true,
-            // Yetkili (outbound + staff_approval) son notification durumu:
-            // failed ise dashboard'da "⚠ Bildirim gönderilemedi" rozeti gosterilir.
-            notifications: {
-              where: {
-                direction: "outbound",
-                templateName: "staff_approval",
-              },
-              orderBy: { sentAt: "desc" },
-              take: 1,
-              select: { status: true, sentAt: true },
+    const [
+      todayCount,
+      pendingCount,
+      weekRows,
+      monthCount,
+      pendingPreview,
+    ] = await Promise.all([
+      prisma.reservation.count({
+        where: {
+          visitDate: { gte: today, lt: tomorrow },
+          status: { in: ["APPROVED", "PENDING_APPROVAL"] },
+        },
+      }),
+      prisma.reservation.count({
+        where: { status: "PENDING_APPROVAL" },
+      }),
+      prisma.reservation.findMany({
+        where: {
+          visitDate: { gte: weekStart, lt: weekEnd },
+          status: "APPROVED",
+        },
+        select: { durationMinutes: true },
+      }),
+      prisma.reservation.count({
+        where: {
+          visitDate: { gte: monthStart, lt: monthEnd },
+          status: { in: ["APPROVED", "PENDING_APPROVAL"] },
+        },
+      }),
+      prisma.reservation.findMany({
+        where: { status: "PENDING_APPROVAL" },
+        include: {
+          visitor: true,
+          // Yetkili (outbound + staff_approval) son notification durumu:
+          // failed ise dashboard'da "⚠ Bildirim gönderilemedi" rozeti gosterilir.
+          notifications: {
+            where: {
+              direction: "outbound",
+              templateName: "staff_approval",
             },
+            orderBy: { sentAt: "desc" },
+            take: 1,
+            select: { status: true, sentAt: true },
           },
-          orderBy: { createdAt: "asc" },
-          take: 5,
-        }),
-      ]);
+        },
+        orderBy: { createdAt: "asc" },
+        take: 5,
+      }),
+    ]);
 
     const bookedMinutes = weekRows.reduce(
       (sum, r) =>
@@ -230,8 +248,17 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
       today: todayCount,
       pending: pendingCount,
       thisWeek: weekRows.length,
+      thisMonth: monthCount,
       utilizationPct,
       pendingPreview: pendingPreviewEnriched,
+      // Genel Bakış hero sağ üst status chip'leri için sistem durumu.
+      // Backend bu cevabı verebildiyse "online" demektir; telegram bot
+      // token'ı varsa "bağlı" kabul edilir (gerçek bot ping yapılmaz —
+      // env presence yeterli pratik sinyal).
+      system: {
+        backendOnline: true,
+        telegramConnected: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+      },
     };
   });
 
