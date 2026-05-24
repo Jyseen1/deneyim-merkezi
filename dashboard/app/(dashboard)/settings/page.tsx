@@ -631,6 +631,11 @@ function TeamSection() {
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Kalıcı silme onay modalı için bekleyen hedef (null = kapalı).
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -699,17 +704,13 @@ function TeamSection() {
     }
   }
 
-  async function hardDelete(id: string, name: string) {
-    if (
-      !window.confirm(
-        `${name} kalıcı olarak silinecek, bu işlem geri alınamaz. Emin misiniz?`,
-      )
-    )
-      return;
+  // Asıl kalıcı silme — onay modalının "Kalıcı Sil" butonu çağırır.
+  async function doHardDelete(id: string, name: string) {
     setBusyId(id);
     try {
       await apiFetch(`/staff/${id}/permanent`, { method: "DELETE" }, token);
       show(`${name} kalıcı olarak silindi`, "info");
+      setConfirmDelete(null);
       await load();
     } catch (e) {
       const msg =
@@ -717,6 +718,7 @@ function TeamSection() {
           ? (e.body as { error?: string } | null)?.error ?? e.message
           : (e as Error).message;
       show(`İşlem başarısız: ${msg}`, "error");
+      setConfirmDelete(null);
     } finally {
       setBusyId(null);
     }
@@ -911,7 +913,7 @@ function TeamSection() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => hardDelete(s.id, s.name)}
+                      onClick={() => setConfirmDelete({ id: s.id, name: s.name })}
                       disabled={busyId === s.id}
                       title="Kalıcı olarak sil (geri alınamaz)"
                       style={{
@@ -970,7 +972,127 @@ function TeamSection() {
           onError={(msg) => show(msg, "error")}
         />
       )}
+
+      {confirmDelete && (
+        <ConfirmDeleteModal
+          name={confirmDelete.name}
+          busy={busyId === confirmDelete.id}
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => doHardDelete(confirmDelete.id, confirmDelete.name)}
+        />
+      )}
     </>
+  );
+}
+
+// Kalıcı silme onay modalı — GigaX temalı, kırmızı accent. createPortal ile
+// document.body'ye render (parent .gx-card backdrop-filter stacking context'ine
+// hapsolmamak için — AddStaffModal ile aynı pattern).
+function ConfirmDeleteModal({
+  name,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  name: string;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (typeof window === "undefined") return null;
+
+  return createPortal(
+    <div
+      onClick={onCancel}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.65)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: "400px",
+          background:
+            "linear-gradient(135deg, rgba(239,68,68,0.08), rgba(255,255,255,0.02)), #16161D",
+          borderRadius: "16px",
+          padding: "24px",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
+          border: "1px solid rgba(239,68,68,0.30)",
+          color: "var(--gx-text)",
+        }}
+      >
+        <h3
+          className="font-display"
+          style={{
+            fontSize: "18px",
+            fontWeight: 600,
+            margin: 0,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          Kalıcı Silme
+        </h3>
+        <p
+          style={{
+            fontSize: "13px",
+            color: "var(--gx-text-muted)",
+            margin: "10px 0 0",
+            lineHeight: 1.6,
+          }}
+        >
+          <b style={{ color: "var(--gx-text)" }}>{name}</b> kalıcı olarak
+          silinecek. Bu işlem <b style={{ color: "#f87171" }}>geri alınamaz</b>.
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+            justifyContent: "flex-end",
+            marginTop: "22px",
+          }}
+        >
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="btn-ghost"
+          >
+            İptal
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            style={{
+              padding: "9px 18px",
+              fontSize: "13px",
+              fontWeight: 600,
+              borderRadius: "10px",
+              border: "1px solid rgba(239,68,68,0.45)",
+              background: "rgba(239,68,68,0.18)",
+              color: "#fca5a5",
+              cursor: busy ? "not-allowed" : "pointer",
+              opacity: busy ? 0.6 : 1,
+              fontFamily: "var(--font-inter), system-ui",
+            }}
+          >
+            {busy ? "Siliniyor..." : "Kalıcı Sil"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
