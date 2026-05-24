@@ -11,6 +11,9 @@ export const TIMEOUT_QUEUE = "reservation-timeouts";
 // Yetkili (staff) bildirimi yeniden gonderim kuyruğu. createReservation ilk
 // denemede gonderimde basarisiz olursa, gecikmeli retry'lar buraya dusurulur.
 export const STAFF_NOTIFY_QUEUE = "staff-notify-retry";
+// Email kuyruğu — admin/musteri mail gonderimleri. reservation.service emit
+// noktalarindan push'lanır, worker (email.job) Resend SDK ile gönderir + DB log.
+export const EMAIL_QUEUE = "email-send";
 
 // BullMQ Worker'lari maxRetriesPerRequest=null ve enableReadyCheck=false bekler.
 // Queue baglantilari icin de aynisini kullaniyoruz - Upstash uzerinde sorunsuz.
@@ -43,6 +46,10 @@ export const staffNotifyQueue = new Queue(STAFF_NOTIFY_QUEUE, {
   connection: queueConnection,
 });
 
+export const emailQueue = new Queue(EMAIL_QUEUE, {
+  connection: queueConnection,
+});
+
 const workers: Worker[] = [];
 export function registerWorker(w: Worker): void {
   workers.push(w);
@@ -60,6 +67,7 @@ export async function shutdownQueues(): Promise<void> {
     reminderQueue.close(),
     timeoutQueue.close(),
     staffNotifyQueue.close(),
+    emailQueue.close(),
   ]);
   await queueConnection.quit().catch(() => {});
 

@@ -17,6 +17,7 @@ import {
   sendVisitorReschedule as sendTelegramReschedule,
 } from "./telegram.service";
 import {
+  emailQueue,
   reminderQueue,
   removeJobSafe,
   staffNotifyQueue,
@@ -42,6 +43,32 @@ const MAX_PENDING_PER_PHONE = Math.max(
   1,
   Number(process.env.MAX_PENDING_PER_PHONE) || 3,
 );
+
+// BullMQ retry: ilk dene → 30sn → 2dk → 5dk (exponential). Son fail'de
+// email.job worker'i notifyAdminError'a düşürür.
+const EMAIL_JOB_OPTS = {
+  attempts: 3,
+  backoff: { type: "exponential" as const, delay: 30_000 },
+  removeOnComplete: true,
+  removeOnFail: 200,
+};
+
+// emailQueue.add() guvenli sarmalayici — push hatasi rezervasyon akisini
+// asla durdurmaz, sadece logla. Email worker zaten Redis-backed retry yapiyor;
+// burasi yalnizca queue erisim hatasini yakalar (Redis down vs).
+async function pushEmailJob(
+  name: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await emailQueue.add(name, data, EMAIL_JOB_OPTS);
+  } catch (err) {
+    logJobError("email", "emailQueue.add hata", {
+      name,
+      err: (err as Error).message,
+    });
+  }
+}
 
 function timeoutJobId(id: string) {
   return `timeout_${id}`;
@@ -317,6 +344,12 @@ export async function createReservation(input: CreateReservationInput) {
     status: result.reservation.status,
   });
 
+  // Admin'e e-posta — Resend SDK uzerinden, queue'da retry'li.
+  await pushEmailJob("admin_new_reservation", {
+    type: "admin_new_reservation",
+    reservationId: result.reservation.id,
+  });
+
   // Yetkiliye bildirim — yeni helper notification log + retry yapiyor.
   // Basarisiz ise dashboard'da gorunur olur ve staffNotifyQueue 30sn/2dk/5dk
   // sonra tekrar dener.
@@ -442,6 +475,12 @@ export async function approveReservation(
     visitorName: updated.visitor.name,
   });
 
+  // Musteriye onay e-postasi (visitor.email null ise email.service skip eder).
+  await pushEmailJob("customer_approved", {
+    type: "customer_approved",
+    reservationId: updated.id,
+  });
+
   await notifyVisitorApproved(updated);
 
   // Yetkili Telegram mesajini guncelle (kaynak kanal ne olursa olsun).
@@ -526,6 +565,16 @@ export async function rejectReservation(
     visitorName: result.reservation.visitor.name,
   });
 
+  // Musteriye red e-postasi — alternatif saatler ayni gun icin listelenir.
+  await pushEmailJob("customer_rejected", {
+    type: "customer_rejected",
+    reservationId: result.reservation.id,
+    alternatives: result.alternatives.map((a) => ({
+      startTime: a.startTime,
+      endTime: a.endTime,
+    })),
+  });
+
   await notifyVisitorRejected(result.reservation, result.alternatives);
 
   // Yetkili Telegram mesajini guncelle.
@@ -576,48 +625,57 @@ export async function rescheduleReservation(
   newStartTime: string,
   newDurationMinutes: number | undefined,
 ): Promise<ReservationWithVisitor> {
-  const updated = await prisma.$transaction(async (tx) => {
-    const existing = await tx.reservation.findUnique({
-      where: { id: reservationId },
-      select: {
-        status: true,
-        durationMinutes: true,
-        visitDate: true,
-        startTime: true,
-      },
-    });
-    if (!existing) throw new Error("Rezervasyon bulunamadi");
-    // Sadece aktif rezervasyonlar reschedule edilebilir.
-    if (!["PENDING_APPROVAL", "APPROVED"].includes(existing.status)) {
-      throw new ReservationAlreadyProcessedError(existing.status);
-    }
+  const { updated, oldVisitDate, oldStartTime } = await prisma.$transaction(
+    async (tx) => {
+      const existing = await tx.reservation.findUnique({
+        where: { id: reservationId },
+        select: {
+          status: true,
+          durationMinutes: true,
+          visitDate: true,
+          startTime: true,
+        },
+      });
+      if (!existing) throw new Error("Rezervasyon bulunamadi");
+      // Sadece aktif rezervasyonlar reschedule edilebilir.
+      if (!["PENDING_APPROVAL", "APPROVED"].includes(existing.status)) {
+        throw new ReservationAlreadyProcessedError(existing.status);
+      }
 
-    const duration = newDurationMinutes ?? existing.durationMinutes;
-    const available = await isSlotAvailable(
-      newDate,
-      newStartTime,
-      duration,
-      tx,
-      reservationId, // kendi mevcut slotunu cakisma sayma
-    );
-    if (!available) {
-      const alternatives = await getAvailableSlots(newDate, duration, tx);
-      throw new SlotUnavailableError(
-        "Yeni slot artik musait degil",
-        alternatives.slice(0, MAX_ALTERNATIVES),
+      const duration = newDurationMinutes ?? existing.durationMinutes;
+      const available = await isSlotAvailable(
+        newDate,
+        newStartTime,
+        duration,
+        tx,
+        reservationId, // kendi mevcut slotunu cakisma sayma
       );
-    }
+      if (!available) {
+        const alternatives = await getAvailableSlots(newDate, duration, tx);
+        throw new SlotUnavailableError(
+          "Yeni slot artik musait degil",
+          alternatives.slice(0, MAX_ALTERNATIVES),
+        );
+      }
 
-    return tx.reservation.update({
-      where: { id: reservationId },
-      data: {
-        visitDate: new Date(`${newDate}T00:00:00.000Z`),
-        startTime: newStartTime,
-        durationMinutes: duration,
-      },
-      include: { visitor: true },
-    });
-  });
+      const updatedRow = await tx.reservation.update({
+        where: { id: reservationId },
+        data: {
+          visitDate: new Date(`${newDate}T00:00:00.000Z`),
+          startTime: newStartTime,
+          durationMinutes: duration,
+        },
+        include: { visitor: true },
+      });
+      // Email body'sinde eski/yeni karsilastirmasi icin OLD degerleri di$ariya
+      // tasi — emit/queue.add transaction sonrasinda yapilacak.
+      return {
+        updated: updatedRow,
+        oldVisitDate: existing.visitDate,
+        oldStartTime: existing.startTime,
+      };
+    },
+  );
 
   // Real-time event
   emitAppEvent({
@@ -625,6 +683,16 @@ export async function rescheduleReservation(
     reservationId: updated.id,
     status: updated.status,
     visitorName: updated.visitor.name,
+  });
+
+  // Musteriye reschedule e-postasi (eski/yeni karsilastirmasiyla).
+  await pushEmailJob("customer_rescheduled", {
+    type: "customer_rescheduled",
+    reservationId: updated.id,
+    diff: {
+      oldDateISO: oldVisitDate.toISOString(),
+      oldStartTime,
+    },
   });
 
   // Telegram staff approval mesajini guncelle (tarih/saat icerigi degisti).

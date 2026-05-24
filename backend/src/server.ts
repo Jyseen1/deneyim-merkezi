@@ -19,6 +19,7 @@ import visitorsRoutes from "./routes/visitors";
 import "./jobs/reminder.job"; // worker'lar import side-effect ile baslar
 import "./jobs/timeout.job";
 import "./jobs/staff-notify.job";
+import "./jobs/email.job";
 import { shutdownQueues } from "./jobs/queue";
 import { prisma } from "./db/client";
 import { notifyAdminError } from "./services/error-alert.service";
