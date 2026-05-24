@@ -57,7 +57,10 @@ function LoginCard() {
     <div
       style={{
         minHeight: "100vh",
-        background: "var(--gx-bg)",
+        // Solid zemin (KATMAN 0) body'nin background'undan gelir; burada
+        // opak bg VERMIYORUZ ki negatif z-index'li fixed spotlight katmanlari
+        // (body bg uzerinde paint olan) gorunebilsin. Container opak bg
+        // verseydi block-level paint sirasi spotlight'i orterdi.
         position: "relative",
         overflow: "hidden",
         display: "flex",
@@ -66,34 +69,34 @@ function LoginCard() {
         padding: "24px 16px",
       }}
     >
-      {/* Dekoratif arka plan mor isiltisi */}
+      {/* Spotlight arka plan — KATMAN 0 (solid) root'un background'unda.
+          Negatif z-index'li fixed katmanlar root'un solid bg'sinin USTUNDE,
+          kart (zIndex:1) ALTINDA paint edilir. */}
+
+      {/* KATMAN 1 — nokta izgara (sabit) */}
       <div
         aria-hidden
         style={{
-          position: "absolute",
-          top: "-180px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "640px",
-          height: "640px",
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, rgba(124,58,237,0.28) 0%, transparent 70%)",
+          position: "fixed",
+          inset: 0,
+          zIndex: -2,
           pointerEvents: "none",
+          backgroundImage:
+            "radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)",
+          backgroundSize: "22px 22px",
         }}
       />
+
+      {/* KATMAN 2 — merkez spotlight isik (statik) */}
       <div
         aria-hidden
         style={{
-          position: "absolute",
-          bottom: "-160px",
-          right: "-100px",
-          width: "440px",
-          height: "440px",
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)",
+          position: "fixed",
+          inset: 0,
+          zIndex: -1,
           pointerEvents: "none",
+          background:
+            "radial-gradient(circle at 50% 50%, rgba(124,58,237,0.30), transparent 55%)",
         }}
       />
 
