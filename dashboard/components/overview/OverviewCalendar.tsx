@@ -73,9 +73,11 @@ const MONTHS = [
 export function OverviewCalendar({
   onReservationClick,
   onNavigateToFull,
+  onAddReservation,
 }: {
   onReservationClick: (id: string) => void;
   onNavigateToFull: () => void;
+  onAddReservation: () => void;
 }) {
   const token = useBackendToken();
   const [mode, setMode] = useState<Mode>("week");
@@ -91,10 +93,10 @@ export function OverviewCalendar({
       return { start: s, end: addDays(s, 1) };
     }
     if (mode === "week") {
-      // Embed çoklu hafta: anchor haftasından başla, 4 hafta ileri (=28 gün).
-      // Alt boşluğu doldurur, ay geçişlerini dim ile gösterir.
+      // Embed hafta ajandası: anchor haftası (7 gün). Sadece dolu günler
+      // listelenir, +N daha mantığı ile asla taşmaz; alta footer yapışır.
       const s = startOfWeekMon(anchor);
-      return { start: s, end: addDays(s, 28) };
+      return { start: s, end: addDays(s, 7) };
     }
     const s = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
     const e = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1);
@@ -152,9 +154,15 @@ export function OverviewCalendar({
       return `${anchor.getDate()} ${MONTHS[anchor.getMonth()]}`;
     }
     if (mode === "week") {
-      // Multi-week pencere için ilk haftanın ayı (referans dili)
+      // Hafta ajandası — referans: "18–24 Mayıs" / cross-month: "29 May – 4 Haz"
       const s = startOfWeekMon(anchor);
-      return `${MONTHS[s.getMonth()]} ${s.getFullYear()}`;
+      const e = addDays(s, 6);
+      if (s.getMonth() === e.getMonth()) {
+        return `${s.getDate()}–${e.getDate()} ${MONTHS[s.getMonth()]}`;
+      }
+      const fm = MONTHS[s.getMonth()].slice(0, 3);
+      const tm = MONTHS[e.getMonth()].slice(0, 3);
+      return `${s.getDate()} ${fm} – ${e.getDate()} ${tm}`;
     }
     return `${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
   }, [mode, anchor]);
@@ -165,7 +173,18 @@ export function OverviewCalendar({
   }
 
   return (
-    <div className="card" style={{ padding: 0, minWidth: 0 }}>
+    <div
+      className="card"
+      style={{
+        padding: 0,
+        minWidth: 0,
+        // flex column → ajanda alanı flex:1, footer margin-top:auto ile alta
+        // yapışır. .grid2 align-items:stretch ile bu kart sağ panel kadar uzar.
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100%",
+      }}
+    >
       <div className="card-accent" />
 
       {/* Embed control bar — kompakt (sayfa toplbar'ı yok) */}
@@ -251,13 +270,12 @@ export function OverviewCalendar({
         />
       )}
       {mode === "week" && (
-        <EmbedMultiWeek
+        <EmbedWeekAgenda
           weekStart={startOfWeekMon(anchor)}
-          weekCount={4}
           items={items}
-          blocks={blocks}
-          recurring={recurring}
+          onReservationClick={onReservationClick}
           onDayClick={goToDayMode}
+          onAddReservation={onAddReservation}
         />
       )}
       {mode === "month" && (
@@ -365,35 +383,30 @@ function EmbedDay({
 }
 
 // ─────────────────────────────────────────────────────────
-// Embed Multi-Week — N ardışık hafta + tek dow header (referans multiweek)
+// Embed Week Agenda — sadece dolu günler + +N daha + footer simetri
+// (referans agenda-reference.html)
 // ─────────────────────────────────────────────────────────
 
-function EmbedMultiWeek({
+const TR_DOW_SHORT = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+
+function EmbedWeekAgenda({
   weekStart,
-  weekCount,
   items,
-  blocks,
-  recurring,
+  onReservationClick,
   onDayClick,
+  onAddReservation,
 }: {
   weekStart: Date;
-  weekCount: number;
   items: Reservation[];
-  blocks: SlotBlock[];
-  recurring: RecurringRule[];
+  onReservationClick: (id: string) => void;
   onDayClick: (d: Date) => void;
+  onAddReservation: () => void;
 }) {
   const today = useMemo(() => new Date(), []);
-  // İlk haftanın ayı; sonraki aya taşan günler dim
-  const anchorMonth = weekStart.getMonth();
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const weeks = useMemo(() => {
-    return Array.from({ length: weekCount }, (_, wi) =>
-      Array.from({ length: 7 }, (_, di) => addDays(weekStart, wi * 7 + di)),
-    );
-  }, [weekStart, weekCount]);
-
-  function dayResv(d: Date) {
+  // Sadece APPROVED + PENDING_APPROVAL ziyaret sayılır (referansla aynı tanım)
+  function dayResv(d: Date): Reservation[] {
     return items
       .filter(
         (r) =>
@@ -402,140 +415,109 @@ function EmbedMultiWeek({
       )
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
   }
-  function dayFullClosed(d: Date) {
-    const iso = toLocalIso(d);
-    if (blocks.some((b) => toLocalIso(new Date(b.slotDate)) === iso))
-      return true;
-    return recurring.some(
-      (r) =>
-        r.dayOfWeek === d.getDay() &&
-        parseHHMM(r.startTime) <= 9 * 60 &&
-        parseHHMM(r.endTime) >= 19 * 60,
-    );
-  }
 
-  // Global max — tüm haftalar üzerinden bar yüksekliği normalize edilsin
-  const allDays = weeks.flat();
-  const maxGuests = Math.max(
-    1,
-    ...allDays.flatMap((d) => dayResv(d).map((r) => r.groupSize)),
-  );
+  const populated = days
+    .map((d) => ({ date: d, resv: dayResv(d) }))
+    .filter((d) => d.resv.length > 0);
+
+  const totalVisits = populated.reduce((s, d) => s + d.resv.length, 0);
+  const fullDays = populated.length;
+  const emptyDays = 7 - fullDays;
+
+  // Taşma kontrolü: dolu gün sayısına göre satır limiti
+  // ≤2 dolu gün → max 3 satır, ≥3 dolu gün → max 2 satır
+  const perDayLimit = fullDays <= 2 ? 3 : 2;
 
   return (
-    <div>
-      {/* dow header — tek sefer üstte */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7, 1fr)",
-          gap: "6px",
-          padding: "0 14px 6px",
-        }}
-      >
-        {TR_DAYS_SHORT_MON.map((d) => (
-          <span
-            key={d}
-            style={{
-              textAlign: "center",
-              fontSize: "9px",
-              color: "var(--muted3)",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            {d}
-          </span>
-        ))}
-      </div>
-
-      <div
-        style={{
-          padding: "0 14px 14px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "6px",
-        }}
-      >
-        {weeks.map((week, wi) => (
-          <div
-            key={wi}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(7, 1fr)",
-              gap: "6px",
-            }}
-          >
-            {week.map((d, di) => {
-              const isToday = isSameLocalDay(d, today);
-              const closed = dayFullClosed(d);
-              const resv = dayResv(d);
-              const dim = d.getMonth() !== anchorMonth;
-              const cls = [
-                "ht-day",
-                isToday && "today",
-                closed && "closed",
-                dim && "dim",
-              ]
-                .filter(Boolean)
-                .join(" ");
-              return (
-                <button
-                  key={di}
-                  type="button"
-                  onClick={() => onDayClick(d)}
-                  className={cls}
-                  style={{
-                    border: "none",
-                    fontFamily: "inherit",
-                    width: "100%",
-                    padding: "8px 6px",
-                    minHeight: "78px",
-                    display: "flex",
-                    flexDirection: "column",
-                  }}
-                >
-                  <div
-                    className="dn"
-                    style={{ fontSize: "16px", margin: "0 0 4px" }}
-                  >
-                    {d.getDate()}
-                  </div>
-                  <div
-                    className="ht-bars"
-                    style={{ height: "22px", gap: "2px", margin: "6px 0 4px", flex: 1 }}
-                  >
-                    {resv.slice(0, 5).map((r) => {
-                      const h = Math.max(
-                        3,
-                        Math.round((r.groupSize / maxGuests) * 22),
-                      );
-                      return (
-                        <span
-                          key={r.id}
-                          className="ht-bar"
-                          style={{ width: "6px", height: `${h}px` }}
-                        />
-                      );
-                    })}
-                  </div>
-                  {closed ? (
-                    <div className="ht-cnt closed" style={{ fontSize: "9px" }}>
-                      Kapalı
-                    </div>
-                  ) : resv.length === 0 ? (
-                    <div className="ht-cnt zero" style={{ fontSize: "9px" }}>
-                      —
-                    </div>
-                  ) : (
-                    <div className="ht-cnt" style={{ fontSize: "9px" }}>
-                      {resv.length}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
+    <div className="agw">
+      {populated.length === 0 ? (
+        <div className="agw-empty">
+          <div className="ic">○</div>
+          <div className="tx">
+            Bu hafta <em>rezervasyon</em> yok
           </div>
-        ))}
+          <button
+            type="button"
+            className="qa-btn"
+            onClick={onAddReservation}
+            style={{
+              flex: "none",
+              padding: "9px 18px",
+              fontSize: "13px",
+              marginTop: "4px",
+              fontFamily: "inherit",
+            }}
+          >
+            + Rezervasyon ekle
+          </button>
+        </div>
+      ) : (
+        populated.map(({ date, resv }) => {
+          const isToday = isSameLocalDay(date, today);
+          const dow = TR_DOW_SHORT[(date.getDay() + 6) % 7];
+          const visible = resv.slice(0, perDayLimit);
+          const hidden = resv.length - visible.length;
+          return (
+            <div
+              key={date.toISOString()}
+              className={`agw-day${isToday ? " today" : ""}`}
+            >
+              <div
+                className={`agw-date${isToday ? " today" : ""}`}
+                onClick={() => onDayClick(date)}
+                role="button"
+              >
+                <div className="dn">{date.getDate()}</div>
+                <div className="dow">{dow}</div>
+                <div className="cnt">
+                  {resv.length}{" "}
+                  {resv.length === 1 ? "ziyaret" : "ziyaret"}
+                </div>
+              </div>
+              <div className="agw-evs">
+                {visible.map((r) => {
+                  const isPending = r.status === "PENDING_APPROVAL";
+                  return (
+                    <div
+                      key={r.id}
+                      className={`agw-ev${isPending ? " pend" : ""}`}
+                      onClick={() => onReservationClick(r.id)}
+                      role="button"
+                    >
+                      <div className="tm">{r.startTime}</div>
+                      <div className="nm">{r.visitor?.name ?? "—"}</div>
+                      <div className="mt">{r.groupSize} kişi</div>
+                    </div>
+                  );
+                })}
+                {hidden > 0 && (
+                  <div
+                    className="agw-more"
+                    onClick={() => onDayClick(date)}
+                    role="button"
+                  >
+                    +{hidden} ziyaret daha →
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })
+      )}
+
+      <div className="agw-foot">
+        <span>
+          Bu hafta <b>{totalVisits}</b> ziyaret
+          {fullDays > 0 ? (
+            <>
+              {" · "}
+              <b>{fullDays}</b> dolu gün
+            </>
+          ) : null}
+        </span>
+        <span>
+          {emptyDays} gün boş
+        </span>
       </div>
     </div>
   );

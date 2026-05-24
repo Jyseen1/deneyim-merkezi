@@ -412,22 +412,24 @@ export function OverviewClient({
           </div>
         )}
 
-        {/* 4. İKİ KOLON — Sol: mini takvim, Sağ: aksiyon + son rezervasyonlar.
-            alignItems:flex-start → iki kolon stat satırının HEMEN ALTINDAN aynı
-            hizadan başlar. Önceki "center" hizalama sol takvim daha uzun
-            olduğu için takvimi aşağı sarkıtıyor, üstte boşluk bırakıyordu. */}
+        {/* 4. İKİ KOLON — Sol: hafta ajandası, Sağ: aksiyon + son rezervasyonlar.
+            alignItems:stretch → sol kart sağ kolonun yüksekliğine uzar; ajanda
+            içindeki .agw-foot margin-top:auto ile alta yapışır → simetri.
+            Hafta ajandasının "+N daha" mantığı taşmayı önler; bu sayede sol
+            kart sağ panelden aşırı uzayamaz. */}
         <div
           className="overview-grid fade-up fade-up-3"
           style={{
             display: "grid",
             gridTemplateColumns: "1.1fr 1fr",
             gap: "18px",
-            alignItems: "flex-start",
+            alignItems: "stretch",
           }}
         >
           <OverviewCalendar
             onReservationClick={(id) => setActiveId(id)}
             onNavigateToFull={() => router.push("/calendar")}
+            onAddReservation={() => router.push("/rezervasyon")}
           />
 
           <div

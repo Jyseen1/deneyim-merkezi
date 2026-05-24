@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GigaX — Hafta Ajandası Geliştirilmiş</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0F;--bg2:#0F0F18;--bg3:#141420;
+    --accent:#7C3AED;--accent2:#8B5CF6;--accent3:#A78BFA;
+    --green:#4ADE80;--red:#EF4444;--amber:#F59E0B;
+    --line:rgba(255,255,255,0.08);--line2:rgba(255,255,255,0.05);
+    --txt:#E4E4E7;--muted:#71717A;--muted2:#52525B;--muted3:#3F3F46;
+    --grotesk:'Space Grotesk',sans-serif;--inter:'Inter',sans-serif;--serif:'Instrument Serif',serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#000;color:var(--txt);font-family:var(--inter);-webkit-font-smoothing:antialiased}
+  .selector{position:sticky;top:0;z-index:100;background:rgba(10,10,15,0.85);backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--line);padding:16px 32px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .selector .brand{font-family:var(--grotesk);font-weight:700;font-size:18px;margin-right:24px}
+  .selector .brand b{color:var(--accent2)}
+  .selector .label{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted2);margin-right:8px}
+  .tab{padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid var(--line2);background:transparent;color:var(--muted);transition:all 150ms}
+  .tab:hover{border-color:rgba(124,58,237,0.3);color:var(--txt)}
+  .tab.active{border-color:rgba(124,58,237,0.5);background:rgba(124,58,237,0.18);color:var(--accent3)}
+  .layout{display:none;padding:32px 40px;min-height:100vh;position:relative;overflow:hidden}
+  .layout.active{display:block}
+  .glow{position:absolute;border-radius:50%;pointer-events:none;filter:blur(80px);top:-100px;right:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(124,58,237,0.15),transparent 70%)}
+  .ltitle{font-family:var(--grotesk);font-size:12px;color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:20px;text-align:center}
+  .ltitle em{font-family:var(--serif);font-style:italic;color:var(--accent3);text-transform:none}
+
+  .welcome{text-align:center;padding:4px 0 22px}
+  .welcome .date{font-size:11px;letter-spacing:0.15em;color:var(--accent2);text-transform:uppercase;font-weight:600;margin-bottom:8px}
+  .welcome h1{font-family:var(--grotesk);font-size:38px;font-weight:600;letter-spacing:-1px}
+  .welcome h1 em{font-family:var(--serif);font-style:italic;color:var(--accent3);font-weight:400}
+  .welcome .sub{font-size:14px;color:var(--muted);margin-top:8px}
+  .welcome .sub b{color:var(--accent2);font-weight:600}
+  .welcome .sub em{font-family:var(--serif);font-style:italic;color:var(--accent3)}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;max-width:1240px;margin-left:auto;margin-right:auto}
+  .card{background:linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015));border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(20px)}
+  .stat{padding:16px;text-align:center}
+  .stat.hl{border-color:rgba(124,58,237,0.35);background:linear-gradient(135deg,rgba(124,58,237,0.10),rgba(124,58,237,0.02))}
+  .stat .l{font-size:10px;letter-spacing:0.12em;color:var(--muted2);text-transform:uppercase;margin-bottom:7px}
+  .stat .v{font-family:var(--grotesk);font-size:28px;font-weight:300;line-height:1}
+  .stat .v small{font-size:13px;color:var(--muted2)}
+  .grid2{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;max-width:1240px;margin:0 auto;align-items:stretch}
+
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;padding:18px 18px 0}
+  .navg{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:5px 6px}
+  .navg .arr{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);flex-shrink:0;background:rgba(255,255,255,0.04)}
+  .navg .rng{font-family:var(--grotesk);font-weight:600;font-size:13px;width:110px;text-align:center;flex-shrink:0}
+  .right-ctrl{display:flex;align-items:center;gap:10px}
+  .seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+  .seg b{font-size:12px;padding:5px 13px;border-radius:6px;cursor:pointer;color:var(--muted);font-weight:500}
+  .seg b.on{background:var(--accent);color:#fff}
+  .golink{font-size:12px;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:7px}
+  .golink:hover{color:var(--accent3)}
+  .qa{display:flex;gap:10px;padding:18px}
+  .qa-btn{flex:1;padding:13px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid var(--line);cursor:pointer;text-align:center;font-size:14px;font-weight:600}
+  .recent{padding:18px;flex:1;display:flex;flex-direction:column}
+  .recent-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .recent-h .t{font-family:var(--grotesk);font-size:15px;font-weight:600}
+  .recent-h .t em{font-family:var(--serif);font-style:italic;color:var(--accent3);font-weight:400;margin-left:5px}
+  .daygroup{margin-bottom:12px}
+  .daygroup .dh{font-size:13px;font-family:var(--grotesk);font-weight:600;margin-bottom:7px}
+  .daygroup .dh em{font-family:var(--serif);font-style:italic;color:var(--accent3)}
+  .daygroup .dh .c{font-size:11px;color:var(--muted3);font-weight:400;font-family:var(--inter)}
+  .rmini{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.025);border:1px solid var(--line);margin-bottom:5px;cursor:pointer}
+  .rmini:hover{border-color:rgba(124,58,237,0.4)}
+  .rmini .tm{font-family:var(--grotesk);font-weight:500;font-size:14px;width:46px;color:var(--accent3)}
+  .rmini .nm{font-weight:600;font-size:14px;flex:1}
+  .pill{font-size:11px;padding:4px 11px;border-radius:999px}
+  .pill.ok{background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.2)}
+  .pill.cancel{background:rgba(113,113,122,0.15);color:var(--muted);border:1px solid var(--line)}
+  .pill.noshow{background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.25)}
+
+  /* ===== gelişmiş hafta ajandası ===== */
+  .agw{padding:6px 18px 18px;flex:1;display:flex;flex-direction:column}
+  .agw-day{display:flex;gap:14px;padding:11px 4px;border-bottom:1px solid var(--line2)}
+  .agw-day:last-child{border:0}
+  .agw-day.today{background:rgba(124,58,237,0.04);border-radius:10px;padding-left:10px;padding-right:10px}
+  .agw-date{width:56px;flex-shrink:0;text-align:center;padding-top:2px}
+  .agw-date .dn{font-family:var(--grotesk);font-size:22px;font-weight:300;line-height:1}
+  .agw-date.today .dn{color:var(--accent3);font-weight:600}
+  .agw-date .dow{font-size:9px;text-transform:uppercase;color:var(--muted3);margin-top:3px}
+  .agw-date .cnt{font-size:9px;color:var(--accent3);margin-top:5px}
+  .agw-evs{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0}
+  .agw-ev{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:var(--bg2);border:1px solid var(--line2);cursor:pointer}
+  .agw-ev:hover{border-color:rgba(124,58,237,0.4)}
+  .agw-ev.pend{border-left:2px solid var(--accent2)}
+  .agw-ev .tm{font-family:var(--grotesk);font-weight:500;font-size:12px;width:42px;color:var(--accent3);flex-shrink:0}
+  .agw-ev .nm{font-weight:600;font-size:13px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .agw-ev .mt{font-size:11px;color:var(--muted);flex-shrink:0}
+  /* +N daha satırı */
+  .agw-more{font-size:11px;color:var(--accent3);padding:5px 12px;cursor:pointer;border-radius:8px;
+    background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.18);text-align:center;margin-top:1px}
+  .agw-more:hover{background:rgba(124,58,237,0.12)}
+  /* yatay yoğunluk özeti (çok günlü kompakt mod) */
+  .agw-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1}
+  .agw-chip{display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:9px;background:var(--bg2);border:1px solid var(--line2);font-size:12px;cursor:pointer}
+  .agw-chip:hover{border-color:rgba(124,58,237,0.4)}
+  .agw-chip .t{font-family:var(--grotesk);color:var(--accent3);font-weight:500}
+  .agw-chip .n{color:var(--txt);font-weight:600}
+  /* boş hafta durumu */
+  .agw-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted3);gap:8px;padding:40px 0}
+  .agw-empty .ic{font-size:24px;opacity:0.5}
+  .agw-empty .tx{font-size:13px}
+  .agw-empty .tx em{font-family:var(--serif);font-style:italic;color:var(--accent3)}
+  /* hafta özeti footer */
+  .agw-foot{margin-top:auto;padding:12px 4px 0;border-top:1px solid var(--line2);display:flex;justify-content:space-between;font-size:11px;color:var(--muted2)}
+  .agw-foot b{color:var(--accent3);font-weight:500}
+</style>
+</head>
+<body>
+
+<div class="selector">
+  <div class="brand">Giga<b>X</b></div>
+  <span class="label">Hafta Ajandası Geliştirilmiş</span>
+  <button class="tab active" onclick="show('N',this)">1 · Normal (az)</button>
+  <button class="tab" onclick="show('F',this)">2 · Çok dolu (+N daha)</button>
+  <button class="tab" onclick="show('E',this)">3 · Boş hafta</button>
+</div>
+
+<!-- ===== N: NORMAL (az rezervasyon) ===== -->
+<div class="layout active" id="N">
+  <div class="glow"></div>
+  <div class="ltitle">Gelişmiş — <em>Normal</em> · az rezervasyon, gün başına max 3 satır + hafta özeti footer</div>
+  <div class="welcome"><div class="date">24 Mayıs 2026 · Pazar</div><h1>Hoş geldin, <em>Poyraz</em></h1><div class="sub">Bugün <b>1</b> <em>ziyaret</em> planlı, <b>0</b> <em>onay</em> seni bekliyor.</div></div>
+  <div class="stats">
+    <div class="card stat"><div class="l">Doluluk</div><div class="v">14<small>%</small></div></div>
+    <div class="card stat hl"><div class="l">Bekleyen</div><div class="v">0</div></div>
+    <div class="card stat"><div class="l">Bu Hafta</div><div class="v">5</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card" style="display:flex;flex-direction:column">
+      <div class="cal-head"><div class="navg"><span class="arr">‹</span><span class="rng">18–24 Mayıs</span><span class="arr">›</span></div>
+        <div class="right-ctrl"><div class="seg"><b>Gün</b><b class="on">Hafta</b><b>Ay</b></div><span class="golink">Takvim →</span></div></div>
+      <div class="agw">
+        <div class="agw-day today"><div class="agw-date today"><div class="dn">23</div><div class="dow">Cmt</div><div class="cnt">4 ziyaret</div></div>
+          <div class="agw-evs">
+            <div class="agw-ev"><div class="tm">11:00</div><div class="nm">poyrwz</div><div class="mt">2 kişi</div></div>
+            <div class="agw-ev"><div class="tm">13:30</div><div class="nm">poyraz</div><div class="mt">3 kişi</div></div>
+            <div class="agw-ev"><div class="tm">15:00</div><div class="nm">poyraz</div><div class="mt">1 kişi</div></div>
+            <div class="agw-more">+1 ziyaret daha →</div>
+          </div></div>
+        <div class="agw-day"><div class="agw-date"><div class="dn">24</div><div class="dow">Paz</div><div class="cnt">1 ziyaret</div></div>
+          <div class="agw-evs"><div class="agw-ev"><div class="tm">11:00</div><div class="nm">poyrwz</div><div class="mt">1 kişi</div></div></div></div>
+        <div class="agw-foot"><span>Bu hafta <b>5</b> ziyaret · <b>2</b> dolu gün</span><span>5 gün boş</span></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="card"><div class="qa"><div class="qa-btn">+ Rezervasyon</div><div class="qa-btn">⊘ Gün kapat</div></div></div>
+      <div class="card recent">
+        <div class="recent-h"><div class="t">Son<em>rezervasyonlar</em></div><span class="golink">Tümü →</span></div>
+        <div class="daygroup"><div class="dh">26 <em>Mayıs</em> <span class="c">· Salı</span></div>
+          <div class="rmini"><div class="tm">10:30</div><div class="nm">mert yarpuzlu</div><span class="pill ok">Onaylı</span></div></div>
+        <div class="daygroup"><div class="dh">23 <em>Mayıs</em> <span class="c">· Cumartesi</span></div>
+          <div class="rmini"><div class="tm">13:30</div><div class="nm">poyraz</div><span class="pill ok">Onaylı</span></div>
+          <div class="rmini"><div class="tm">17:00</div><div class="nm">poyraz</div><span class="pill noshow">Gelmedi</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== F: ÇOK DOLU (birçok gün dolu) ===== -->
+<div class="layout" id="F">
+  <div class="glow"></div>
+  <div class="ltitle">Gelişmiş — <em>Çok Dolu</em> · birçok gün dolu, her gün max 2 satır + "+N daha", asla taşmaz</div>
+  <div class="welcome"><div class="date">24 Mayıs 2026 · Pazar</div><h1>Hoş geldin, <em>Poyraz</em></h1><div class="sub">Bugün <b>6</b> <em>ziyaret</em> planlı, <b>2</b> <em>onay</em> seni bekliyor.</div></div>
+  <div class="stats">
+    <div class="card stat"><div class="l">Doluluk</div><div class="v">68<small>%</small></div></div>
+    <div class="card stat hl"><div class="l">Bekleyen</div><div class="v">2</div></div>
+    <div class="card stat"><div class="l">Bu Hafta</div><div class="v">23</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card" style="display:flex;flex-direction:column">
+      <div class="cal-head"><div class="navg"><span class="arr">‹</span><span class="rng">18–24 Mayıs</span><span class="arr">›</span></div>
+        <div class="right-ctrl"><div class="seg"><b>Gün</b><b class="on">Hafta</b><b>Ay</b></div><span class="golink">Takvim →</span></div></div>
+      <div class="agw">
+        <div class="agw-day"><div class="agw-date"><div class="dn">20</div><div class="dow">Çar</div><div class="cnt">3 ziyaret</div></div>
+          <div class="agw-evs">
+            <div class="agw-ev"><div class="tm">11:00</div><div class="nm">ahmet yılmaz</div><div class="mt">2 kişi</div></div>
+            <div class="agw-ev"><div class="tm">14:00</div><div class="nm">elif kaya</div><div class="mt">4 kişi</div></div>
+            <div class="agw-more">+1 daha →</div>
+          </div></div>
+        <div class="agw-day"><div class="agw-date"><div class="dn">21</div><div class="dow">Per</div><div class="cnt">5 ziyaret</div></div>
+          <div class="agw-evs">
+            <div class="agw-ev pend"><div class="tm">10:00</div><div class="nm">mehmet demir</div><div class="mt">1 kişi</div></div>
+            <div class="agw-ev"><div class="tm">12:30</div><div class="nm">zeynep şahin</div><div class="mt">3 kişi</div></div>
+            <div class="agw-more">+3 daha →</div>
+          </div></div>
+        <div class="agw-day today"><div class="agw-date today"><div class="dn">23</div><div class="dow">Cmt</div><div class="cnt">8 ziyaret</div></div>
+          <div class="agw-evs">
+            <div class="agw-ev"><div class="tm">09:30</div><div class="nm">poyraz tüfekçi</div><div class="mt">2 kişi</div></div>
+            <div class="agw-ev pend"><div class="tm">11:00</div><div class="nm">can öztürk</div><div class="mt">5 kişi</div></div>
+            <div class="agw-more">+6 daha →</div>
+          </div></div>
+        <div class="agw-day"><div class="agw-date"><div class="dn">24</div><div class="dow">Paz</div><div class="cnt">7 ziyaret</div></div>
+          <div class="agw-evs">
+            <div class="agw-ev"><div class="tm">10:00</div><div class="nm">selin aydın</div><div class="mt">2 kişi</div></div>
+            <div class="agw-more">+6 daha →</div>
+          </div></div>
+        <div class="agw-foot"><span>Bu hafta <b>23</b> ziyaret · <b>4</b> dolu gün</span><span>3 gün boş</span></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="card"><div class="qa"><div class="qa-btn">+ Rezervasyon</div><div class="qa-btn">⊘ Gün kapat</div></div></div>
+      <div class="card recent">
+        <div class="recent-h"><div class="t">Son<em>rezervasyonlar</em></div><span class="golink">Tümü →</span></div>
+        <div class="daygroup"><div class="dh">24 <em>Mayıs</em> <span class="c">· Pazar</span></div>
+          <div class="rmini"><div class="tm">10:00</div><div class="nm">selin aydın</div><span class="pill ok">Onaylı</span></div>
+          <div class="rmini"><div class="tm">12:00</div><div class="nm">burak çelik</div><span class="pill ok">Onaylı</span></div></div>
+        <div class="daygroup"><div class="dh">23 <em>Mayıs</em> <span class="c">· Cumartesi</span></div>
+          <div class="rmini"><div class="tm">09:30</div><div class="nm">poyraz tüfekçi</div><span class="pill ok">Onaylı</span></div>
+          <div class="rmini"><div class="tm">11:00</div><div class="nm">can öztürk</div><span class="pill ok">Onaylı</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== E: BOŞ HAFTA ===== -->
+<div class="layout" id="E">
+  <div class="glow"></div>
+  <div class="ltitle">Gelişmiş — <em>Boş Hafta</em> · hiç rezervasyon yoksa şık boş durum, yine simetrik</div>
+  <div class="welcome"><div class="date">24 Mayıs 2026 · Pazar</div><h1>Hoş geldin, <em>Poyraz</em></h1><div class="sub">Bugün <b>0</b> <em>ziyaret</em> planlı, <b>0</b> <em>onay</em> seni bekliyor.</div></div>
+  <div class="stats">
+    <div class="card stat"><div class="l">Doluluk</div><div class="v">0<small>%</small></div></div>
+    <div class="card stat hl"><div class="l">Bekleyen</div><div class="v">0</div></div>
+    <div class="card stat"><div class="l">Bu Hafta</div><div class="v">0</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card" style="display:flex;flex-direction:column">
+      <div class="cal-head"><div class="navg"><span class="arr">‹</span><span class="rng">1–7 Haziran</span><span class="arr">›</span></div>
+        <div class="right-ctrl"><div class="seg"><b>Gün</b><b class="on">Hafta</b><b>Ay</b></div><span class="golink">Takvim →</span></div></div>
+      <div class="agw">
+        <div class="agw-empty">
+          <div class="ic">○</div>
+          <div class="tx">Bu hafta <em>rezervasyon</em> yok</div>
+          <div class="qa-btn" style="flex:none;padding:9px 18px;font-size:13px;margin-top:4px">+ Rezervasyon ekle</div>
+        </div>
+        <div class="agw-foot"><span>Bu hafta <b>0</b> ziyaret</span><span>7 gün boş</span></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="card"><div class="qa"><div class="qa-btn">+ Rezervasyon</div><div class="qa-btn">⊘ Gün kapat</div></div></div>
+      <div class="card recent">
+        <div class="recent-h"><div class="t">Son<em>rezervasyonlar</em></div><span class="golink">Tümü →</span></div>
+        <div class="daygroup"><div class="dh">26 <em>Mayıs</em> <span class="c">· Salı</span></div>
+          <div class="rmini"><div class="tm">10:30</div><div class="nm">mert yarpuzlu</div><span class="pill ok">Onaylı</span></div></div>
+        <div class="daygroup"><div class="dh">23 <em>Mayıs</em> <span class="c">· Cumartesi</span></div>
+          <div class="rmini"><div class="tm">13:30</div><div class="nm">poyraz</div><span class="pill ok">Onaylı</span></div>
+          <div class="rmini"><div class="tm">17:00</div><div class="nm">poyraz</div><span class="pill noshow">Gelmedi</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(id,el){
+  document.querySelectorAll('.layout').forEach(l=>l.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.selector .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');window.scrollTo(0,0);
+}
+</script>
+</body>
+</html>
