@@ -14,6 +14,9 @@ COPY tsconfig.json ./
 # route eski cache'lenmis dist/ ile deploy edildigi icin 404 donuyordu.)
 ARG RAILWAY_GIT_COMMIT_SHA=local
 RUN echo "Building commit: ${RAILWAY_GIT_COMMIT_SHA}"
+# Deploy trigger: 2026-05-25 — backend/ icinde gercek dosya degisikligi ki
+# Root Directory=/backend path-filtreli auto-deploy watch'i tetiklensin
+# (bos commit dosya degistirmedigi icin path watch'i uyandirmiyordu).
 COPY src ./src
 RUN npm run build
 
