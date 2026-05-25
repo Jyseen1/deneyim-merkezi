@@ -1266,6 +1266,372 @@ input:-webkit-autofill:focus {
   margin-top: auto;
 }
 
+/* ─────────────────────────────────────────────────────────
+ * MOBİL TAKVİM (cmob-*) — DayTicker hafta + kompakt ay grid + detay panel.
+ * Tam takvim sayfasının masaüstü (.heat/.m-grid/.hrow) hali DEĞİŞMEZ;
+ * <768px'te .cal-desktop gizlenir, .cal-mobile gösterilir. Tüm cmob-*
+ * kuralları media query içinde — masaüstüne sıfır etki.
+ * ───────────────────────────────────────────────────────── */
+.cal-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .cal-desktop {
+    display: none;
+  }
+  .cal-mobile {
+    display: block;
+  }
+
+  /* ── HAFTA: DayTicker (yatay 7 gün, metin kesmez) ── */
+  .cmob-week {
+    padding: 14px;
+  }
+  .cmob-ticker {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    margin-bottom: 16px;
+  }
+  .cmob-tick {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 9px 0 8px;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid var(--line2);
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+  .cmob-tick .dw {
+    font-family: var(--grotesk);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .cmob-tick .dn {
+    font-family: var(--grotesk);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--txt);
+    line-height: 1;
+  }
+  .cmob-tick .dots {
+    display: flex;
+    gap: 2px;
+    height: 5px;
+    align-items: center;
+  }
+  .cmob-tick .dots i {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent3);
+  }
+  .cmob-tick.today {
+    background: linear-gradient(
+      160deg,
+      rgba(124, 58, 237, 0.28),
+      rgba(124, 58, 237, 0.06)
+    );
+    border-color: rgba(124, 58, 237, 0.45);
+  }
+  .cmob-tick.today .dn {
+    color: #fff;
+    font-weight: 600;
+  }
+  .cmob-tick.today .dots i {
+    background: #fff;
+  }
+  .cmob-tick.closed .dn {
+    color: #f87171;
+  }
+
+  /* ── HAFTA: tarih bloklu ajanda ── */
+  .cmob-agenda {
+    display: flex;
+    flex-direction: column;
+  }
+  .cmob-aday {
+    display: flex;
+    gap: 12px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--line2);
+  }
+  .cmob-aday:last-child {
+    border-bottom: none;
+  }
+  .cmob-adate {
+    width: 46px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 3px 0 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .cmob-adate .dw {
+    font-family: var(--grotesk);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted2);
+  }
+  .cmob-adate .dn {
+    font-family: var(--grotesk);
+    font-size: 24px;
+    font-weight: 300;
+    color: var(--txt);
+    line-height: 1.05;
+  }
+  .cmob-adate .cnt {
+    font-size: 9px;
+    color: var(--accent3);
+    font-family: var(--grotesk);
+    margin-top: 3px;
+  }
+  .cmob-aday.today .cmob-adate .dn {
+    color: #c4b5fd;
+    font-weight: 500;
+  }
+  .cmob-aevs {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+    justify-content: center;
+  }
+  .cmob-ev {
+    display: flex;
+    align-items: center;
+    border-radius: 11px;
+    background: rgba(124, 58, 237, 0.1);
+    border: 1px solid rgba(124, 58, 237, 0.22);
+    border-left: 3px solid var(--accent);
+    padding: 9px 12px 9px 11px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    width: 100%;
+    transition: background 120ms ease;
+  }
+  .cmob-ev:active {
+    background: rgba(124, 58, 237, 0.16);
+  }
+  .cmob-ev.pend {
+    background: rgba(245, 158, 11, 0.07);
+    border-color: rgba(245, 158, 11, 0.22);
+    border-left-color: var(--amber);
+  }
+  .cmob-ev .body {
+    flex: 1;
+    min-width: 0;
+  }
+  .cmob-ev .nm {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--txt);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cmob-ev .mt {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .cmob-ev .tm {
+    font-family: var(--grotesk);
+    font-size: 13px;
+    color: var(--accent3);
+    flex-shrink: 0;
+    margin-left: 10px;
+  }
+  .cmob-ev.pend .tm {
+    color: var(--amber);
+  }
+  .cmob-closed {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 12px;
+    border-radius: 11px;
+    background: rgba(239, 68, 68, 0.07);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    font-size: 12px;
+  }
+  .cmob-empty {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 13px;
+    color: var(--muted3);
+    padding: 6px 2px;
+  }
+
+  /* ── AY: kompakt kare grid (dikey uzun DEĞİL) ── */
+  .cmob-mcard {
+    padding: 14px;
+  }
+  .cmob-mdow {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .cmob-mdow span {
+    text-align: center;
+    font-family: var(--grotesk);
+    font-size: 9px;
+    text-transform: uppercase;
+    color: var(--muted3);
+    letter-spacing: 0.03em;
+  }
+  .cmob-mgrid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .cmob-mc {
+    aspect-ratio: 0.9;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--line2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+  }
+  .cmob-mc .n {
+    font-family: var(--grotesk);
+    font-size: 13px;
+    color: var(--txt);
+    line-height: 1;
+  }
+  .cmob-mc .pip {
+    font-family: var(--grotesk);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 0 6px;
+    border-radius: 99px;
+    background: rgba(124, 58, 237, 0.2);
+    color: var(--accent3);
+    line-height: 1.5;
+  }
+  .cmob-mc .closed-ic {
+    font-size: 11px;
+    color: #f87171;
+    line-height: 1;
+  }
+  .cmob-mc.busy {
+    background: rgba(124, 58, 237, 0.08);
+  }
+  .cmob-mc.dim {
+    background: transparent;
+    border-color: transparent;
+    cursor: default;
+  }
+  .cmob-mc.dim .n {
+    color: var(--muted3);
+  }
+  .cmob-mc.today {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .cmob-mc.today .n {
+    color: #fff;
+    font-weight: 600;
+  }
+  .cmob-mc.today .pip {
+    background: rgba(255, 255, 255, 0.25);
+    color: #fff;
+  }
+  .cmob-mc.sel {
+    outline: 2px solid var(--accent3);
+    outline-offset: -1px;
+  }
+  .cmob-mc.closed {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.22);
+  }
+  .cmob-mc.closed .n {
+    color: #f87171;
+  }
+
+  /* ── AY: seçili gün detay paneli ── */
+  .cmob-mdetail {
+    margin-top: 16px;
+    background: linear-gradient(
+      160deg,
+      rgba(124, 58, 237, 0.12),
+      rgba(255, 255, 255, 0.015)
+    );
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 14px 14px 16px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .cmob-mdhead {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 13px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    width: 100%;
+    text-align: left;
+    color: inherit;
+    padding: 0;
+  }
+  .cmob-mdhead .big {
+    font-family: var(--grotesk);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--txt);
+  }
+  .cmob-mdhead .dow {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    color: #c4b5fd;
+  }
+  .cmob-mdhead .meta {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--accent3);
+    font-family: var(--grotesk);
+    white-space: nowrap;
+  }
+  .cmob-mdhead .meta .go {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .cmob-mdbody {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+}
+
 /* Sayfa altı bilgi şeridi (ipucu satırı) */
 .legend {
   display: inline-flex;

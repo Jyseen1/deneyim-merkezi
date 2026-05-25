@@ -466,22 +466,54 @@ export default function CalendarPage() {
           />
         )}
         {view === "week" && (
-          <HeatWeek
-            weekStart={startOfWeekMon(anchorDate)}
-            items={items}
-            blocks={blocks}
-            recurring={recurring}
-            onDayClick={(d) => goToDay(d)}
-          />
+          <>
+            {/* Masaüstü — mevcut 7 gün heat kartı (dokunulmadı, <768px gizlenir) */}
+            <div className="cal-desktop">
+              <HeatWeek
+                weekStart={startOfWeekMon(anchorDate)}
+                items={items}
+                blocks={blocks}
+                recurring={recurring}
+                onDayClick={(d) => goToDay(d)}
+              />
+            </div>
+            {/* Mobil — DayTicker + tarih bloklu ajanda (sadece <768px) */}
+            <div className="cal-mobile">
+              <CMobWeek
+                weekStart={startOfWeekMon(anchorDate)}
+                items={items}
+                blocks={blocks}
+                recurring={recurring}
+                onReservationClick={(id) => setActiveReservationId(id)}
+                onDayClick={(d) => goToDay(d)}
+              />
+            </div>
+          </>
         )}
         {view === "month" && (
-          <MonthHeat
-            anchor={anchorDate}
-            items={items}
-            blocks={blocks}
-            recurring={recurring}
-            onDayClick={(d) => goToDay(d)}
-          />
+          <>
+            {/* Masaüstü — mevcut mini bar yoğunluk grid (dokunulmadı) */}
+            <div className="cal-desktop">
+              <MonthHeat
+                anchor={anchorDate}
+                items={items}
+                blocks={blocks}
+                recurring={recurring}
+                onDayClick={(d) => goToDay(d)}
+              />
+            </div>
+            {/* Mobil — kompakt kare grid + seçili gün detay paneli */}
+            <div className="cal-mobile">
+              <CMobMonth
+                anchor={anchorDate}
+                items={items}
+                blocks={blocks}
+                recurring={recurring}
+                onReservationClick={(id) => setActiveReservationId(id)}
+                onDayClick={(d) => goToDay(d)}
+              />
+            </div>
+          </>
         )}
         {loading && (
           <div
@@ -992,6 +1024,322 @@ function MonthHeat({
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// MOBİL HAFTA — DayTicker (yatay 7 gün pill) + tarih bloklu ajanda.
+// Sadece <768px görünür (.cal-mobile). Pill/tarih bloğu → Gün görünümü,
+// event kartı → ReservationDrawer (onReservationClick).
+// ─────────────────────────────────────────────────────────
+
+function CMobWeek({
+  weekStart,
+  items,
+  blocks,
+  recurring,
+  onReservationClick,
+  onDayClick,
+}: {
+  weekStart: Date;
+  items: Reservation[];
+  blocks: SlotBlock[];
+  recurring: RecurringRule[];
+  onReservationClick: (id: string) => void;
+  onDayClick: (d: Date) => void;
+}) {
+  const today = useMemo(() => new Date(), []);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  function dayResv(d: Date): Reservation[] {
+    return items
+      .filter(
+        (r) =>
+          isSameLocalDay(new Date(r.visitDate), d) &&
+          (r.status === "APPROVED" || r.status === "PENDING_APPROVAL"),
+      )
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }
+  function closedInfo(d: Date): { closed: boolean; reason?: string } {
+    const iso = toLocalIso(d);
+    const block = blocks.find((b) => toLocalIso(new Date(b.slotDate)) === iso);
+    if (block) return { closed: true, reason: block.blockReason ?? "Kapalı" };
+    const rule = recurring.find(
+      (r) =>
+        r.dayOfWeek === d.getDay() &&
+        parseHHMM(r.startTime) <= 9 * 60 &&
+        parseHHMM(r.endTime) >= 19 * 60,
+    );
+    if (rule) return { closed: true, reason: rule.reason ?? "Haftalık kapalı" };
+    return { closed: false };
+  }
+
+  return (
+    <div className="card cmob-week">
+      {/* DayTicker — metin kesmez, sadece sayı + nokta */}
+      <div className="cmob-ticker">
+        {days.map((d, i) => {
+          const isToday = isSameLocalDay(d, today);
+          const ci = closedInfo(d);
+          const dots = ci.closed ? 0 : Math.min(dayResv(d).length, 4);
+          return (
+            <button
+              key={i}
+              type="button"
+              className={`cmob-tick${isToday ? " today" : ""}${ci.closed ? " closed" : ""}`}
+              onClick={() => onDayClick(d)}
+            >
+              <span className="dw">{TR_DAYS_SHORT_MON[mondayIndex(d)]}</span>
+              <span className="dn">{d.getDate()}</span>
+              <span className="dots">
+                {Array.from({ length: dots }).map((_, k) => (
+                  <i key={k} />
+                ))}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Ajanda — her gün: tarih bloğu + event kartları / boş / kapalı */}
+      <div className="cmob-agenda">
+        {days.map((d, i) => {
+          const isToday = isSameLocalDay(d, today);
+          const ci = closedInfo(d);
+          const resv = ci.closed ? [] : dayResv(d);
+          return (
+            <div key={i} className={`cmob-aday${isToday ? " today" : ""}`}>
+              <button
+                type="button"
+                className="cmob-adate"
+                onClick={() => onDayClick(d)}
+                aria-label={`${d.getDate()} günü ajandasını aç`}
+              >
+                <span className="dw">{TR_DAYS_SHORT_MON[mondayIndex(d)]}</span>
+                <span className="dn">{d.getDate()}</span>
+                {!ci.closed && resv.length > 0 && (
+                  <span className="cnt">{resv.length} ziyaret</span>
+                )}
+              </button>
+              <div className="cmob-aevs">
+                {ci.closed ? (
+                  <div className="cmob-closed">🔒 Gün kapalı — {ci.reason}</div>
+                ) : resv.length === 0 ? (
+                  <div className="cmob-empty">Rezervasyon yok</div>
+                ) : (
+                  resv.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      className={`cmob-ev${r.status === "PENDING_APPROVAL" ? " pend" : ""}`}
+                      onClick={() => onReservationClick(r.id)}
+                    >
+                      <span className="body">
+                        <span className="nm">{r.visitor?.name ?? "?"}</span>
+                        <span className="mt">
+                          {r.groupSize} kişi · {STATUS_LABEL[r.status]}
+                        </span>
+                      </span>
+                      <span className="tm">{r.startTime}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// MOBİL AY — kompakt kare grid (tarih + ziyaret pip) + seçili gün
+// detay paneli. Hücreye tıkla → panel o günü gösterir; panel başlığı →
+// Gün görünümü; event kartı → ReservationDrawer.
+// ─────────────────────────────────────────────────────────
+
+function CMobMonth({
+  anchor,
+  items,
+  blocks,
+  recurring,
+  onReservationClick,
+  onDayClick,
+}: {
+  anchor: Date;
+  items: Reservation[];
+  blocks: SlotBlock[];
+  recurring: RecurringRule[];
+  onReservationClick: (id: string) => void;
+  onDayClick: (d: Date) => void;
+}) {
+  const today = useMemo(() => new Date(), []);
+  const cells = useMemo(
+    () => calendarCells(anchor.getFullYear(), anchor.getMonth()),
+    [anchor],
+  );
+
+  const byDay = useMemo(() => {
+    const m = new Map<string, Reservation[]>();
+    for (const r of items) {
+      if (r.status !== "APPROVED" && r.status !== "PENDING_APPROVAL") continue;
+      const k = toLocalIso(new Date(r.visitDate));
+      const arr = m.get(k) ?? [];
+      arr.push(r);
+      m.set(k, arr);
+    }
+    for (const arr of m.values()) {
+      arr.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    }
+    return m;
+  }, [items]);
+
+  const blockedDays = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const b of blocks) {
+      m.set(toLocalIso(new Date(b.slotDate)), b.blockReason ?? "Kapalı");
+    }
+    if (recurring.length > 0) {
+      for (const d of cells) {
+        const iso = toLocalIso(d);
+        if (m.has(iso)) continue;
+        const rule = recurring.find((r) => r.dayOfWeek === d.getDay());
+        if (rule) m.set(iso, rule.reason ?? "Kapalı");
+      }
+    }
+    return m;
+  }, [blocks, recurring, cells]);
+
+  // Varsayılan seçim: bu ay bugünü içeriyorsa bugün, değilse ayın 1'i.
+  // Sadece ay değişince resetlenir (data reload'da kullanıcı seçimi korunur).
+  const defaultIso = useMemo(() => {
+    if (
+      today.getFullYear() === anchor.getFullYear() &&
+      today.getMonth() === anchor.getMonth()
+    ) {
+      return toLocalIso(today);
+    }
+    return toLocalIso(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
+  }, [today, anchor]);
+
+  const [selectedIso, setSelectedIso] = useState(defaultIso);
+  useEffect(() => {
+    setSelectedIso(defaultIso);
+  }, [defaultIso]);
+
+  const selectedDate = useMemo(() => {
+    const f = cells.find((d) => toLocalIso(d) === selectedIso);
+    if (f) return f;
+    const [y, m, dd] = selectedIso.split("-").map(Number);
+    return new Date(y, m - 1, dd);
+  }, [cells, selectedIso]);
+
+  const selResv = byDay.get(selectedIso) ?? [];
+  const selClosed = blockedDays.get(selectedIso);
+  const selGuests = selResv.reduce((s, r) => s + r.groupSize, 0);
+
+  return (
+    <div className="cmob-month">
+      <div className="card cmob-mcard">
+        <div className="cmob-mdow">
+          {TR_DAYS_SHORT_MON.map((d) => (
+            <span key={d}>{d}</span>
+          ))}
+        </div>
+        <div className="cmob-mgrid">
+          {cells.map((d) => {
+            const inMonth = d.getMonth() === anchor.getMonth();
+            const iso = toLocalIso(d);
+            const isToday = isSameLocalDay(d, today);
+            const closed = blockedDays.has(iso);
+            const dayItems = byDay.get(iso) ?? [];
+            const busy = dayItems.length > 0 && !closed;
+
+            if (!inMonth) {
+              return (
+                <div key={iso} className="cmob-mc dim">
+                  <span className="n">{d.getDate()}</span>
+                </div>
+              );
+            }
+
+            const classes = [
+              "cmob-mc",
+              isToday && "today",
+              closed && "closed",
+              busy && "busy",
+              iso === selectedIso && "sel",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            return (
+              <button
+                key={iso}
+                type="button"
+                className={classes}
+                onClick={() => setSelectedIso(iso)}
+              >
+                <span className="n">{d.getDate()}</span>
+                {closed ? (
+                  <span className="closed-ic">⊘</span>
+                ) : busy ? (
+                  <span className="pip">{dayItems.length}</span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Seçili gün detay paneli (bottom-sheet tarzı) */}
+      <div className="cmob-mdetail">
+        <button
+          type="button"
+          className="cmob-mdhead"
+          onClick={() => onDayClick(selectedDate)}
+          aria-label={`${selectedDate.getDate()} günü Gün görünümünü aç`}
+        >
+          <span className="big">{selectedDate.getDate()}</span>
+          <span className="dow">
+            {TR_DAYS_SHORT_MON[mondayIndex(selectedDate)]}
+          </span>
+          <span className="meta">
+            {selClosed
+              ? "Kapalı"
+              : selResv.length === 0
+                ? "Boş"
+                : `${selResv.length} ziyaret · ${selGuests} kişi`}
+            <span className="go"> ›</span>
+          </span>
+        </button>
+        <div className="cmob-mdbody">
+          {selClosed ? (
+            <div className="cmob-closed">🔒 Gün kapalı — {selClosed}</div>
+          ) : selResv.length === 0 ? (
+            <div className="cmob-empty">Rezervasyon yok</div>
+          ) : (
+            selResv.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                className={`cmob-ev${r.status === "PENDING_APPROVAL" ? " pend" : ""}`}
+                onClick={() => onReservationClick(r.id)}
+              >
+                <span className="body">
+                  <span className="nm">{r.visitor?.name ?? "?"}</span>
+                  <span className="mt">
+                    {r.groupSize} kişi · {STATUS_LABEL[r.status]}
+                  </span>
+                </span>
+                <span className="tm">{r.startTime}</span>
+              </button>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
