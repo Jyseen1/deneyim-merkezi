@@ -2,17 +2,18 @@
 builder = "dockerfile"
 
 [deploy]
-# Onemli: railway.toml startCommand Dockerfile CMD'sini override eder.
-# Bu satir olmasaydi Dockerfile'in "migrate deploy && start" CMD'i calisirdi;
-# burada hem migration hem sunucu acikca zincirleniyor ki her iki dosya da
-# kendi basina dogru kalsin.
-startCommand = "npx prisma migrate deploy && node dist/server.js"
+# migrate deploy startCommand'DAN CIKARILDI. Sebep: cold Neon (serverless
+# uyanma 10-15s) + Prisma engine init, migrate deploy'u yavaslatip 30sn
+# healthcheck penceresini yiyordu; "node dist/server.js" ancak pencere
+# dolduktan sonra basliyor, server "listening" demeden Railway container'i
+# olduruyordu (failed deploy loglarinda migrate "No pending migrations"
+# basarili ama server boot logu yok → Stopping Container).
+#
+# Artik server ANINDA boot eder → /health hizla 200 → healthcheck gecer.
+# Migration'lar zaten uygulanmis durumda (8/8). YENI migration eklendiginde
+# deploy ONCESI manuel calistir:  railway run npx prisma migrate deploy
+# (veya Railway dashboard'da pre-deploy command olarak ayarla).
+startCommand = "node dist/server.js"
 healthcheckPath = "/health"
-# 30 → 300: cold-start (Neon serverless uyanma + Prisma engine init +
-# migrate deploy baglantisi + Fastify/worker boot) 30sn'yi asabiliyor.
-# Failed deploy loglarinda migrate deploy basarili ("No pending migrations")
-# ama server "listening" demeden Railway container'i 30sn'de olduruyordu.
-# 300sn cold-start varyansina genis pay birakir; server hazir olunca
-# /health hemen 200 doner, gercekte 300sn beklenmez.
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
