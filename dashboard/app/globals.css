@@ -2654,6 +2654,39 @@ input:-webkit-autofill:focus {
 .ov2-pending .info .m b { color: var(--txt); font-weight: 600; }
 .ov2-pending .actions { display: flex; gap: 6px; flex-shrink: 0; }
 
+/* Mobil — pending bar dikey yığ: üst = avatar + bilgi (tam görünür, kesilmez),
+   alt = Reddet/Onayla tam genişlik. Masaüstü yatay layout aynı kalır. */
+@media (max-width: 768px) {
+  .ov2-pending {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 12px;
+    padding: 12px 14px;
+  }
+  /* Başlık tek satırda kalsın ("Bekleyen bir talep" bölünmesin) */
+  .ov2-pending .info .t,
+  .ov2-pending .info .t em {
+    white-space: nowrap;
+  }
+  /* Meta tam görünsün — kesme/ellipsis yerine sarmaya izin ver */
+  .ov2-pending .info .m {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.45;
+  }
+  /* Butonlar alt satıra geçip tam genişlik kaplasın, eşit bölünsün */
+  .ov2-pending .actions {
+    flex-basis: 100%;
+    width: 100%;
+  }
+  .ov2-pending .actions .btn {
+    flex: 1 1 0;
+    text-align: center;
+    justify-content: center;
+  }
+}
+
 .ov2-error {
   flex-shrink: 0;
   background: rgba(239,68,68,0.10);
