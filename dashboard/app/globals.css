@@ -152,6 +152,26 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* ─────────────────────────────────────────────────────────
+ * DASHBOARD OKUNABİLİRLİK — vurgu (serif italic) kelimeleri okunaklı yap.
+ * Yalnızca (dashboard) grubundaki .dash-scope altında geçerli; /rezervasyon
+ * sayfası (.dash-scope DIŞINDA) hiç etkilenmez. Instrument Serif italic yerine
+ * Space Grotesk (display) + düz stil kullanılır; mor renk (#C4B5FD) korunur.
+ * --font-serif / --serif değişkenleri scope içinde ezildiği için hem class
+ * (.font-serif/.accent-serif/em) hem inline var(--font-serif) kullanımları döner.
+ * ───────────────────────────────────────────────────────── */
+.dash-scope {
+  --font-serif: var(--font-display);
+  --serif: var(--font-display), system-ui, sans-serif;
+}
+.dash-scope .font-serif,
+.dash-scope .accent-serif,
+.dash-scope .font-italic,
+.dash-scope em {
+  font-style: normal !important;
+  font-size: 1em !important;
+}
+
+/* ─────────────────────────────────────────────────────────
  * Arka plan — 4 katman: solid + nokta izgara + cizgi izgara + donen conic.
  * Hepsi position:fixed inset:0 z-index:-1; DOM sirasi stack sirasidir.
  * Tum icerik (sidebar, kartlar) varsayilan z-index:0 ile bunlarin USTUNDE.

@@ -23,7 +23,7 @@ export default async function DashboardLayout({
         userEmail={session.user?.email ?? ""}
       />
       <main
-        className="min-h-screen md:ml-[220px] px-5 py-6 md:px-9 md:py-8"
+        className="dash-scope min-h-screen md:ml-[220px] px-5 py-6 md:px-9 md:py-8"
       >
         {children}
       </main>
