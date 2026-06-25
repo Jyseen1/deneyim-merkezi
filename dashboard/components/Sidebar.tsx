@@ -13,22 +13,22 @@ const NAV: NavGroup[] = [
   {
     title: "GENEL",
     items: [
-      { href: "/", label: "Genel Bakış" },
-      { href: "/reservations", label: "Rezervasyonlar" },
-      { href: "/calendar", label: "Takvim" },
+      { href: "/admin", label: "Genel Bakış" },
+      { href: "/admin/reservations", label: "Rezervasyonlar" },
+      { href: "/admin/calendar", label: "Takvim" },
     ],
   },
   {
     title: "YÖNETİM",
     items: [
-      { href: "/stats", label: "İstatistik" },
-      { href: "/settings", label: "Ayarlar" },
+      { href: "/admin/stats", label: "İstatistik" },
+      { href: "/admin/settings", label: "Ayarlar" },
     ],
   },
 ];
 
 function isActive(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
+  if (href === "/admin") return pathname === "/admin";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -156,11 +156,11 @@ export function Sidebar({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  // "/reservations" item'i icin badge: yeni rezervasyon SSE event'lerinde artar.
+  // "/admin/reservations" item'i icin badge: yeni rezervasyon SSE event'lerinde artar.
   const [newCount, setNewCount] = useState(0);
   const lastSeenPathRef = useRef(pathname);
   useEffect(() => {
-    if (pathname === "/reservations" && lastSeenPathRef.current !== "/reservations") {
+    if (pathname === "/admin/reservations" && lastSeenPathRef.current !== "/admin/reservations") {
       setNewCount(0);
     }
     lastSeenPathRef.current = pathname;
@@ -168,7 +168,7 @@ export function Sidebar({
 
   useRealtime({
     onNewReservation: () => {
-      if (window.location.pathname !== "/reservations") {
+      if (window.location.pathname !== "/admin/reservations") {
         setNewCount((c) => c + 1);
       }
     },
@@ -219,7 +219,7 @@ export function Sidebar({
           style={{ height: "22px", width: "auto" }}
         />
         <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() => signOut({ callbackUrl: "/admin/login" })}
           aria-label="Çıkış"
           className="p-2 -mr-2"
           style={{ color: "var(--gx-text-muted)" }}
@@ -307,7 +307,7 @@ export function Sidebar({
                     href={item.href}
                     label={item.label}
                     badge={
-                      item.href === "/reservations" && newCount > 0
+                      item.href === "/admin/reservations" && newCount > 0
                         ? newCount
                         : item.badge
                     }
@@ -379,7 +379,7 @@ export function Sidebar({
               </div>
             </div>
             <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={() => signOut({ callbackUrl: "/admin/login" })}
               aria-label="Çıkış"
               style={{
                 color: "var(--gx-text-hint)",

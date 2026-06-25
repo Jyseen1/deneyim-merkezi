@@ -26,8 +26,8 @@ function backendUrl(): string {
 function handleUnauthorized() {
   if (typeof window === "undefined") return;
   // Sonsuz dongu olmasin: zaten /login'deyse atla
-  if (!window.location.pathname.startsWith("/login")) {
-    window.location.href = "/login";
+  if (!window.location.pathname.startsWith("/admin/login")) {
+    window.location.href = "/admin/login";
   }
 }
 

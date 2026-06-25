@@ -47,7 +47,7 @@ function LoginCard() {
   async function handleSignIn() {
     setLoading(true);
     try {
-      await signIn("google", { callbackUrl: "/" });
+      await signIn("google", { callbackUrl: "/admin" });
     } finally {
       setLoading(false);
     }

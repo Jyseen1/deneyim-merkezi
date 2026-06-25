@@ -67,7 +67,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
     }),
   ],
-  pages: { signIn: "/login" },
+  pages: { signIn: "/admin/login" },
   callbacks: {
     // signIn callback artık ALLOWED_EMAILS env'ine bakmıyor. Tek doğruluk
     // kaynağı backend Staff tablosu. Burada backend'e ön-kontrol HTTP isteği

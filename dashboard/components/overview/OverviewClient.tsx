@@ -334,8 +334,8 @@ export function OverviewClient({
           <div className="ov2-left">
             <OverviewCalendar
               onReservationClick={(id) => setActiveId(id)}
-              onNavigateToFull={() => router.push("/calendar")}
-              onAddReservation={() => router.push("/rezervasyon")}
+              onNavigateToFull={() => router.push("/admin/calendar")}
+              onAddReservation={() => router.push("/")}
             />
           </div>
 
@@ -375,14 +375,14 @@ export function OverviewClient({
               <button
                 type="button"
                 className="ov2-btn"
-                onClick={() => router.push("/rezervasyon")}
+                onClick={() => router.push("/")}
               >
                 + Rezervasyon
               </button>
               <button
                 type="button"
                 className="ov2-btn"
-                onClick={() => router.push("/calendar")}
+                onClick={() => router.push("/admin/calendar")}
               >
                 ⊘ Gün kapat
               </button>
@@ -397,7 +397,7 @@ export function OverviewClient({
                 <button
                   type="button"
                   className="golink"
-                  onClick={() => router.push("/reservations")}
+                  onClick={() => router.push("/admin/reservations")}
                   aria-label="Tüm rezervasyonlar"
                 >
                   Tümü <span className="arr">→</span>
