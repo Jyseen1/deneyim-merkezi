@@ -786,7 +786,7 @@ function Step1(props: {
               borderRadius: "10px",
             }}
           >
-            Bu gün için müsait saat bulunmuyor.
+            17 Temmuza kadar müsaitliğimiz bulunmamaktadır. Sizi 17 Temmuzda ağırlamak isteriz.
           </div>
         )}
         {!props.slotsLoading && props.slots.length > 0 && (
