@@ -25,6 +25,11 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      { source: "/rezervasyon", destination: "/", permanent: true },
+    ];
+  },
 };
 
 module.exports = nextConfig;
