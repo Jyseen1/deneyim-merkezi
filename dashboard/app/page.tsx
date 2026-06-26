@@ -27,6 +27,7 @@ export const dynamic = "force-dynamic";
 
 type AvailableSlot = { startTime: string; endTime: string };
 type SlotsResp = { date: string; durationMinutes: number; slots: AvailableSlot[] };
+type NextAvailResp = { found: boolean; date?: string; durationMinutes: number; slot?: AvailableSlot };
 
 // Telegram Web App SDK runtime tipi
 type TelegramWebApp = {
@@ -180,6 +181,7 @@ function ReservationForm() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
+  const [nextAvail, setNextAvail] = useState<NextAvailResp | null>(null);
 
   // Adim 2
   const [name, setName] = useState("");
@@ -202,9 +204,23 @@ function ReservationForm() {
     setSlotsLoading(true);
     setSlotsError(null);
     setSelectedSlot(null);
+    setNextAvail(null);
     apiFetch<SlotsResp>(`/slots/available?date=${dateISO}&duration=${duration}`)
-      .then((r) => {
-        if (!cancelled) setSlots(r.slots);
+      .then(async (r) => {
+        if (cancelled) return;
+        setSlots(r.slots);
+        if (r.slots.length === 0) {
+          try {
+            const na = await apiFetch<NextAvailResp>(
+              `/slots/next-available?from=${dateISO}&duration=${duration}`,
+            );
+            if (!cancelled) setNextAvail(na);
+          } catch {
+            if (!cancelled) setNextAvail(null);
+          }
+        } else {
+          setNextAvail(null);
+        }
       })
       .catch((e) => {
         if (!cancelled) {
@@ -516,6 +532,7 @@ function ReservationForm() {
               slotsError={slotsError}
               selectedSlot={selectedSlot}
               setSelectedSlot={setSelectedSlot}
+              nextAvail={nextAvail}
               onNext={() => setStep(2)}
             />
           )}
@@ -681,6 +698,7 @@ function Step1(props: {
   slotsError: string | null;
   selectedSlot: AvailableSlot | null;
   setSelectedSlot: (s: AvailableSlot | null) => void;
+  nextAvail: NextAvailResp | null;
   onNext: () => void;
 }) {
   return (
@@ -786,7 +804,42 @@ function Step1(props: {
               borderRadius: "10px",
             }}
           >
-            17 Temmuza kadar müsaitliğimiz bulunmamaktadır. Sizi 17 Temmuzda ağırlamak isteriz.
+            {props.nextAvail && props.nextAvail.found && props.nextAvail.date ? (
+              <>
+                <div>Bu tarihte müsait saat bulunmuyor.</div>
+                <div style={{ marginTop: "8px", color: "var(--gx-text)" }}>
+                  En yakın müsait zaman:{" "}
+                  <strong>
+                    {formatTrLongDate(props.nextAvail.date)}
+                    {props.nextAvail.slot ? ` · ${props.nextAvail.slot.startTime}` : ""}
+                  </strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    props.nextAvail?.date && props.setDateISO(props.nextAvail.date)
+                  }
+                  style={{
+                    marginTop: "12px",
+                    padding: "9px 16px",
+                    borderRadius: "10px",
+                    background: "var(--gx-accent)",
+                    border: "1px solid var(--gx-accent-light)",
+                    color: "#FFFFFF",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Bu tarihe geç
+                </button>
+              </>
+            ) : props.nextAvail && props.nextAvail.found === false ? (
+              "Şu anda müsait bir zaman bulunmuyor."
+            ) : (
+              "Bu tarihte müsait saat bulunmuyor."
+            )}
           </div>
         )}
         {!props.slotsLoading && props.slots.length > 0 && (

@@ -14,6 +14,12 @@ const availableQuerySchema = z.object({
   duration: z.coerce.number().int().positive().max(600).optional(),
 });
 
+const nextAvailableQuerySchema = z.object({
+  from: isoDate.optional(),
+  duration: z.coerce.number().int().positive().max(600).optional(),
+  horizon: z.coerce.number().int().positive().max(180).optional(),
+});
+
 const blockBodySchema = z
   .object({
     date: isoDate,
@@ -113,6 +119,35 @@ const slotRoutes: FastifyPluginAsync = async (app) => {
       (Number(process.env.DEFAULT_DURATION_MINUTES) || 120);
     const slots = await getAvailableSlots(parsed.data.date, duration);
     return reply.send({ date: parsed.data.date, durationMinutes: duration, slots });
+  });
+
+  // PUBLIC: en yakin musait gun + ilk saat (bos gun mesaji icin). from'dan
+  // baslayarak horizon gun ileriye tarar, ilk musait gunu doner.
+  app.get("/next-available", async (req, reply) => {
+    const parsed = nextAvailableQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: "validation_failed", details: parsed.error.flatten() });
+    }
+    const duration =
+      parsed.data.duration ??
+      (Number(process.env.DEFAULT_DURATION_MINUTES) || 120);
+    const horizon = parsed.data.horizon ?? 120;
+    const start = parsed.data.from ?? new Date().toISOString().slice(0, 10);
+    for (let i = 0; i < horizon; i++) {
+      const d = isoPlusDays(start, i);
+      const slots = await getAvailableSlots(d, duration);
+      if (slots.length > 0) {
+        return reply.send({
+          found: true,
+          date: d,
+          durationMinutes: duration,
+          slot: slots[0],
+        });
+      }
+    }
+    return reply.send({ found: false, durationMinutes: duration });
   });
 
   // AUTH: tek slot kapatma
